@@ -34,17 +34,18 @@ void main() {
           },
         ]),
         respond: (socket, frame) {
-          final request = jsonDecode(frame as String) as Map<String, Object?>;
-          if (request['op'] == 'add') {
+          final request = asJsonMap(jsonDecode('$frame'), 'request');
+          if (request.optString('op') == 'add') {
             socket.add(
               jsonEncode({
                 'sum':
-                    int.parse('${request['a']}') + int.parse('${request['b']}'),
+                    int.parse(request.string('a')) +
+                    int.parse(request.string('b')),
               }),
             );
             return;
           }
-          final n = request['n'] as int;
+          final n = request.optInt('n') ?? 0;
           for (var i = 1; i <= n; i++) {
             socket.add(jsonEncode({'type': 'tool_response', 'result': i}));
           }

@@ -33,6 +33,13 @@ class McpCallTemplate extends CallTemplate {
   @override
   String get callTemplateType => type;
 
+  /// The URLs of the HTTP servers; stdio servers reach no network address.
+  @override
+  List<String> get endpoints => [
+    for (final server in config.mcpServers.values)
+      if (server is McpHttpServer) server.url,
+  ];
+
   @override
   JsonMap fieldsToJson() => {
     'config': config.toJson(),

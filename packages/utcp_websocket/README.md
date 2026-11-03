@@ -60,15 +60,27 @@ inject fields. Object templates are substituted leaf by leaf, then encoded.
 
 - **Discovery** sends `{"type": "utcp"}` and waits for a text frame with a JSON object containing
   `tools`, skipping other frames.
-- **Tool calls** send one text frame and return the next frame received.
+- **Tool calls** send one text frame and return the next frame received after it.
 - **Streaming calls** yield frames until `{"type": "stream_end"}` or the server closes.
   `{"type": "tool_response", "result": ...}` yields `result`, `{"type": "tool_error", "error": ...}`
   fails the call, and frames with a `request_id` are skipped.
 
-Connections are pooled per handshake (URL, subprotocol, headers, auth and header-field values) and
-stay open until the manual is deregistered or the protocol is closed. Frames carry no correlation
-id, so exchanges on one connection run one at a time, and a connection whose exchange times out or
-is cancelled is closed instead of reused.
+Connections are pooled per handshake (URL, subprotocol, keep-alive, static headers and auth) and
+stay open until the manual is deregistered or the protocol is closed. A call that sends
+`header_fields` values opens a connection of its own and closes it when the call ends, so distinct
+argument values never accumulate sockets. `close()` is final: it closes every connection, aborts
+handshakes in progress, and later calls fail.
+
+Frames carry no correlation id, so exchanges on one connection run one at a time, and a connection
+whose exchange times out or is cancelled is closed instead of reused. Frames that arrive between
+exchanges are dropped, and those left over when a call sends its message are discarded, so a call
+never receives a frame that arrived before it was sent. A frame the server sends late, after the
+next call was sent, cannot be told apart from that call's answer; use one message per answer or
+streaming calls with `stream_end`.
+
+While a call is running, at most 16 frames or 4 MiB wait unread; beyond that reading pauses until
+the call consumes them, which pushes back on the server. On the VM, `dart:io` assembles each message
+in memory before delivering it, so the size of a single frame is not limited.
 
 ## Security
 
@@ -81,7 +93,10 @@ The same rules as the core HTTP transport:
   done by this package.)
 - OAuth2 tokens are fetched through `HttpTransport`, with its HTTPS and redirect rules.
 - A manual discovered from a remote origin may not point WebSocket or HTTP tools, or their OAuth2
-  token URLs, at loopback.
+  token URLs, at loopback. `WebSocketCallTemplate.endpoints` lists the URL, so the core rule also
+  rejects loopback WebSocket tools in a manual discovered over HTTP or any other transport.
+- URLs in errors and logs are reduced to scheme, host, port and path, since a query string or user
+  info may carry a token.
 
 ## Web
 
@@ -95,7 +110,9 @@ available.
 - Exchanges on a pooled connection are serialized, and a timed-out or cancelled connection is
   closed, so a late answer is never returned to the next call.
 - A tool call fails when the server closes before answering (Python returns `None`).
-- `header_fields` are sent as handshake headers (the reference declares but ignores them), and
-  connections are pooled per handshake rather than per manual name and URL.
+- `header_fields` are sent as handshake headers (the reference declares but ignores them) on a
+  connection of the call's own; other connections are pooled per handshake rather than per manual
+  name and URL.
+- Frames that arrive outside an exchange are dropped instead of being returned to the next call.
 - Arguments are substituted in one pass, and JSON is written compactly.
 - Binary frames are yielded by streaming calls (the reference drops them).

@@ -99,8 +99,4 @@ void main() {
       );
     });
   });
-
-  test('the discovery request matches the Python transport byte for byte', () {
-    expect(discoveryMessage, '{"type": "utcp"}');
-  });
 }

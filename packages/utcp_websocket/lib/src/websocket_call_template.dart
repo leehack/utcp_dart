@@ -19,8 +19,9 @@ enum WebSocketResponseFormat {
 /// Calls a tool, or fetches a manual, over a WebSocket connection.
 ///
 /// Connections are pooled: calls whose handshake would be identical (URL,
-/// [protocol], [keepAlive], [headers], `auth` and the [headerFields]
-/// values) share one connection, one exchange at a time.
+/// [protocol], [keepAlive], [headers] and `auth`) share one connection, one
+/// exchange at a time. A call that sends [headerFields] values opens its own
+/// connection and closes it when the call ends.
 class WebSocketCallTemplate extends CallTemplate {
   const WebSocketCallTemplate({
     super.name,
@@ -100,6 +101,9 @@ class WebSocketCallTemplate extends CallTemplate {
 
   @override
   String get callTemplateType => type;
+
+  @override
+  List<String> get endpoints => [url];
 
   @override
   JsonMap fieldsToJson() => {

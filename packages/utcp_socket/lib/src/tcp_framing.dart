@@ -105,13 +105,14 @@ final class _FrameReader {
             : null;
       case TcpFramingStrategy.delimiter:
         final end = _indexOfDelimiter(searchFrom < 0 ? 0 : searchFrom);
-        if (end != -1) return _take(0, end);
-        if (_data.length > _max + _delimiter.length) {
+        if (end > _max ||
+            (end == -1 && _data.length > _max + _delimiter.length)) {
           throw _oversized('has no delimiter in the first $_max bytes');
         }
-        return null;
+        return end == -1 ? null : _take(0, end);
       case TcpFramingStrategy.fixedLength:
         final length = template.fixedMessageLength!;
+        if (length > _max) throw _oversized('is fixed at $length bytes');
         return _data.length >= length ? _take(0, length) : null;
       case TcpFramingStrategy.stream:
         return _data.length >= _max ? _take(0, _max) : null;

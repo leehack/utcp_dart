@@ -19,24 +19,33 @@ final _random = Random.secure();
 /// follows redirects of the upgrade request and would carry the handshake
 /// headers (credentials included) to a host the URL check never saw. Like a
 /// browser, this refuses any redirect.
+///
+/// An event on [cancel] aborts a handshake in progress.
 Future<WebSocketChannel> connectWebSocket(
   Uri uri, {
   required Map<String, String> headers,
   required String? protocol,
   required Duration? pingInterval,
   required Duration timeout,
+  required Stream<void> cancel,
 }) async {
   final client = HttpClient()..connectionTimeout = timeout;
+  final handshake = _handshake(client, uri, headers, protocol);
+  final cancelled = Completer<WebSocket>();
+  final cancelling = cancel.listen((_) {
+    if (cancelled.isCompleted) return;
+    cancelled.completeError(
+      UtcpException('Connecting to ${describeUrl(uri)} was cancelled.'),
+    );
+  });
   var connected = false;
   try {
     // Closed through the returned channel.
     // ignore: close_sinks
-    final webSocket = await _handshake(
-      client,
-      uri,
-      headers,
-      protocol,
-    ).timeout(timeout);
+    final webSocket = await Future.any([
+      handshake,
+      cancelled.future,
+    ]).timeout(timeout);
     connected = true;
     return IOWebSocketChannel(webSocket..pingInterval = pingInterval);
   } on TimeoutException {
@@ -44,11 +53,23 @@ Future<WebSocketChannel> connectWebSocket(
       'Connecting to ${describeUrl(uri)} timed out after '
       '${timeout.inSeconds} s.',
     );
+  } on HttpException catch (e) {
+    // Its toString appends the full URL, query string included.
+    throw UtcpException(
+      'Could not connect to ${describeUrl(uri)}: ${e.message}',
+    );
   } on IOException catch (e) {
     throw UtcpException('Could not connect to ${describeUrl(uri)}: $e');
   } finally {
+    await cancelling.cancel();
     // A detached socket outlives the client; anything else is torn down.
     client.close(force: !connected);
+    if (!connected) {
+      // A handshake that completes after a timeout or cancel is not used.
+      unawaited(
+        handshake.then((socket) => socket.close(), onError: (Object _) {}),
+      );
+    }
   }
 }
 
@@ -81,7 +102,7 @@ Future<WebSocket> _handshake(
     throw UtcpSecurityException(
       'Security error during WebSocket connection: the upgrade request to '
       '"$url" was answered with HTTP $status redirecting to '
-      '"${response.headers.value(HttpHeaders.locationHeader)}". A redirect '
+      '"${describeUrlString(response.headers.value(HttpHeaders.locationHeader) ?? '')}". A redirect '
       'of the upgrade is never followed; connect to the real WebSocket URL.',
     );
   }

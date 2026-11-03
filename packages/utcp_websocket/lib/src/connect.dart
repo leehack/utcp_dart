@@ -7,12 +7,15 @@ import 'describe.dart';
 
 /// Opens a WebSocket where `dart:io` is unavailable. Browsers never follow
 /// a redirect of the handshake, and cannot send handshake headers or pings.
+///
+/// An event on [cancel] aborts a handshake in progress.
 Future<WebSocketChannel> connectWebSocket(
   Uri uri, {
   required Map<String, String> headers,
   required String? protocol,
   required Duration? pingInterval,
   required Duration timeout,
+  required Stream<void> cancel,
 }) async {
   if (headers.isNotEmpty) {
     throw UtcpException(
@@ -25,9 +28,19 @@ Future<WebSocketChannel> connectWebSocket(
     uri,
     protocols: protocol == null ? null : [protocol],
   );
+  final cancelled = Completer<void>();
+  final cancelling = cancel.listen((_) {
+    if (cancelled.isCompleted) return;
+    cancelled.completeError(
+      UtcpException('Connecting to ${describeUrl(uri)} was cancelled.'),
+    );
+  });
   try {
-    await channel.ready.timeout(timeout);
+    await Future.any([channel.ready, cancelled.future]).timeout(timeout);
     return channel;
+  } on UtcpException {
+    unawaited(channel.sink.close());
+    rethrow;
   } on TimeoutException {
     unawaited(channel.sink.close());
     throw UtcpException(
@@ -36,5 +49,7 @@ Future<WebSocketChannel> connectWebSocket(
     );
   } on WebSocketChannelException catch (e) {
     throw UtcpException('Could not connect to ${describeUrl(uri)}: $e');
+  } finally {
+    await cancelling.cancel();
   }
 }

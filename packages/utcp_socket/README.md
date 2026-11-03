@@ -70,8 +70,8 @@ delimited:
 | `delimiter` | `message_delimiter` (`\x00`), `interpret_escape_sequences` (`true`) | Requests and responses end with the delimiter. Python escapes such as `\n` or `\x00` are interpreted unless disabled. |
 | `fixed_length` | `fixed_message_length` (required) | Exactly that many bytes. |
 
-`timeout` bounds the connect and each wait for data, as in the reference. Length-prefix and
-delimiter responses larger than `max_response_size` fail.
+`timeout` bounds the connect and each wait for data, as in the reference. Length-prefix,
+delimiter and fixed-length responses larger than `max_response_size` fail.
 
 ### UDP
 
@@ -82,8 +82,11 @@ are ignored, and requests are not retried.
 
 ## Security
 
-A manual discovered from a non-loopback host may not point `tcp`, `udp` or `http` tools at a
-loopback address, so a remote provider cannot aim requests at services on the agent's machine.
+A manual discovered from a non-loopback host may not point tools of any transport at a loopback
+address, so a remote provider cannot aim requests at services on the agent's machine. The `tcp`
+and `udp` templates list `tcp://host:port` / `udp://host:port` in `CallTemplate.endpoints`, so the
+core rule also rejects loopback socket tools in a manual discovered over HTTP or any other
+transport.
 
 ## Differences from the Python reference
 
@@ -92,7 +95,7 @@ loopback address, so a remote provider cannot aim requests at services on the ag
   JSON-escaped, as the WebSocket reference does.
 - Non-string values in `text` requests are written as JSON (Python writes `str(value)`, e.g.
   `True`), and JSON is written compactly.
-- Partial reads are reassembled for every framing, `max_response_size` also limits length-prefix
-  and delimiter responses, and the remote-manual loopback rule above is applied.
+- Partial reads are reassembled for every framing, `max_response_size` limits every framing (not
+  only `stream`), and the remote-manual loopback rule above is applied.
 - Template errors (bad `length_prefix_bytes`, missing `fixed_message_length`, malformed delimiter
   escapes, negative datagram counts) fail when the template is parsed.

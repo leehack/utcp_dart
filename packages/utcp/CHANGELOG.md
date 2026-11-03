@@ -7,6 +7,7 @@
 - `HttpTransport` and `buildToolRequest` are public for transports built on HTTP.
 - `http` manuals may be OpenAPI 2.0 or 3.x documents, converted to tools; `OpenApiConverter` converts documents loaded elsewhere.
 - Added the `text` transport for UTCP manuals and OpenAPI documents supplied inline.
+- Added `substituteArgumentPlaceholders` and `utcpDiscoveryMessage` for transports that send `UTCP_ARG_<name>_UTCP_ARG` templates.
 - Redirects to another origin drop every credential-like header, static template headers included, and a request body is never resent to another origin.
 - The remote-loopback rule covers every transport through `CallTemplate.endpoints`.
 - YAML alias expansion is bounded (`decodeYaml`), so a small hostile document cannot exhaust memory.

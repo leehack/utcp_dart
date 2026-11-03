@@ -46,6 +46,14 @@ abstract class SocketCallTemplate extends CallTemplate {
   /// Serialized as whole milliseconds.
   final Duration timeout;
 
+  /// `<type>://host:port`, so the core remote-loopback rule covers the
+  /// address.
+  @override
+  List<String> get endpoints {
+    final ipv6 = host.contains(':') && !host.startsWith('[');
+    return ['$callTemplateType://${ipv6 ? '[$host]' : host}:$port'];
+  }
+
   /// The shared fields, in their wire form.
   JsonMap socketFieldsToJson() => {
     'host': host,
