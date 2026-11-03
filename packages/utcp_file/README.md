@@ -50,8 +50,9 @@ to `UtcpClientConfig` directly.
 - As in the Python SDK, a file counts as a remote origin, so neither a UTCP manual nor an OpenAPI
   document in it may point tools or OAuth2 token URLs at loopback addresses; such a manual fails
   to register.
-- Relative paths resolve against `FileCommunicationProtocol(rootDir: ...)`, or the current
-  directory. `..` segments are left to the OS, so `link/..` is the parent of the symlink's target.
+- Relative paths resolve against `FileCommunicationProtocol(rootDir: ...)`, else the client's
+  `rootDir` (`UtcpClient.create(rootDir: ...)`, like `root_dir` in Python and TypeScript), else
+  the current directory. `..` segments are left to the OS, so `link/..` is the parent of the symlink's target.
 - A tool call with a `file` template returns the text of its file.
 - Files over 10 MiB, or that are not UTF-8 text, are not read
   (`FileCommunicationProtocol(maxFileBytes: ...)`); the reference SDKs have no size limit.

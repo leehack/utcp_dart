@@ -218,6 +218,39 @@ paths:
   });
 
   group('paths', () {
+    test('the client rootDir applies when the protocol has none', () async {
+      await write('manual.json', jsonEncode(manual));
+      await write('data/calc.txt', '1 + 1');
+      final rooted = await UtcpClient.create(rootDir: temp.path);
+      addTearDown(rooted.close);
+      final protocol = FileCommunicationProtocol();
+      final result = await protocol.registerManual(
+        rooted,
+        const FileCallTemplate(name: 'local', filePath: 'manual.json'),
+      );
+      expect(result.errors, isEmpty);
+      expect(
+        await protocol.callTool(
+          rooted,
+          'local.calculator',
+          const {},
+          result.manual.tools.first.toolCallTemplate,
+        ),
+        '1 + 1',
+      );
+    });
+
+    test('the protocol rootDir takes precedence over the client one', () async {
+      await write('manual.json', jsonEncode(manual));
+      final rooted = await UtcpClient.create(rootDir: '/nonexistent');
+      addTearDown(rooted.close);
+      final result = await protocol.registerManual(
+        rooted,
+        const FileCallTemplate(name: 'local', filePath: 'manual.json'),
+      );
+      expect(result.errors, isEmpty);
+    });
+
     test('.. after a symlink is resolved by the OS', () async {
       // temp/link -> temp/real/sub, so link/.. is temp/real, not temp.
       await Directory('${temp.path}/real/sub').create(recursive: true);
