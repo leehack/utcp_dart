@@ -1,0 +1,10 @@
+# The Python UTCP SDK at python-utcp bb8e2f6 (2026-10-25). The round trip
+# reads these pins; keep them in step with the reference commit.
+utcp==1.2.0
+utcp-cli==1.1.5
+utcp-file==1.1.0
+utcp-http==1.1.15
+utcp-mcp==1.2.0
+utcp-socket==1.1.1
+utcp-text==1.1.0
+utcp-websocket==1.2.1

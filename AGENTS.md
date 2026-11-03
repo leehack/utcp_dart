@@ -17,7 +17,8 @@ it, and encode any behavior the spec leaves open in a test.
 - The root `pubspec.yaml` is a pub workspace. Add a new package to its
   `workspace:` list, to the CI matrix, and to the tags in
   `.github/workflows/publish_pubdev.yml`.
-- `tool/` holds the release scripts; their tests are in the root `test/`.
+- `tool/` holds the release scripts and the cross-SDK round trip
+  (`tool/interop/`); their tests are in the root `test/`.
 
 ## Build and test
 
@@ -40,6 +41,9 @@ dart test   # release tooling
 - Every behavior change gets a test that fails without it. Cover malformed
   input and the security rules with negative tests.
 - Tests close every server, process, socket, stream and client they open.
+- A change to a `fromJson` or `toJson` runs `tool/interop/run.sh` (CI job
+  *Interop*). Record what an SDK cannot represent in its driver, with the
+  reason, rather than dropping the seed.
 
 ## Code
 

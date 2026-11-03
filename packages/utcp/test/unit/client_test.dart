@@ -98,6 +98,28 @@ void main() {
     },
   );
 
+  // The spec only defines an unset list. Python (`if not allowed`) and
+  // TypeScript (`allowed?.length`) both read [] as unset, not as "allow
+  // nothing".
+  test('an empty allowed list allows only the manual\'s own type', () async {
+    final (client, _) = await clientWith(
+      UtcpManual(
+        tools: [
+          fakeTool('ok'),
+          const Tool(
+            name: 'web',
+            toolCallTemplate: HttpCallTemplate(url: 'https://a'),
+          ),
+        ],
+      ),
+    );
+    await client.registerManual(
+      const FakeCallTemplate(name: 'm', allowedCommunicationProtocols: []),
+    );
+    expect((await client.getTools()).map((t) => t.name), ['m.ok']);
+    expect(await client.callTool('m.ok'), containsPair('tool', 'm.ok'));
+  });
+
   test(
     'a call substitutes namespaced variables and routes to the protocol',
     () async {
