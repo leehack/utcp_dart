@@ -35,7 +35,7 @@ Future<RegisterManualResult> discoverManual(
       maxDetailChars: 200,
     );
     final manual = UtcpManual.fromJson(
-      asJsonMap(response.decode(sniffJson: true), 'Discovery response'),
+      asJsonMap(response.decodeManual(), 'Discovery response'),
     );
     rejectRemoteLoopbackToolUrls(response.url, manual, 'manual discovery');
     return RegisterManualResult(manualCallTemplate: template, manual: manual);

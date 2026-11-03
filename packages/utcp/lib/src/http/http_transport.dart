@@ -21,6 +21,10 @@ final class HttpRequestSpec {
   String? body;
   final Set<String> _sensitive = {};
 
+  /// Drops the cached OAuth2 token this request carries, once the server
+  /// rejects it.
+  void Function()? _onCredentialsRejected;
+
   String? header(String name) => headers[_headerKey(name)];
 
   /// Sets [name], replacing any existing header that differs only in case.
@@ -159,7 +163,8 @@ final _placeholder = RegExp(r'\$?\{([^}]+)\}');
 
 String _encodeBody(Object body, String contentType) {
   if (body is String) return body;
-  if (contentType.contains('x-www-form-urlencoded') && body is Map) {
+  if (contentType.toLowerCase().contains('x-www-form-urlencoded') &&
+      body is Map) {
     final form = HttpRequestSpec(HttpMethod.post, Uri())
       ..addQuery(asJsonMap(body, 'Form body'));
     return form.uri.query;
@@ -189,21 +194,13 @@ final class HttpResult {
 
   String get text => utf8.decode(bodyBytes, allowMalformed: true);
 
-  /// JSON content types are parsed and everything else is returned as text,
-  /// per the HTTP protocol specification. YAML is parsed by content type or
-  /// `.yaml`/`.yml` path. [sniffJson] also parses untyped JSON, for documents
-  /// that must be structured (manuals, token responses).
+  /// Per the HTTP protocol specification, a JSON body (`application/json`
+  /// or a `+json` type) is parsed, and anything else, including JSON that
+  /// does not parse, is returned as text. [sniffJson] also parses untyped
+  /// JSON, for documents that must be structured (token responses, errors).
   Object? decode({bool sniffJson = false}) {
     final text = this.text;
-    final path = url.path;
-    if (contentType.contains('yaml') ||
-        path.endsWith('.yaml') ||
-        path.endsWith('.yml')) {
-      return decodeYaml(text);
-    }
-    if (text.isEmpty) return text;
-    if (contentType.contains('json')) return jsonDecode(text);
-    if (!sniffJson) return text;
+    if (text.isEmpty || !(sniffJson || _isJson(contentType))) return text;
     try {
       return jsonDecode(text);
     } on FormatException {
@@ -211,17 +208,28 @@ final class HttpResult {
     }
   }
 
+  /// Decodes a discovered manual: YAML by content type or a `.yaml`/`.yml`
+  /// path, JSON otherwise. Tool results are never parsed as YAML.
+  Object? decodeManual() {
+    final path = url.path;
+    if (contentType.toLowerCase().contains('yaml') ||
+        path.endsWith('.yaml') ||
+        path.endsWith('.yml')) {
+      return decodeYaml(text);
+    }
+    return decode(sniffJson: true);
+  }
+
+  static bool _isJson(String contentType) {
+    final mediaType = contentType.split(';').first.trim().toLowerCase();
+    return mediaType == 'application/json' || mediaType.endsWith('+json');
+  }
+
   /// Throws a [UtcpHttpException] for a 4xx or 5xx status, with the
   /// server's reason truncated to [maxDetailChars] code points.
   void ensureSuccess(String context, {int maxDetailChars = 2000}) {
     if (statusCode < 400) return;
-    Object? data;
-    try {
-      data = decode(sniffJson: true);
-    } on FormatException {
-      // Includes YamlException.
-      data = text;
-    }
+    final data = decode(sniffJson: true);
     final reason = _collapse(switch (data) {
       Map<Object?, Object?>() => _errorReason(data) ?? jsonEncode(data),
       String() => data,
@@ -463,8 +471,13 @@ final class HttpTransport {
           sensitive: true,
         );
       case OAuth2Auth():
-        final token = await _oauth2Token(auth, timeout);
-        request.setHeader('Authorization', 'Bearer $token', sensitive: true);
+        final key = _tokenKey(auth);
+        final token = await _oauth2Token(auth, key, timeout);
+        request
+          ..setHeader('Authorization', 'Bearer $token', sensitive: true)
+          .._onCredentialsRejected = () {
+            if (_tokens[key]?.value == token) _tokens.remove(key);
+          };
       case OAuth2UserAuth(:final accessToken, :final varName, :final prefix):
         if (accessToken.isEmpty) {
           throw const UtcpException(
@@ -485,16 +498,21 @@ final class HttpTransport {
     if (_ownsClient) _client.close();
   }
 
-  Future<String> _oauth2Token(OAuth2Auth auth, Duration timeout) async {
+  // Keyed on the whole configuration so templates sharing a client_id but
+  // not an issuer, secret or scope never receive each other's tokens.
+  static String _tokenKey(OAuth2Auth auth) => jsonEncode([
+    auth.tokenUrl,
+    auth.clientId,
+    auth.clientSecret,
+    auth.scope ?? '',
+  ]);
+
+  Future<String> _oauth2Token(
+    OAuth2Auth auth,
+    String key,
+    Duration timeout,
+  ) async {
     ensureSecureUrl(auth.tokenUrl, 'OAuth2 token URL');
-    // Keyed on the whole configuration so templates sharing a client_id but
-    // not an issuer, secret or scope never receive each other's tokens.
-    final key = jsonEncode([
-      auth.tokenUrl,
-      auth.clientId,
-      auth.clientSecret,
-      auth.scope ?? '',
-    ]);
     final cached = _tokens[key];
     if (cached != null && cached.expiresAt.isAfter(DateTime.now())) {
       return cached.value;
@@ -552,7 +570,13 @@ final class HttpTransport {
         if (token == null || token.isEmpty) {
           throw const FormatException('access_token not found in response.');
         }
-        final expiresIn = data.optInt('expires_in');
+        if (!_bearerToken.hasMatch(token)) {
+          throw const FormatException(
+            'access_token is not a usable bearer token (it must be visible '
+            'ASCII).',
+          );
+        }
+        final expiresIn = _expiresIn(data);
         _tokens[cacheKey] = (
           value: token,
           expiresAt: DateTime.now().add(
@@ -635,6 +659,10 @@ final class HttpTransport {
       final location = response.headers['location'];
       if (!_redirectStatuses.contains(response.statusCode) ||
           location == null) {
+        if ((response.statusCode == 401 || response.statusCode == 403) &&
+            uri.origin == request.uri.origin) {
+          request._onCredentialsRejected?.call();
+        }
         return HttpStreamedResult(response, uri, abort.future);
       }
       await response.stream.drain<void>();
@@ -679,6 +707,16 @@ final class HttpTransport {
   }
 
   static const _redirectStatuses = {301, 302, 303, 307, 308};
+
+  static final _bearerToken = RegExp(r'^[\x21-\x7E]+$');
+
+  /// Some providers send `expires_in` as a string; an unreadable value falls
+  /// back to the default lifetime, as in the Python SDK.
+  static int? _expiresIn(JsonMap data) => switch (data['expires_in']) {
+    final num value => value.toInt(),
+    final String value => num.tryParse(value.trim())?.toInt(),
+    _ => null,
+  };
 
   static String _basic(String username, String password) =>
       'Basic ${base64Encode(utf8.encode('$username:$password'))}';

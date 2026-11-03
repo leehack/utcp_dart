@@ -1,3 +1,8 @@
+## Unreleased
+
+- A cached OAuth2 token is dropped when the server answers 401 or 403, and a token that is not a usable bearer token is no longer cached.
+- A `text/event-stream` response is recognized whatever the case of its Content-Type.
+
 ## 0.1.1
 
 - Docs: package cross-links, badges and platform notes.

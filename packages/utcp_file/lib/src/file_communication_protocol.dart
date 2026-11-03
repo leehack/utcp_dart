@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:utcp/utcp.dart';
 
+import 'dotenv.dart';
 import 'file_call_template.dart';
 
 /// Loads UTCP manuals from local files (`file` call templates).
@@ -15,10 +16,15 @@ class FileCommunicationProtocol extends CommunicationProtocol {
   /// Relative file paths resolve against [rootDir], or the current
   /// directory when it is null, like the client `root_dir` of the Python and
   /// TypeScript SDKs.
+  ///
+  /// Also registers [DotEnvVariableLoader], so `load_variables_from` entries
+  /// of type `dotenv` parse, as the Python SDK does in its core.
   FileCommunicationProtocol({
     this.rootDir,
     this.maxFileBytes = 10 * 1024 * 1024,
-  });
+  }) {
+    DotEnvVariableLoader.register();
+  }
 
   /// Directory relative file paths resolve against; the current directory
   /// when null.

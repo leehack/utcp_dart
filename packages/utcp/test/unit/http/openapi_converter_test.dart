@@ -81,8 +81,27 @@ void main() {
       expect(template.name, 'Swagger_Petstore');
       expect(template.url, 'https://petstore.example.com/v1/pets/{petId}');
       expect(template.httpMethod, HttpMethod.get);
-      expect(template.bodyField, isNull);
+      expect(template.bodyField, 'body');
+      expect(template.toJson()['body_field'], 'body');
       expect(templateOf(tools['deletePet']!).httpMethod, HttpMethod.delete);
+    });
+
+    test('an input named body without a request body is never sent as one', () {
+      final tool = convert(
+        spec3({
+          'parameters': [
+            {
+              'name': 'body',
+              'in': 'query',
+              'schema': {'type': 'string'},
+            },
+          ],
+        }),
+      ).tools.single;
+      expect(templateOf(tool).bodyField, isNull);
+      final request = buildToolRequest(templateOf(tool), {'body': 'x'});
+      expect(request.body, isNull);
+      expect(request.uri.queryParameters, {'body': 'x'});
     });
 
     test('path, query and header parameters, including path-level and '

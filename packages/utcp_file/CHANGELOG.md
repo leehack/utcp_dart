@@ -1,3 +1,7 @@
+## Unreleased
+
+- `FileCommunicationProtocol` registers the `dotenv` variable loader, so `DotEnvVariableLoader.register()` is no longer needed with it.
+
 ## 0.1.1
 
 - Docs: package cross-links, badges and platform notes.
