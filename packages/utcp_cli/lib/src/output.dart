@@ -106,12 +106,15 @@ UtcpManual? _manualOrTools(Object? json, List<String> skipped) =>
       _ => null,
     };
 
-UtcpManual _manual(JsonMap json, List<Object?> tools, List<String> skipped) =>
-    UtcpManual(
-      utcpVersion: json.optString('utcp_version') ?? utcpProtocolVersion,
-      manualVersion: json.optString('manual_version') ?? '1.0.0',
-      tools: _tools(tools, skipped),
-    );
+/// [json] read by [UtcpManual.fromJson], with [tools] parsed one by one.
+UtcpManual _manual(JsonMap json, List<Object?> tools, List<String> skipped) {
+  final header = UtcpManual.fromJson({...json, 'tools': const <Object?>[]});
+  return UtcpManual(
+    utcpVersion: header.utcpVersion,
+    manualVersion: header.manualVersion,
+    tools: _tools(tools, skipped),
+  );
+}
 
 List<Tool> _tools(List<Object?> items, List<String> skipped) => [
   for (final (i, item) in items.indexed)
