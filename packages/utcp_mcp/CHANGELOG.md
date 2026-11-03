@@ -8,3 +8,4 @@
 - Discovery errors and logs name the server and command but never stdio `args`, `env`, headers or tokens, and carry no stack traces.
 - `McpCallTemplate.endpoints` lists HTTP server URLs, so a remote manual cannot point `mcp` tools at a loopback server.
 - Tool call and resource errors are redacted like discovery errors: refusing a plain HTTP server URL, or an error from the HTTP transport, no longer puts the URL's query or user info in the message, and percent-encoded values are masked too.
+- Redaction no longer throws on non-UTF-8 percent escapes in a server URL, and the log line for a failed session end is redacted too.

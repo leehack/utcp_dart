@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:logging/logging.dart';
 import 'package:mcp_dart/mcp_dart.dart' show silenceMcpLogs;
 import 'package:test/test.dart';
 import 'package:utcp/utcp.dart';
@@ -13,9 +14,13 @@ import 'package:utcp_mcp/utcp_mcp.dart';
 final class LegacyServer {
   final requests = <String>[];
   final sessions = <String?>[];
+  Exception? deleteFailure;
 
   late final client = MockClient((request) async {
     final session = request.headers['mcp-session-id'];
+    if (request.method == 'DELETE' && deleteFailure != null) {
+      throw deleteFailure!;
+    }
     if (request.method != 'POST') {
       requests.add(request.method);
       sessions.add(session);
@@ -82,19 +87,19 @@ void main() {
     await caller.close();
   });
 
-  McpCallTemplate manual({bool terminate = true, bool resources = false}) =>
-      McpCallTemplate(
-        name: 'm',
-        registerResourcesAsTools: resources,
-        config: McpConfig(
-          mcpServers: {
-            'legacy': McpHttpServer(
-              url: 'https://mcp.example.com/mcp',
-              terminateOnClose: terminate,
-            ),
-          },
-        ),
-      );
+  McpCallTemplate manual({
+    bool terminate = true,
+    bool resources = false,
+    String url = 'https://mcp.example.com/mcp',
+  }) => McpCallTemplate(
+    name: 'm',
+    registerResourcesAsTools: resources,
+    config: McpConfig(
+      mcpServers: {
+        'legacy': McpHttpServer(url: url, terminateOnClose: terminate),
+      },
+    ),
+  );
 
   test('falls back to initialize and reuses the session', () async {
     final template = manual();
@@ -117,6 +122,27 @@ void main() {
     await protocol.close();
     expect(server.requests.last, 'DELETE');
     expect(server.sessions.last, 's1');
+  });
+
+  test('logs a failed session end without the URL query', () async {
+    final url = 'https://mcp.example.com/mcp?token=SECRET-QUERY';
+    server.deleteFailure = http.ClientException('failed', Uri.parse(url));
+    final records = <String>[];
+    final level = Logger.root.level;
+    Logger.root.level = Level.ALL;
+    addTearDown(() => Logger.root.level = level);
+    final logs = Logger.root.onRecord.listen((r) => records.add(r.message));
+    addTearDown(logs.cancel);
+    await protocol.callTool(
+      caller,
+      'm.legacy.ping',
+      const {},
+      manual(url: url),
+    );
+    await protocol.close();
+    final logged = records.where((r) => r.contains('terminate'));
+    expect(logged, isNotEmpty);
+    expect(logged, everyElement(isNot(contains('SECRET'))));
   });
 
   test('leaves the session open otherwise', () async {
