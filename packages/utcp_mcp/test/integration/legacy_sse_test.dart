@@ -59,20 +59,22 @@ void main() {
     expect(server.requests.take(2), ['POST /sse', 'GET /sse']);
   });
 
-  test('a 404 also falls back, and the fallback session is reused', () async {
-    final template = manual({
-      'transport': 'http',
-      'url': server.url.replaceFirst('/sse', '/missing'),
-    });
-    final result = await protocol.registerManual(caller, template);
+  test('a 404 also falls back', () async {
+    final result = await protocol.registerManual(
+      caller,
+      manual({'url': server.url.replaceFirst('/sse', '/missing')}),
+    );
     expect(result.success, isFalse);
     expect(server.requests, ['POST /missing', 'GET /missing']);
+  });
 
-    await expectWorks(manual({'url': server.url}));
-    final opened = server.requests.where((r) => r == 'GET /sse').length;
+  test('the fallback session is reused', () async {
+    final template = manual({'url': server.url});
+    await expectWorks(template);
     await protocol.callTool(caller, 'legacy.api.echo', {
       'message': 'again',
-    }, manual({'url': server.url}));
-    expect(server.requests.where((r) => r == 'GET /sse').length, opened);
+    }, template);
+    expect(server.requests.where((r) => r == 'GET /sse'), hasLength(1));
+    expect(server.requests.where((r) => r == 'POST /sse'), hasLength(1));
   });
 }
