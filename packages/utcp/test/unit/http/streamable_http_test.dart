@@ -320,6 +320,18 @@ void main() {
       );
       expect(requests, 0);
     });
+
+    test('a GET with a null body argument sends no body', () async {
+      late String sentBody;
+      final protocol = protocolFor((request, body) async {
+        sentBody = await utf8.decodeStream(body);
+        return streamedResponse(['ok'], contentType: 'text/plain');
+      });
+      await protocol.callTool(caller, 'm.export', {
+        'data': null,
+      }, template({'body_field': 'data'}));
+      expect(sentBody, isEmpty);
+    });
   });
 
   group('security', () {
@@ -468,6 +480,7 @@ void main() {
         {'chunk_size': 1.5},
         {'timeout': -5},
         {'timeout': double.infinity},
+        {'timeout': 1e306},
         {'chunk_size': 'big'},
       ]) {
         expect(

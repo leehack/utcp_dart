@@ -53,6 +53,26 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test(
+      'rejects milliseconds that overflow to infinity, naming the field',
+      () {
+        for (final value in [1e306, double.maxFinite, double.infinity, -1]) {
+          expect(
+            () =>
+                <String, Object?>{'timeout': value}.optMilliseconds('timeout'),
+            throwsA(
+              isA<FormatException>().having(
+                (e) => e.message,
+                'message',
+                contains("'timeout'"),
+              ),
+            ),
+            reason: '$value',
+          );
+        }
+      },
+    );
   });
 
   group('decodeYaml', () {
@@ -282,7 +302,7 @@ items:
       });
     });
 
-    test('keeps a null const or default, and nulls inside values', () {
+    test('drops a null const or default but keeps nulls inside values', () {
       final schema = JsonSchema.fromJson({
         'const': null,
         'default': null,
@@ -291,8 +311,6 @@ items:
         'properties': {'x': null},
       });
       expect(schema, {
-        'const': null,
-        'default': null,
         'enum': ['a', null],
         'examples': [null],
         'properties': {'x': null},

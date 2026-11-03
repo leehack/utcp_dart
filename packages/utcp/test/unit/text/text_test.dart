@@ -176,6 +176,30 @@ tools:
       );
     });
 
+    test('registers a tool whose schema nests deeper than the stack', () async {
+      const depth = 50000;
+      final content =
+          '{"tools": [{"name": "deep", "inputs": '
+          '${'{"items": ' * depth}{"type": null}${'}' * depth}, '
+          '"tool_call_template": '
+          '{"call_template_type": "text", "content": ""}}]}';
+      final deep = await UtcpClient.create(
+        config: UtcpClientConfig(
+          environment: const {},
+          manualCallTemplates: [TextCallTemplate(name: 'm', content: content)],
+        ),
+      );
+      addTearDown(deep.close);
+      JsonSchema? schema = (await deep.getTools()).single.inputs;
+      var levels = -1;
+      JsonSchema? innermost;
+      for (; schema != null; schema = schema.items, levels++) {
+        innermost = schema;
+      }
+      expect(levels, depth);
+      expect(innermost, isEmpty);
+    });
+
     test('reports unparsable or invalid content as a failure', () async {
       for (final (content, error) in [
         ('{"tools": [', 'Failed to parse content as JSON or YAML'),

@@ -165,6 +165,16 @@ void main() {
     },
   );
 
+  test('a GET sends its body to the server', () async {
+    const query = {'query': 'match_all'};
+    final result = await client.callTool('api.get_user', {
+      'id': '42',
+      'body': query,
+    });
+    expect(result, containsPair('method', 'GET'));
+    expect(result, containsPair('body', query));
+  });
+
   test('follows same-origin redirects', () async {
     expect(await client.callTool('api.moved'), {'redirected': true});
   });

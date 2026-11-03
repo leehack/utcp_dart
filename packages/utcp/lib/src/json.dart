@@ -272,12 +272,13 @@ extension JsonReader on JsonMap {
   Duration? optMilliseconds(String key) {
     final value = optNum(key);
     if (value == null) return null;
-    if (value < 0 || !value.isFinite) {
+    final microseconds = value * 1000;
+    if (value < 0 || !microseconds.isFinite) {
       throw FormatException(
         "Field '$key' must be a non-negative number, got $value.",
       );
     }
-    return Duration(microseconds: (value * 1000).round());
+    return Duration(microseconds: microseconds.round());
   }
 
   JsonMap object(String key) =>

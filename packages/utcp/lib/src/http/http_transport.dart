@@ -100,17 +100,31 @@ final _credentialHeaderPattern = RegExp(
   r'csrftoken|xsrftoken|xapikey|xauthtoken|xaccesstoken|xapitoken)',
 );
 
+/// What [buildToolRequest] does when a tool call supplies a body to a GET
+/// template.
+enum GetWithBody {
+  /// Sends the GET with its body, as `http` does in the Python and
+  /// TypeScript SDKs; some APIs, such as Elasticsearch `_search`, rely on it.
+  send,
+
+  /// Throws a [UtcpException] before any request, as `streamable_http` does
+  /// in the TypeScript SDK.
+  reject,
+
+  /// Sends a POST instead, as `sse` does.
+  sendAsPost,
+}
+
 /// Builds the request for a tool call: header fields, body field, path
 /// parameters, then query parameters, as described in the HTTP protocol
 /// specification.
 ///
-/// A GET cannot carry a body, so supplying the body field to a GET template
-/// throws a [UtcpException], as the TypeScript SDK does, unless
-/// [postWithBody] is set: then the request becomes a POST instead.
+/// A body argument that is null or absent means no body. [getWithBody]
+/// decides what happens to a body supplied to a GET template.
 HttpRequestSpec buildToolRequest(
   HttpRequestTemplate template,
   ToolArguments args, {
-  bool postWithBody = false,
+  GetWithBody getWithBody = GetWithBody.send,
 }) {
   final remaining = {...args};
   final request = HttpRequestSpec(template.httpMethod, Uri())
@@ -121,13 +135,19 @@ HttpRequestSpec buildToolRequest(
     }
   }
   final bodyField = template.bodyField;
-  final suppliesBody = bodyField != null && remaining.containsKey(bodyField);
-  final body = suppliesBody ? remaining.remove(bodyField) : null;
-  if (suppliesBody && request.method == HttpMethod.get && !postWithBody) {
-    throw UtcpException(
-      "body_field '$bodyField' was supplied but http_method is GET, which "
-      'cannot carry a request body. Set http_method to POST.',
-    );
+  final body = bodyField == null ? null : remaining.remove(bodyField);
+  if (body != null && request.method == HttpMethod.get) {
+    switch (getWithBody) {
+      case GetWithBody.send:
+        break;
+      case GetWithBody.reject:
+        throw UtcpException(
+          "body_field '$bodyField' was supplied but http_method is GET, "
+          'which cannot carry a request body. Set http_method to POST.',
+        );
+      case GetWithBody.sendAsPost:
+        request.method = HttpMethod.post;
+    }
   }
 
   final url = buildUrlWithPathParams(template.url, remaining);
@@ -138,7 +158,6 @@ HttpRequestSpec buildToolRequest(
     ..addQuery(remaining);
 
   if (body != null) {
-    if (postWithBody) request.method = HttpMethod.post;
     final contentType = request.header('content-type') ?? template.contentType;
     request
       ..setHeader('Content-Type', contentType)

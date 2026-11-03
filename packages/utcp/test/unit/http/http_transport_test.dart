@@ -67,6 +67,30 @@ void main() {
       expect(request.body, 'a=1');
     });
 
+    test('getWithBody decides a GET body; a null body is no body', () {
+      const template = HttpCallTemplate(url: 'https://a.example/search');
+      (HttpMethod, String?) build(GetWithBody mode, Object? body) {
+        final request = buildToolRequest(template, {
+          'body': body,
+        }, getWithBody: mode);
+        return (request.method, request.body);
+      }
+
+      expect(build(GetWithBody.send, {'q': 1}), (HttpMethod.get, '{"q":1}'));
+      expect(build(GetWithBody.sendAsPost, {'q': 1}), (
+        HttpMethod.post,
+        '{"q":1}',
+      ));
+      expect(
+        () => build(GetWithBody.reject, {'q': 1}),
+        throwsA(isA<UtcpException>()),
+      );
+      for (final mode in GetWithBody.values) {
+        expect(build(mode, null), (HttpMethod.get, null), reason: '$mode');
+      }
+      expect(buildToolRequest(template, {}).body, isNull);
+    });
+
     test('missing path parameters are reported', () {
       expect(
         () =>
@@ -326,6 +350,78 @@ void main() {
           expect(fetches, 2);
         });
       }
+
+      test('stays cached when another origin answers 401', () async {
+        var fetches = 0;
+        final transport = HttpTransport(
+          client: MockClient((request) async {
+            if (request.url.path == '/token') {
+              return jsonResponse({'access_token': 'tok${++fetches}'});
+            }
+            return request.url.host == 'a'
+                ? http.Response(
+                    '',
+                    302,
+                    headers: {'location': 'https://b.example/x'},
+                  )
+                : http.Response('', 401);
+          }),
+        );
+        addTearDown(transport.close);
+        for (var i = 0; i < 2; i++) {
+          final request = get('https://a/tool');
+          await transport.authorize(request, auth, timeout: timeout);
+          await transport.send(request, context: 'test', timeout: timeout);
+        }
+        expect(fetches, 1);
+      });
+
+      test('a late 401 for an old token keeps the refreshed one', () async {
+        var fetches = 0;
+        final transport = HttpTransport(
+          client: MockClient((request) async {
+            if (request.url.path == '/token') {
+              return jsonResponse({'access_token': 'tok${++fetches}'});
+            }
+            return http.Response('', 401);
+          }),
+        );
+        addTearDown(transport.close);
+        Future<HttpRequestSpec> authorized() async {
+          final request = get('https://a/tool');
+          await transport.authorize(request, auth, timeout: timeout);
+          return request;
+        }
+
+        Future<void> send(HttpRequestSpec request) =>
+            transport.send(request, context: 'test', timeout: timeout);
+
+        final early = await authorized();
+        final late = await authorized();
+        await send(early);
+        expect((await authorized()).header('authorization'), 'Bearer tok2');
+        await send(late);
+        expect((await authorized()).header('authorization'), 'Bearer tok2');
+        expect(fetches, 2);
+      });
+
+      test('expires_in sent as a string sets the cache lifetime', () async {
+        var fetches = 0;
+        final transport = HttpTransport(
+          client: MockClient(
+            (_) async => jsonResponse({
+              'access_token': 'tok${++fetches}',
+              'expires_in': ' 1 ',
+            }),
+          ),
+        );
+        addTearDown(transport.close);
+        await transport.authorize(get('https://a/x'), auth, timeout: timeout);
+        await Future<void>.delayed(const Duration(milliseconds: 1100));
+        final request = get('https://a/x');
+        await transport.authorize(request, auth, timeout: timeout);
+        expect(request.header('authorization'), 'Bearer tok2');
+      });
 
       test('stays cached when the server accepts it', () async {
         var fetches = 0;
