@@ -59,7 +59,9 @@ Future<void> main(List<String> args) async {
       committed.updatedTo(harvested).write(fixturesDir);
       lock.withCommits(commits).write(lockFile);
       stderr.writeln('Updated fixtures/ and refs.lock.');
-    } else {
+    } else if (!options.head || diff.changesContent) {
+      // At upstream HEAD, documents that only moved lines are reported but
+      // are not drift, so the weekly issue opens only for content changes.
       exitCode = 1;
     }
   } on HarvestException catch (error) {

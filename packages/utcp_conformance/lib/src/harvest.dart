@@ -199,6 +199,13 @@ class CorpusDiff {
   /// Whether the harvest matches the corpus.
   bool get isEmpty => added.isEmpty && removed.isEmpty && moved.isEmpty;
 
+  /// Whether a document was added, removed or reclassified. Documents that
+  /// only moved to another line are not content drift.
+  bool get changesContent =>
+      added.isNotEmpty ||
+      removed.isNotEmpty ||
+      moved.any((pair) => pair.$1.kind != pair.$2.kind);
+
   /// A Markdown report of the differences, with what Dart does with each
   /// new document. [commits] are the harvested commits by repository.
   String report(RefsLock lock, Map<String, String> commits) {

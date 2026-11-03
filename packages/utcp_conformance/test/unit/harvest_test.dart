@@ -37,6 +37,17 @@ void main() {
   test('an identical harvest is no drift', () {
     final diff = CorpusDiff(reviewed, [kept, gone]);
     expect(diff.isEmpty, isTrue);
+    expect(diff.changesContent, isFalse);
+  });
+
+  test('documents that only moved lines do not change content', () {
+    final moved = harvested('docs/a.md', 4, {'auth_type': 'basic'});
+    final diff = CorpusDiff(reviewed, [moved, gone]);
+    expect(diff.isEmpty, isFalse);
+    expect(diff.changesContent, isFalse);
+    final added = harvested('docs/b.md', 1, {'auth_type': 'api_key'});
+    expect(CorpusDiff(reviewed, [moved, gone, added]).changesContent, isTrue);
+    expect(CorpusDiff(reviewed, [kept]).changesContent, isTrue);
   });
 
   test('reports new, gone and moved documents', () {
