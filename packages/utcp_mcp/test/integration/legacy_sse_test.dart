@@ -46,6 +46,8 @@ void main() {
       }, template),
       {'reply': 'you said: sse'},
     );
+    expect(server.initializedClient?.name, 'utcp_mcp');
+    expect(server.protocolVersions.last, LegacySseMcpServer.protocolVersion);
   }
 
   test('type: sse speaks only the legacy transport', () async {
@@ -59,13 +61,28 @@ void main() {
     expect(server.requests.take(2), ['POST /sse', 'GET /sse']);
   });
 
-  test('a 404 also falls back', () async {
+  test('a 404 also falls back, and a failed fallback names both '
+      'statuses', () async {
+    const secret = 'secret-token-value';
     final result = await protocol.registerManual(
       caller,
-      manual({'url': server.url.replaceFirst('/sse', '/missing')}),
+      manual({
+        'url': '${server.url.replaceFirst('/sse', '/missing')}?key=$secret',
+        'headers': {'X-Api-Key': secret},
+        'auth_token': secret,
+      }),
     );
     expect(result.success, isFalse);
     expect(server.requests, ['POST /missing', 'GET /missing']);
+    expect(
+      result.errors.single,
+      allOf(
+        contains('streamable HTTP answered 404'),
+        contains('legacy HTTP+SSE transport failed'),
+        contains('(HTTP 404)'),
+        isNot(contains(secret)),
+      ),
+    );
   });
 
   test('the fallback session is reused', () async {

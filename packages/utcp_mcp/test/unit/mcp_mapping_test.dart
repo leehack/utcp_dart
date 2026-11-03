@@ -396,6 +396,49 @@ void main() {
       });
     });
 
+    test('inlines properties named like data keywords', () {
+      final mode = {
+        'type': 'string',
+        'enum': ['a', 'b'],
+      };
+      expect(
+        inlineSchemaRefs({
+          'properties': {
+            'default': {r'$ref': r'#/$defs/Mode'},
+            'enum': {r'$ref': r'#/$defs/Mode'},
+            'other': {r'$ref': r'#/$defs/Mode'},
+          },
+          'patternProperties': {
+            '^const': {r'$ref': r'#/$defs/Mode'},
+          },
+          r'$defs': {'Mode': mode},
+        }),
+        {
+          'properties': {'default': mode, 'enum': mode, 'other': mode},
+          'patternProperties': {'^const': mode},
+        },
+      );
+    });
+
+    test('leaves a reference with a non-UTF-8 escape in place', () {
+      final schema = {
+        'properties': {
+          'bad': {r'$ref': r'#/$defs/%FF'},
+          'good': {r'$ref': r'#/$defs/S'},
+        },
+        r'$defs': {
+          'S': {'type': 'string'},
+        },
+      };
+      expect(inlineSchemaRefs(schema), {
+        'properties': {
+          'bad': {r'$ref': r'#/$defs/%FF'},
+          'good': {'type': 'string'},
+        },
+        r'$defs': schema[r'$defs'],
+      });
+    });
+
     test('returns a schema that would expand exponentially unchanged', () {
       final defs = <String, Object?>{
         'd0': {'type': 'string'},
