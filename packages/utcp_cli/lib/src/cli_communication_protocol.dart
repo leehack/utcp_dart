@@ -3,12 +3,15 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:logging/logging.dart';
 import 'package:utcp/utcp.dart';
 
 import 'cli_call_template.dart';
 import 'output.dart';
 import 'process_tree.dart';
 import 'shell_script.dart';
+
+final _log = Logger('utcp.cli');
 
 /// Discovers and calls tools that run as local commands (`cli` call
 /// templates).
@@ -19,8 +22,9 @@ import 'shell_script.dart';
 ///
 /// A script that outlives its timeout or writes more than [maxOutputBytes],
 /// a cancelled [callToolStreaming] subscription, and [close] kill the shell
-/// and every process it started. A bash script that a command ends early
-/// (`exit`, `exec`, `set -e`) fails the call.
+/// and every process it started. When a command ends a bash script early
+/// (`exit`, `exec`, `set -e`), the outputs selected before it and its own
+/// output are returned, since the spec returns a failing script's output.
 class CliCommunicationProtocol extends CommunicationProtocol {
   /// Creates a protocol with the given limits for each script run.
   CliCommunicationProtocol({
@@ -62,16 +66,17 @@ class CliCommunicationProtocol extends CommunicationProtocol {
         const {},
         discoveryTimeout,
       );
-      final text = output.exitCode == 0 ? output.stdout : output.stderr;
+      final text = scriptText(output, Shell.host);
       if (text.trim().isEmpty) {
         return RegisterManualResult.failure(template, [
           "No output from discovery commands for CLI manual '$name'.",
         ]);
       }
-      return RegisterManualResult(
-        manualCallTemplate: template,
-        manual: parseManualOutput(text),
-      );
+      final (:manual, :skipped) = parseManualOutput(text);
+      for (final reason in skipped) {
+        _log.warning("CLI manual '$name': $reason");
+      }
+      return RegisterManualResult(manualCallTemplate: template, manual: manual);
     } on FormatException catch (e) {
       return RegisterManualResult.failure(template, [
         "Could not parse a UTCP manual from CLI manual '$name': ${e.message}",
@@ -154,15 +159,20 @@ class CliCommunicationProtocol extends CommunicationProtocol {
     Directory? captureDir;
     try {
       captureDir = await Directory.systemTemp.createTemp('utcp_cli_');
+      final capture = File('${captureDir.path}${Platform.pathSeparator}output');
       final script = buildShellScript(
         template.commands,
         arguments,
         shell: shell,
         nonce: randomNonce(),
-        captureFile: '${captureDir.path}${Platform.pathSeparator}output',
+        captureFile: capture.path,
       );
       final process = await _start(shell, script, template);
-      return requireFinished(await _wait(run, process, timeout), script);
+      return await finishedOutput(
+        await _wait(run, process, timeout),
+        script,
+        () => _readCapture(capture),
+      );
     } on FileSystemException catch (e) {
       throw UtcpException('Could not create the CLI output file: ${e.message}');
     } finally {
@@ -170,6 +180,15 @@ class CliCommunicationProtocol extends CommunicationProtocol {
       _runs.remove(run);
       run.complete();
     }
+  }
+
+  /// What the command that ended a script wrote, up to [maxOutputBytes].
+  Future<String> _readCapture(File capture) async {
+    if (!await capture.exists()) return '';
+    return capture
+        .openRead(0, maxOutputBytes)
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .join();
   }
 
   Future<Process> _start(

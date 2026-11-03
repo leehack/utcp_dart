@@ -17,6 +17,7 @@ environment:
 resolution: workspace
 
 dependencies:
+  logging: ^1.2.0
   utcp: ^0.2.0
 
 dev_dependencies:

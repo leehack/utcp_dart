@@ -85,7 +85,7 @@ final class ShellScript {
   final Map<String, String> environment;
 
   /// The last line a bash script prints, so a script that a command ended
-  /// early (`exit`, `exec`, `set -e`) is told apart from one with no output.
+  /// early (`exit`, `exec`, `set -e`) is told apart from one that finished.
   final String? endMarker;
 }
 
@@ -117,8 +117,10 @@ Map<String, String> subprocessEnvironment(
 /// selected by `append_to_final_output`.
 ///
 /// For bash, every command runs in the script's own shell so `cd` and
-/// variable assignments carry over to later commands; its output goes to
-/// [captureFile] and is read back into `CMD_<i>_OUTPUT`. PowerShell
+/// variable assignments carry over to later commands, as the spec requires;
+/// its output goes to [captureFile] and is read back into `CMD_<i>_OUTPUT`.
+/// A selected output is printed as soon as its command finishes, so the
+/// outputs before a command that ends the script are not lost. PowerShell
 /// assignments already run in the script's scope.
 ShellScript buildShellScript(
   List<CommandStep> commands,
@@ -146,6 +148,7 @@ ShellScript buildShellScript(
       environment: environment,
     );
     final output = 'CMD_${i}_OUTPUT';
+    final selected = step.appendToFinalOutput ?? i == commands.length - 1;
     switch (shell) {
       case Shell.bash:
         lines.addAll([
@@ -153,21 +156,20 @@ ShellScript buildShellScript(
           '} >"\$$capture" 2>&1',
           r'__utcp_status=$?',
           '$output=\$(<"\$$capture")',
+          if (selected) "printf '%s\\n' \"\${$output}\"",
+          // Restores `$?` for the next command.
           r'(exit $__utcp_status)',
         ]);
       case Shell.powershell:
         lines.add('\$$output = $command 2>&1 | Out-String');
     }
   }
-  for (final (i, step) in commands.indexed) {
-    if (step.appendToFinalOutput ?? i == commands.length - 1) {
-      lines.add(switch (shell) {
-        Shell.bash => "printf '%s\\n' \"\${CMD_${i}_OUTPUT}\"",
-        Shell.powershell => 'Write-Output \$CMD_${i}_OUTPUT',
-      });
-    }
-  }
   if (shell == Shell.powershell) {
+    for (final (i, step) in commands.indexed) {
+      if (step.appendToFinalOutput ?? i == commands.length - 1) {
+        lines.add('Write-Output \$CMD_${i}_OUTPUT');
+      }
+    }
     return ShellScript(lines.join('\n'), environment);
   }
   final endMarker = '__UTCP_END_$nonce';

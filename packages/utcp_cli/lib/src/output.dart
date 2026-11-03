@@ -10,70 +10,124 @@ typedef ScriptOutput = ({String stdout, String stderr, int exitCode});
 /// [output] with the [ShellScript.endMarker] line and anything after it
 /// removed from stdout.
 ///
-/// The marker is the last line the script prints, so it is missing only when
-/// the script stopped early; anything after it is written by a user `trap
-/// '…' EXIT` that runs during shell exit and is dropped. Throws a
-/// [UtcpException] when the marker is missing: the selected outputs were
-/// never printed. The shell's own stderr (command stderr is captured
-/// separately) says why.
-ScriptOutput requireFinished(ScriptOutput output, ShellScript script) {
+/// The marker is the last line the script prints; anything after it is
+/// written by a user `trap '…' EXIT` and is dropped. It is missing when a
+/// command ended the script early (`exit`, `exec`, `set -e`, or a syntax
+/// error). Then the outputs printed so far are followed by
+/// [stoppedCommandOutput], the output of the command that ended it, since the
+/// spec returns a failing script's output instead of an error.
+Future<ScriptOutput> finishedOutput(
+  ScriptOutput output,
+  ShellScript script,
+  Future<String> Function() stoppedCommandOutput,
+) async {
   final marker = script.endMarker;
   if (marker == null) return output;
-  final line = '$marker\n';
-  final end = output.stdout.indexOf(line);
-  if (end >= 0) {
-    return (
-      stdout: output.stdout.substring(0, end),
-      stderr: output.stderr,
-      exitCode: output.exitCode,
-    );
-  }
-  final detail = output.stderr.trim();
-  throw UtcpException(
-    'CLI commands stopped before the script finished (exit code '
-    '${output.exitCode}): a command ran `exit` or `exec`, `set -e` stopped '
-    'the script, or it has a syntax error.'
-    '${detail.isEmpty ? '' : ' Shell error: $detail'}',
-  );
+  final end = output.stdout.indexOf('$marker\n');
+  final stdout = end >= 0
+      ? output.stdout.substring(0, end)
+      : '${output.stdout}${await stoppedCommandOutput()}';
+  return (stdout: stdout, stderr: output.stderr, exitCode: output.exitCode);
 }
 
-/// The tool result of [output]: decoded JSON when the trimmed text starts
-/// with `{` or `[` and parses, otherwise the trimmed text.
-///
-/// Bash scripts capture every command's stderr, so stdout is used unless it
-/// is blank; for PowerShell stderr is used when the exit code is non-zero.
-/// Both match the reference SDKs, which return a failing command's error
-/// text instead of throwing.
+/// The text a script produced: for bash, stdout unless it is blank (every
+/// command's stderr is captured into it), else the shell's stderr; for
+/// PowerShell, stderr when the exit code is non-zero. Both match the
+/// reference SDKs.
+String scriptText(ScriptOutput output, Shell shell) => switch (shell) {
+  Shell.bash => output.stdout.trim().isNotEmpty ? output.stdout : output.stderr,
+  Shell.powershell => output.exitCode == 0 ? output.stdout : output.stderr,
+};
+
+/// The tool result of [output]: decoded JSON when the trimmed [scriptText]
+/// starts with `{` or `[` and parses, otherwise the trimmed text. A failing
+/// command's error text is returned, not thrown.
 Object? parseToolOutput(ScriptOutput output, Shell shell) {
-  final text = switch (shell) {
-    Shell.bash =>
-      output.stdout.trim().isNotEmpty ? output.stdout : output.stderr,
-    Shell.powershell => output.exitCode == 0 ? output.stdout : output.stderr,
-  }.trim();
+  final text = scriptText(output, shell).trim();
   if (text.startsWith('{') || text.startsWith('[')) {
     if (_tryDecode(text) case final Object json) return json;
   }
   return text;
 }
 
-/// Parses discovery output as a UTCP manual: the whole output, or else the
-/// first line that is a JSON object with a `tools` list (so log lines around
-/// the manual are tolerated, as in the Python SDK).
+/// A manual read from discovery output, and why any tool in it was skipped.
+typedef DiscoveredManual = ({UtcpManual manual, List<String> skipped});
+
+/// Parses discovery output as the Python SDK does: the whole output as a
+/// UTCP manual, a list of tools or a single tool; otherwise every line that
+/// is a JSON object, where the first manual wins and single tools are
+/// collected. A tool that does not parse is skipped, with the reason in
+/// `skipped`.
 ///
-/// Throws a [FormatException] when no manual is found.
-UtcpManual parseManualOutput(String output) {
-  if (_tryDecode(output.trim()) case final Object json) {
-    return UtcpManual.fromJson(asJsonMap(json, 'Discovery output'));
+/// Throws a [FormatException] when no manual or tool is found, or when every
+/// tool was skipped.
+DiscoveredManual parseManualOutput(String output) {
+  final skipped = <String>[];
+  DiscoveredManual result(UtcpManual manual) {
+    if (manual.tools.isEmpty && skipped.isNotEmpty) {
+      throw FormatException('No valid tools. ${skipped.join(' ')}');
+    }
+    return (manual: manual, skipped: skipped);
   }
+
+  if (_manualOrTools(_tryDecode(output.trim()), skipped) case final manual?) {
+    return result(manual);
+  }
+  final tools = <Tool>[];
   for (final line in const LineSplitter().convert(output)) {
     final text = line.trim();
     if (!text.startsWith('{') || !text.endsWith('}')) continue;
-    if (_tryDecode(text) case final Map<String, Object?> json
-        when json['tools'] is List<Object?>) {
-      return UtcpManual.fromJson(json);
+    switch (_tryDecode(text)) {
+      case {'tools': final List<Object?> list} && final JsonMap json:
+        return result(_manual(json, list, skipped));
+      case final json:
+        tools.addAll(_manualOrTools(json, skipped)?.tools ?? const []);
     }
   }
+  if (tools.isNotEmpty || skipped.isNotEmpty) {
+    return result(UtcpManual(tools: tools));
+  }
   throw const FormatException('Discovery output is not a UTCP manual.');
+}
+
+/// [json] as a manual: an object with a `tools` list, a list of tools, or
+/// one tool (an object with `name` and `description`); null otherwise.
+UtcpManual? _manualOrTools(Object? json, List<String> skipped) =>
+    switch (json) {
+      {'tools': final List<Object?> list} && final JsonMap manual => _manual(
+        manual,
+        list,
+        skipped,
+      ),
+      final List<Object?> list => UtcpManual(tools: _tools(list, skipped)),
+      final JsonMap tool
+          when tool.containsKey('name') && tool.containsKey('description') =>
+        UtcpManual(tools: _tools([tool], skipped)),
+      _ => null,
+    };
+
+UtcpManual _manual(JsonMap json, List<Object?> tools, List<String> skipped) =>
+    UtcpManual(
+      utcpVersion: json.optString('utcp_version') ?? utcpProtocolVersion,
+      manualVersion: json.optString('manual_version') ?? '1.0.0',
+      tools: _tools(tools, skipped),
+    );
+
+List<Tool> _tools(List<Object?> items, List<String> skipped) => [
+  for (final (i, item) in items.indexed)
+    if (_tool(item, i, skipped) case final Tool tool) tool,
+];
+
+Tool? _tool(Object? item, int index, List<String> skipped) {
+  try {
+    return Tool.fromJson(asJsonMap(item, 'Tool $index'));
+  } on FormatException catch (e) {
+    final name = item is Map<String, Object?> && item['name'] is String
+        ? " '${item['name']}'"
+        : '';
+    skipped.add('Skipped tool $index$name: ${e.message}');
+    return null;
+  }
 }
 
 Object? _tryDecode(String text) {
