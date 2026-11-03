@@ -54,6 +54,9 @@ class McpCommunicationProtocol extends CommunicationProtocol {
   final HttpTransport _credentials;
   late final McpTransportFactory _transportFactory;
 
+  /// The client under each HTTP transport [_openTransport] made.
+  final _httpClients = Expando<McpHttpClient>();
+
   /// Live and connecting sessions, keyed by [_sessionKey].
   final _sessions = <String, Future<_Session>>{};
 
@@ -370,28 +373,50 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     );
     final session = _Session(client, transport, server);
     var connected = false;
+    McpHttpServer? legacyFallback;
     try {
       await client.connect(transport).timeout(server.timeout);
       connected = true;
     } on Object catch (e) {
       final failure = _Failure.of(e);
       if (failure == null) rethrow;
-      final command = switch (server) {
-        McpStdioServer(:final command) => " (command '$command')",
-        McpHttpServer() => '',
-      };
-      throw UtcpException(
-        "Could not connect to MCP server '$serverName'$command: "
-        '${_redact(failure.message, server)}',
-      );
+      if (server is McpHttpServer &&
+          server.protocol == McpHttpProtocol.streamableHttp &&
+          (_httpClients[transport]?.rejectedFirstPost ?? false)) {
+        legacyFallback = server.withProtocol(McpHttpProtocol.sse);
+      } else {
+        throw _connectFailure(serverName, server, failure);
+      }
     } finally {
       if (!connected) await session.close();
+    }
+    if (legacyFallback != null) {
+      _log.info(
+        "MCP server '$serverName' rejected streamable HTTP; trying the "
+        'legacy HTTP+SSE transport.',
+      );
+      return _connect(serverName, legacyFallback, auth);
     }
     if (_closed) {
       await session.close();
       throw const UtcpException('The MCP communication protocol is closed.');
     }
     return session;
+  }
+
+  UtcpException _connectFailure(
+    String serverName,
+    McpServerConfig server,
+    _Failure failure,
+  ) {
+    final command = switch (server) {
+      McpStdioServer(:final command) => " (command '$command')",
+      McpHttpServer() => '',
+    };
+    return UtcpException(
+      "Could not connect to MCP server '$serverName'$command: "
+      '${_redact(failure.message, server)}',
+    );
   }
 
   Future<mcp.Transport> _openTransport(
@@ -411,21 +436,30 @@ class McpCommunicationProtocol extends CommunicationProtocol {
           credentials: _credentials,
           ownsConnection: true,
         );
-        // mcp_dart builds its own http.Client(); the zone makes it this one.
-        return http.runWithClient(
-          () => mcp.StreamableHttpClientTransport(
-            Uri.parse(server.url),
-            opts: mcp.StreamableHttpClientTransportOptions(
-              reconnectionOptions: mcp.StreamableHttpReconnectionOptions(
-                initialReconnectionDelay: 1000,
-                maxReconnectionDelay: 30000,
-                reconnectionDelayGrowFactor: 1.5,
-                maxRetries: server.notificationStreamMaxRetries,
+        // mcp_dart builds its own http.Client(), and closes it with the
+        // transport; the zone makes it this one.
+        final transport = http.runWithClient<mcp.Transport>(
+          () => switch (server.protocol) {
+            McpHttpProtocol.streamableHttp => mcp.StreamableHttpClientTransport(
+              Uri.parse(server.url),
+              opts: mcp.StreamableHttpClientTransportOptions(
+                reconnectionOptions: mcp.StreamableHttpReconnectionOptions(
+                  initialReconnectionDelay: 1000,
+                  maxReconnectionDelay: 30000,
+                  reconnectionDelayGrowFactor: 1.5,
+                  maxRetries: server.notificationStreamMaxRetries,
+                ),
               ),
             ),
-          ),
+            // ignore: deprecated_member_use
+            McpHttpProtocol.sse => mcp.SseClientTransport(
+              Uri.parse(server.url),
+            ),
+          },
           () => client,
         );
+        _httpClients[transport] = client;
+        return transport;
     }
   }
 
@@ -618,6 +652,8 @@ final class _Failure {
     http.ClientException(:final message) => _Failure(message, retry: true),
     TimeoutException() => _Failure('$error'),
     mcp.StreamableHttpError(:final message) => _Failure(message),
+    // ignore: deprecated_member_use
+    mcp.SseClientError(:final message) => _Failure(message),
     mcp.UnauthorizedError() || mcp.StaleSessionError() => _Failure('$error'),
     FormatException(:final message) => _Failure(message, keepSession: true),
     _ => null,

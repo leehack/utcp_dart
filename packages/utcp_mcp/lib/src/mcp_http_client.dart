@@ -39,6 +39,11 @@ final class McpHttpClient extends http.BaseClient {
 
   static const _context = 'MCP HTTP transport';
 
+  /// Whether a POST was answered 404 or 405 before any session existed: the
+  /// sign of a legacy HTTP+SSE server, per the MCP specification.
+  bool get rejectedFirstPost => _rejectedFirstPost;
+  var _rejectedFirstPost = false;
+
   /// Headers `mcp_dart` sets that carry no credentials.
   static const _protocolHeaders = {
     'accept',
@@ -71,6 +76,11 @@ final class McpHttpClient extends http.BaseClient {
       context: _context,
       timeout: server.timeout,
     );
+    if (request.method == 'POST' &&
+        !request.headers.keys.any((k) => k.toLowerCase() == 'mcp-session-id') &&
+        (response.statusCode == 404 || response.statusCode == 405)) {
+      _rejectedFirstPost = true;
+    }
     final isEventStream = response.contentType.contains('text/event-stream');
     return http.StreamedResponse(
       _guard(
