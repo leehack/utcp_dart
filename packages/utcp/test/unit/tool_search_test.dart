@@ -115,4 +115,64 @@ void main() {
       expect(await repository.getManualCallTemplates(), isEmpty);
     },
   );
+
+  group('ToolSearchStrategy.registry', () {
+    test('tag_and_description_word_match is the default type', () {
+      final strategy = ToolSearchStrategy.fromJson({'tag_weight': 5});
+      expect(strategy, isA<TagSearchStrategy>());
+      expect(strategy.toJson(), {
+        'tool_search_strategy_type': 'tag_and_description_word_match',
+        'description_weight': 1,
+        'tag_weight': 5,
+      });
+    });
+
+    test('the tag strategy round-trips through toJson', () {
+      const strategy = TagSearchStrategy(descriptionWeight: 2, tagWeight: 4);
+      final again = ToolSearchStrategy.fromJson(strategy.toJson());
+      expect(again.toJson(), strategy.toJson());
+    });
+
+    test('rejects an unknown type', () {
+      expect(
+        () => ToolSearchStrategy.fromJson({
+          'tool_search_strategy_type': 'embeddings',
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('parses a type a plugin registers', () async {
+      ToolSearchStrategy.registry.register(
+        _NameOrderStrategy.type,
+        (_) => const _NameOrderStrategy(),
+      );
+      final strategy = ToolSearchStrategy.fromJson({
+        'tool_search_strategy_type': _NameOrderStrategy.type,
+      });
+      expect(
+        (await strategy.searchTools(repository, 'anything')).map((t) => t.name),
+        ['m.create_note', 'm.get_weather', 'm.list_authors'],
+      );
+    });
+  });
+}
+
+class _NameOrderStrategy implements ToolSearchStrategy {
+  const _NameOrderStrategy();
+
+  static const type = 'name_order_test';
+
+  @override
+  Future<List<Tool>> searchTools(
+    ToolRepository repository,
+    String query, {
+    int limit = 10,
+    List<String>? anyOfTagsRequired,
+  }) async =>
+      (await repository.getTools()).toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+
+  @override
+  JsonMap toJson() => {'tool_search_strategy_type': type};
 }

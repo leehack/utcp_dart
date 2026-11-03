@@ -78,7 +78,7 @@ class SseCallTemplate extends CallTemplate implements HttpRequestTemplate {
     'url': url,
     'event_type': ?eventType,
     'reconnect': reconnect,
-    'retry_timeout': retryTimeout.inMilliseconds,
+    'retry_timeout': durationToMilliseconds(retryTimeout),
     'headers': headers,
     'body_field': ?bodyField,
     'header_fields': headerFields,

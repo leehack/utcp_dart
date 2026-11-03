@@ -42,6 +42,7 @@ class DotEnvVariableLoader extends VariableLoader {
   }
 
   /// The JSON form read by [DotEnvVariableLoader.fromJson].
+  @override
   JsonMap toJson() => {
     'variable_loader_type': type,
     'env_file_path': envFilePath,

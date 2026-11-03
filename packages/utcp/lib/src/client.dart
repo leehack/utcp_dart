@@ -4,7 +4,9 @@ import 'package:logging/logging.dart';
 
 import 'client_config.dart';
 import 'communication_protocol.dart';
+import 'config_file/config_file.dart';
 import 'data/call_template.dart';
+import 'data/call_template_scope.dart';
 import 'data/tool.dart';
 import 'data/utcp_manual.dart';
 import 'exceptions.dart';
@@ -12,6 +14,7 @@ import 'http/http_communication_protocol.dart';
 import 'http/sse_communication_protocol.dart';
 import 'http/streamable_http_communication_protocol.dart';
 import 'json.dart';
+import 'registry.dart';
 import 'text/text_communication_protocol.dart';
 import 'tool_repository.dart';
 import 'variables.dart';
@@ -30,11 +33,23 @@ final Map<String, CommunicationProtocol Function()> _coreProtocols = {
 /// Discovers tools from UTCP manuals and calls them through the matching
 /// communication protocol.
 class UtcpClient {
-  UtcpClient._(this.config, this._substitutor, this._protocols);
+  UtcpClient._(
+    this.config,
+    this._substitutor,
+    this._protocols,
+    this._callTemplates,
+    this.rootDir,
+  );
 
   final UtcpClientConfig config;
   final VariableSubstitutor _substitutor;
   final Map<String, CommunicationProtocol> _protocols;
+  final TypeRegistry<CallTemplate> _callTemplates;
+
+  /// Directory that transports resolve relative paths against, like the
+  /// `root_dir` of the Python and TypeScript clients; the current directory
+  /// when null.
+  final String? rootDir;
 
   /// Manual names whose registration is in flight.
   final _registering = <String>{};
@@ -42,15 +57,30 @@ class UtcpClient {
   /// Creates a client and registers [UtcpClientConfig.manualCallTemplates].
   ///
   /// [protocols] add transports (for example from `utcp_mcp`) or replace a
-  /// core one for the same call template type; their parsers are registered
-  /// in [CallTemplate.registry]. The client closes every protocol it uses in
-  /// [close].
+  /// core one for the same call template type. The client parses call
+  /// templates with their parsers first, then with [CallTemplate.registry];
+  /// a type [CallTemplate.registry] does not know yet is added to it, but a
+  /// parser already there is never replaced, so one client's protocols do
+  /// not change parsing for other clients. The client closes every protocol
+  /// it uses in [close].
   static Future<UtcpClient> create({
     UtcpClientConfig? config,
     List<CommunicationProtocol> protocols = const [],
-  }) async {
-    config ??= UtcpClientConfig();
-    final byType = _register(protocols);
+    String? rootDir,
+  }) => _create(
+    config ?? UtcpClientConfig(),
+    protocols,
+    _callTemplateRegistry(protocols),
+    rootDir,
+  );
+
+  static Future<UtcpClient> _create(
+    UtcpClientConfig config,
+    List<CommunicationProtocol> protocols,
+    TypeRegistry<CallTemplate> callTemplates,
+    String? rootDir,
+  ) async {
+    final byType = _byType(protocols);
     try {
       final substitutor = VariableSubstitutor(
         variables: await VariableSubstitutor(
@@ -60,7 +90,13 @@ class UtcpClient {
         loaders: config.variableLoaders,
         environment: config.environment,
       );
-      final client = UtcpClient._(config, substitutor, byType);
+      final client = UtcpClient._(
+        config,
+        substitutor,
+        byType,
+        callTemplates,
+        rootDir,
+      );
       await client.registerManuals(config.manualCallTemplates);
       return client;
     } on Object {
@@ -69,29 +105,51 @@ class UtcpClient {
     }
   }
 
-  /// Registers [protocols], then parses [config] in the JSON format shared
-  /// with the other UTCP SDKs and creates the client.
+  /// Parses [config] in the JSON format shared with the other UTCP SDKs,
+  /// with the call template parsers of [protocols], and creates the client.
   static Future<UtcpClient> fromJson(
     JsonMap config, {
     List<CommunicationProtocol> protocols = const [],
     List<VariableLoader> variableLoaders = const [],
     Map<String, String>? environment,
+    String? rootDir,
   }) {
-    _registerTypes(protocols);
-    return create(
-      config: UtcpClientConfig.fromJson(
-        config,
-        variableLoaders: variableLoaders,
-        environment: environment,
+    final callTemplates = _callTemplateRegistry(protocols);
+    return _create(
+      withCallTemplateRegistry(
+        callTemplates,
+        () => UtcpClientConfig.fromJson(
+          config,
+          variableLoaders: variableLoaders,
+          environment: environment,
+        ),
       ),
-      protocols: protocols,
+      protocols,
+      callTemplates,
+      rootDir,
     );
   }
 
-  static Map<String, CommunicationProtocol> _register(
+  /// Reads a JSON or YAML configuration file, as
+  /// [UtcpClientConfig.fromFile] does, and creates the client as [fromJson]
+  /// does. Throws an [UnsupportedError] on platforms without `dart:io`.
+  static Future<UtcpClient> fromFile(
+    String path, {
+    List<CommunicationProtocol> protocols = const [],
+    List<VariableLoader> variableLoaders = const [],
+    Map<String, String>? environment,
+    String? rootDir,
+  }) async => fromJson(
+    await readConfigFile(path),
+    protocols: protocols,
+    variableLoaders: variableLoaders,
+    environment: environment,
+    rootDir: rootDir,
+  );
+
+  static Map<String, CommunicationProtocol> _byType(
     List<CommunicationProtocol> protocols,
   ) {
-    _registerTypes(protocols);
     final byType = {
       for (final protocol in protocols)
         for (final type in protocol.callTemplateTypes.keys) type: protocol,
@@ -102,13 +160,18 @@ class UtcpClient {
     return byType;
   }
 
-  static void _registerTypes(List<CommunicationProtocol> protocols) {
+  static TypeRegistry<CallTemplate> _callTemplateRegistry(
+    List<CommunicationProtocol> protocols,
+  ) {
+    final registry = TypeRegistry<CallTemplate>.scoped(CallTemplate.registry);
     for (final protocol in protocols) {
       for (final MapEntry(key: type, value: parse)
           in protocol.callTemplateTypes.entries) {
-        CallTemplate.registry.register(type, parse, override: true);
+        registry.register(type, parse, override: true);
+        CallTemplate.registry.register(type, parse);
       }
     }
+    return registry;
   }
 
   static Future<void> _closeAll(Iterable<CommunicationProtocol> protocols) =>
@@ -122,10 +185,11 @@ class UtcpClient {
 
   /// Discovers and stores the tools of one manual.
   ///
-  /// The manual name is sanitized to `[A-Za-z0-9_]` (a random name is used
-  /// when absent) and every tool name is prefixed with `manual_name.`. Tools
-  /// whose transport the manual does not allow are dropped. Throws if a
-  /// manual with the same name is already registered.
+  /// The manual name (a random one when absent) is sanitized as in Python:
+  /// every character other than a Unicode letter, number or `_` becomes `_`.
+  /// Every tool name is prefixed with `manual_name.`. Tools whose transport
+  /// the manual does not allow are dropped. Throws if a manual with the same
+  /// name is already registered.
   Future<RegisterManualResult> registerManual(
     CallTemplate manualCallTemplate,
   ) async {
@@ -150,12 +214,14 @@ class UtcpClient {
     String name,
   ) async {
     final processed = await substituteCallTemplateVariables(
-      CallTemplate.fromJson({...manualCallTemplate.toJson(), 'name': name}),
+      _callTemplates.parse({...manualCallTemplate.toJson(), 'name': name}),
       name,
     );
-    final result = await _protocolFor(
-      processed.callTemplateType,
-    ).registerManual(this, processed);
+    final protocol = _protocolFor(processed.callTemplateType);
+    final result = await withCallTemplateRegistry(
+      _callTemplates,
+      () => protocol.registerManual(this, processed),
+    );
     if (!result.success) {
       _log.warning(
         "Error registering manual '$name': ${result.errors.join(', ')}",
@@ -312,7 +378,7 @@ class UtcpClient {
   Future<CallTemplate> substituteCallTemplateVariables(
     CallTemplate template, [
     String? namespace,
-  ]) async => CallTemplate.fromJson(
+  ]) async => _callTemplates.parse(
     await _substitutor.substituteMap(template.toJson(), namespace: namespace),
   );
 
@@ -325,7 +391,9 @@ class UtcpClient {
   /// Closes every protocol this client uses.
   Future<void> close() => _closeAll(_protocols.values);
 
-  static String _sanitize(String name) => name.replaceAll(RegExp(r'\W'), '_');
+  static final _nonWord = RegExp(r'[^\p{L}\p{N}_]', unicode: true);
+
+  static String _sanitize(String name) => name.replaceAll(_nonWord, '_');
 
   static String _randomName() {
     final random = Random.secure();

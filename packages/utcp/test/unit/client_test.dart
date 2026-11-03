@@ -32,6 +32,22 @@ void main() {
     ]);
   });
 
+  test(
+    'Unicode letters and numbers survive sanitizing, as in Python',
+    () async {
+      final (client, _) = await clientWith(
+        UtcpManual(tools: [fakeTool('echo', token: r'${TOKEN}')]),
+        variables: {'café__٣_TOKEN': 't'},
+      );
+      const template = FakeCallTemplate(name: 'café-٣', token: r'${TOKEN}');
+      expect(client.getRequiredVariablesForManual(template), ['café__٣_TOKEN']);
+      final result = await client.registerManual(template);
+      expect(result.manualCallTemplate.name, 'café_٣');
+      expect((await client.getTools()).single.name, 'café_٣.echo');
+      expect(await client.callTool('café_٣.echo'), containsPair('token', 't'));
+    },
+  );
+
   test('a manual without a name gets a random one', () async {
     final (client, _) = await clientWith(UtcpManual(tools: [fakeTool('echo')]));
     final result = await client.registerManual(const FakeCallTemplate());
@@ -203,6 +219,86 @@ void main() {
     );
   });
 
+  test('rootDir is kept for transports', () async {
+    final created = await UtcpClient.create(rootDir: '/srv/utcp');
+    final parsed = await UtcpClient.fromJson(const {}, rootDir: '/srv/utcp');
+    final defaulted = await UtcpClient.create();
+    addTearDown(
+      () => Future.wait([created.close(), parsed.close(), defaulted.close()]),
+    );
+    expect(created.rootDir, '/srv/utcp');
+    expect(parsed.rootDir, '/srv/utcp');
+    expect(defaulted.rootDir, isNull);
+  });
+
+  group('call template parsing is scoped to the client', () {
+    test(
+      'a protocol replacing a core type does not change other parsing',
+      () async {
+        final protocol = _OverridingProtocol(HttpCallTemplate.type);
+        final client = await UtcpClient.create(
+          config: UtcpClientConfig(environment: const {}),
+          protocols: [protocol],
+        );
+        addTearDown(client.close);
+        final http = {
+          'name': 'api',
+          'call_template_type': 'http',
+          'url': 'https://api.example.com/utcp',
+        };
+        expect(CallTemplate.fromJson(http), isA<HttpCallTemplate>());
+        expect(
+          await client.substituteCallTemplateVariables(
+            HttpCallTemplate.fromJson(http),
+          ),
+          isA<_TaggedTemplate>(),
+        );
+        // Tools parsed by the transport during discovery use it too.
+        final result = await client.registerManual(
+          const _TaggedTemplate('http', 'm'),
+        );
+        expect(result.success, isTrue);
+        expect(
+          (await client.getTools()).single.toolCallTemplate,
+          isA<_TaggedTemplate>(),
+        );
+        expect(CallTemplate.fromJson(http), isA<HttpCallTemplate>());
+      },
+    );
+
+    test('fromJson parses the config with the client protocols', () async {
+      final client = await UtcpClient.fromJson(
+        const {
+          'manual_call_templates': [
+            {
+              'name': 'm',
+              'call_template_type': 'http',
+              'url': 'https://api.example.com/utcp',
+            },
+          ],
+        },
+        protocols: [_OverridingProtocol(HttpCallTemplate.type)],
+        environment: const {},
+      );
+      addTearDown(client.close);
+      expect(client.config.manualCallTemplates.single, isA<_TaggedTemplate>());
+      expect((await client.getTools()).single.name, 'm.tool');
+    });
+
+    test('a type not yet known is still registered globally', () async {
+      const type = 'scoped_test_new_type';
+      expect(CallTemplate.registry.contains(type), isFalse);
+      final client = await UtcpClient.create(
+        protocols: [_OverridingProtocol(type)],
+      );
+      addTearDown(client.close);
+      expect(
+        CallTemplate.fromJson({'call_template_type': type}),
+        isA<_TaggedTemplate>(),
+      );
+    });
+  });
+
   test('unsupported config sections are rejected', () {
     expect(
       () => UtcpClientConfig.fromJson({
@@ -328,6 +424,57 @@ class _Recorder extends ToolPostProcessor {
     seen.add((tool.name, manualCallTemplate.name));
     return result;
   }
+
+  @override
+  JsonMap fieldsToJson() => const {};
+}
+
+/// Serves [type] with its own template class, and discovers one tool whose
+/// template has that type.
+class _OverridingProtocol extends CommunicationProtocol {
+  _OverridingProtocol(this.type);
+
+  final String type;
+
+  @override
+  Map<String, JsonFactory<CallTemplate>> get callTemplateTypes => {
+    type: (json) => _TaggedTemplate(type, json.optString('name')),
+  };
+
+  @override
+  Future<RegisterManualResult> registerManual(
+    UtcpClient caller,
+    CallTemplate manualCallTemplate,
+  ) async => RegisterManualResult(
+    manualCallTemplate: manualCallTemplate,
+    manual: UtcpManual.fromJson({
+      'tools': [
+        {
+          'name': 'tool',
+          'tool_call_template': {
+            'call_template_type': type,
+            'url': 'https://api.example.com/tool',
+          },
+        },
+      ],
+    }),
+  );
+
+  @override
+  Future<Object?> callTool(
+    UtcpClient caller,
+    String toolName,
+    ToolArguments arguments,
+    CallTemplate toolCallTemplate,
+  ) async => null;
+}
+
+class _TaggedTemplate extends CallTemplate {
+  const _TaggedTemplate(this.callTemplateType, [String? name])
+    : super(name: name);
+
+  @override
+  final String callTemplateType;
 
   @override
   JsonMap fieldsToJson() => const {};

@@ -13,9 +13,9 @@ import 'file_call_template.dart';
 /// Discovery reads the manual template's file as a UTCP manual. A tool call
 /// returns the text of the tool template's file.
 class FileCommunicationProtocol extends CommunicationProtocol {
-  /// Relative file paths resolve against [rootDir], or the current
-  /// directory when it is null, like the client `root_dir` of the Python and
-  /// TypeScript SDKs.
+  /// Relative file paths resolve against [rootDir], else the calling
+  /// client's [UtcpClient.rootDir], else the current directory, like the
+  /// client `root_dir` of the Python and TypeScript SDKs.
   ///
   /// Also registers [DotEnvVariableLoader], so `load_variables_from` entries
   /// of type `dotenv` parse, as the Python SDK does in its core.
@@ -27,8 +27,8 @@ class FileCommunicationProtocol extends CommunicationProtocol {
     DotEnvVariableLoader.register();
   }
 
-  /// Directory relative file paths resolve against; the current directory
-  /// when null.
+  /// Directory relative file paths resolve against, before the client's
+  /// [UtcpClient.rootDir].
   final String? rootDir;
 
   /// Largest file, in bytes, that discovery or a tool call reads; a larger
@@ -51,12 +51,12 @@ class FileCommunicationProtocol extends CommunicationProtocol {
     FileCallTemplate.type: FileCallTemplate.fromJson,
   };
 
-  /// The absolute path [template] refers to.
+  /// The absolute path [template] refers to, for a call from [caller].
   ///
   /// `..` segments are kept for the OS to resolve, so `link/..` is the
   /// parent of the symlink's target, as in Python, not [rootDir].
-  String resolve(FileCallTemplate template) =>
-      p.absolute(rootDir ?? p.current, template.filePath);
+  String resolve(FileCallTemplate template, {UtcpClient? caller}) =>
+      p.absolute(rootDir ?? caller?.rootDir ?? p.current, template.filePath);
 
   @override
   Future<RegisterManualResult> registerManual(
@@ -64,7 +64,7 @@ class FileCommunicationProtocol extends CommunicationProtocol {
     CallTemplate manualCallTemplate,
   ) async {
     final template = requireCallTemplate<FileCallTemplate>(manualCallTemplate);
-    final path = resolve(template);
+    final path = resolve(template, caller: caller);
     RegisterManualResult failure(String error) =>
         RegisterManualResult.failure(template, [error]);
     try {
@@ -112,6 +112,7 @@ class FileCommunicationProtocol extends CommunicationProtocol {
   ) async {
     final path = resolve(
       requireCallTemplate<FileCallTemplate>(toolCallTemplate),
+      caller: caller,
     );
     try {
       return await _read(path);

@@ -54,8 +54,9 @@ to `UtcpClientConfig` directly.
   wrote that call local services. It is a security trade-off: a manual file that someone else can
   edit then reaches every service on the agent's machine, including ones that trust local callers
   without authentication. Leave it off unless every manual file the protocol reads is trusted.
-- Relative paths resolve against `FileCommunicationProtocol(rootDir: ...)`, or the current
-  directory. `..` segments are left to the OS, so `link/..` is the parent of the symlink's target.
+- Relative paths resolve against `FileCommunicationProtocol(rootDir: ...)`, else the client's
+  `rootDir` (`UtcpClient.create(rootDir: ...)`, like `root_dir` in Python and TypeScript), else
+  the current directory. `..` segments are left to the OS, so `link/..` is the parent of the symlink's target.
 - A tool call with a `file` template returns the text of its file.
 - Files over 10 MiB, or that are not UTF-8 text, are not read
   (`FileCommunicationProtocol(maxFileBytes: ...)`); the reference SDKs have no size limit.

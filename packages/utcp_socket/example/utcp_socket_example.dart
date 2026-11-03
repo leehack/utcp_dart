@@ -13,7 +13,7 @@ Future<void> main() async {
       final request = jsonDecode(line) as Map<String, Object?>;
       final response = request['type'] == 'utcp'
           ? {
-              'utcp_version': '1.0.1',
+              'utcp_version': utcpProtocolVersion,
               'tools': [
                 {
                   'name': 'add',
@@ -42,7 +42,7 @@ Future<void> main() async {
     final request = utf8.decode(datagram.data);
     final response = request == '{"type": "utcp"}'
         ? jsonEncode({
-            'utcp_version': '1.0.1',
+            'utcp_version': utcpProtocolVersion,
             'tools': [
               {
                 'name': 'shout',

@@ -10,7 +10,7 @@ Future<void> main() async {
   final dir = await Directory.systemTemp.createTemp('utcp_cli_example_');
   await File('${dir.path}/manual.json').writeAsString(
     jsonEncode({
-      'utcp_version': '1.0.1',
+      'utcp_version': utcpProtocolVersion,
       'tools': [
         {
           'name': 'greet',

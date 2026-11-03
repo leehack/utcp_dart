@@ -1,14 +1,33 @@
 import 'data/tool.dart';
 import 'json.dart';
+import 'registry.dart';
 import 'tool_repository.dart';
 
 abstract interface class ToolSearchStrategy {
+  /// Parsers selected by `tool_search_strategy_type`. Plugins add their own
+  /// with [TypeRegistry.register].
+  static final registry = TypeRegistry<ToolSearchStrategy>(
+    'tool_search_strategy_type',
+    {TagSearchStrategy.strategyType: TagSearchStrategy.fromJson},
+  );
+
+  /// Parses [json] with [registry]; `tool_search_strategy_type` defaults to
+  /// `tag_and_description_word_match`.
+  static ToolSearchStrategy fromJson(JsonMap json) => registry.parse({
+    registry.discriminator: TagSearchStrategy.strategyType,
+    ...json,
+  });
+
   Future<List<Tool>> searchTools(
     ToolRepository repository,
     String query, {
     int limit = 10,
     List<String>? anyOfTagsRequired,
   });
+
+  /// The JSON form, with `tool_search_strategy_type`, that [registry]
+  /// parses back into an equivalent strategy.
+  JsonMap toJson();
 }
 
 /// Ranks tools by matches against their name, tags, and description.
@@ -35,6 +54,13 @@ class TagSearchStrategy implements ToolSearchStrategy {
 
   final double descriptionWeight;
   final double tagWeight;
+
+  @override
+  JsonMap toJson() => {
+    'tool_search_strategy_type': strategyType,
+    'description_weight': descriptionWeight,
+    'tag_weight': tagWeight,
+  };
 
   static final _word = RegExp(r'\w+');
 
