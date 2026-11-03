@@ -1,5 +1,7 @@
 ## Unreleased
 
+- `streamable_http` binary responses are regrouped into `chunk_size`-byte chunks, the last one possibly shorter, as the spec describes. Before, chunks were at most `chunk_size` and followed the network's reads.
+- Docs: tag search follows the TypeScript SDK's scoring and `limit` (0 returns every tool), and `oauth2_user` auth is TypeScript-only.
 - HTTP tool results are parsed as JSON only for `application/json` and `+json` content types, matched case-insensitively; other types (such as `application/x-ndjson`) and invalid JSON are returned as text instead of throwing, as the spec requires.
 - Tool results are no longer parsed as YAML; YAML is read only for discovered manuals (`HttpResult.decodeManual`).
 - OAuth2: `expires_in` sent as a string is accepted, an `access_token` that is not a usable bearer token is rejected before it is cached, and a cached token is dropped when the server answers 401 or 403.

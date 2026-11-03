@@ -108,6 +108,15 @@ Tool arguments are mapped onto the request in this order:
 
 Supported auth types are `api_key` (header, query, or cookie), `basic`, `oauth2` (client
 credentials, with token caching), and `oauth2_user` (a pre-provisioned bearer token).
+`oauth2_user` comes from the TypeScript SDK: the spec and the Python SDK do not define it, so a
+config that uses it does not load in Python.
+
+## Tool search
+
+`searchTools` uses the `tag_and_description_word_match` strategy with the TypeScript SDK's
+scoring, which also matches the tool name and partial words. The spec's search page describes the
+Python SDK's simpler scoring, so the SDKs can rank tools differently. As in TypeScript, a `limit`
+of 0 returns every tool; Python returns none.
 
 ## Streaming transports
 
@@ -122,7 +131,7 @@ HTTP response.
   that are not `text/event-stream` fail at once.
 - `streamable_http` decodes the response by Content-Type: `application/x-ndjson` yields one value
   per line, `application/json` one value for the whole body, anything else `Uint8List` chunks of
-  at most `chunk_size` bytes. `timeout` bounds the whole call, including reading the stream.
+  `chunk_size` bytes, the last one possibly shorter. `timeout` bounds the whole call, including reading the stream.
 
 ## Post-processing
 

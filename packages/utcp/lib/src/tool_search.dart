@@ -13,8 +13,11 @@ abstract interface class ToolSearchStrategy {
 
 /// Ranks tools by matches against their name, tags, and description.
 ///
-/// Scoring follows the reference `tag_and_description_word_match` strategy
-/// so results are consistent with the Python and TypeScript SDKs.
+/// Scoring follows the TypeScript SDK's `tag_and_description_word_match`,
+/// which also scores the tool name and partial words. The spec's search page
+/// describes the Python SDK's version, which scores only whole tag and
+/// description words, so the two SDKs can rank the same tools differently;
+/// Dart matches TypeScript.
 class TagSearchStrategy implements ToolSearchStrategy {
   const TagSearchStrategy({this.descriptionWeight = 1, this.tagWeight = 3});
 
@@ -42,7 +45,8 @@ class TagSearchStrategy implements ToolSearchStrategy {
   static bool _partial(String a, String b) =>
       b.length > 2 && (b.contains(a) || a.contains(b));
 
-  /// A non-positive [limit] returns every tool.
+  /// A non-positive [limit] returns every tool, as in the TypeScript SDK.
+  /// (The Python SDK returns none for 0 and rejects a negative limit.)
   @override
   Future<List<Tool>> searchTools(
     ToolRepository repository,
