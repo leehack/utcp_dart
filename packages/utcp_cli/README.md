@@ -1,5 +1,8 @@
 # utcp_cli
 
+[![pub package](https://img.shields.io/pub/v/utcp_cli.svg)](https://pub.dev/packages/utcp_cli)
+[![CI](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml)
+
 The `cli` transport for the [UTCP](https://github.com/universal-tool-calling-protocol) Dart client
 ([`utcp`](https://pub.dev/packages/utcp)). A manual is discovered by running commands that print a
 UTCP manual, and each tool call runs the tool's commands with its arguments.
@@ -137,3 +140,14 @@ field before the protocol runs (as the Python and TypeScript clients do). Throug
 command referencing `$CMD_0_OUTPUT` or another shell variable therefore needs that variable to be
 defined, or the call fails with `UtcpVariableNotFoundException`. Read shell variables in a way the
 substitutor does not match, for example `"$(printenv NAME)"`.
+
+## Packages
+
+| Package | Transports |
+| --- | --- |
+| [`utcp`](https://pub.dev/packages/utcp) | Core client, `http` (with OpenAPI conversion), `sse`, `streamable_http`, `text` |
+| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio and streamable HTTP) |
+| [`utcp_cli`](https://pub.dev/packages/utcp_cli) | `cli` |
+| [`utcp_file`](https://pub.dev/packages/utcp_file) | `file`, `.env` variable loader |
+| [`utcp_socket`](https://pub.dev/packages/utcp_socket) | `tcp`, `udp` |
+| [`utcp_websocket`](https://pub.dev/packages/utcp_websocket) | `websocket` |

@@ -1,3 +1,7 @@
+## Unreleased
+
+- Docs: package cross-links, badges and platform notes.
+
 ## 0.1.0
 
 - `websocket` transport with string and object message templates, JSON/text/binary responses, and streaming calls.

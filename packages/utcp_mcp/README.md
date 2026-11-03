@@ -1,5 +1,8 @@
 # utcp_mcp
 
+[![pub package](https://img.shields.io/pub/v/utcp_mcp.svg)](https://pub.dev/packages/utcp_mcp)
+[![CI](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml)
+
 The `mcp` transport for the [Dart UTCP client](https://pub.dev/packages/utcp): discover and call
 the tools of [Model Context Protocol](https://modelcontextprotocol.io) servers, over stdio or
 streamable HTTP, through the same `UtcpClient` API as every other UTCP tool. Built on
@@ -117,3 +120,14 @@ configuration you trust. A manual fetched over HTTP cannot smuggle in `mcp` tool
 them unless that manual's call template lists `mcp` in `allowed_communication_protocols`. Even then,
 `McpCallTemplate.endpoints` lists the HTTP server URLs, so a manual from a remote origin cannot
 point an `mcp` tool at a loopback server.
+
+## Packages
+
+| Package | Transports |
+| --- | --- |
+| [`utcp`](https://pub.dev/packages/utcp) | Core client, `http` (with OpenAPI conversion), `sse`, `streamable_http`, `text` |
+| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio and streamable HTTP) |
+| [`utcp_cli`](https://pub.dev/packages/utcp_cli) | `cli` |
+| [`utcp_file`](https://pub.dev/packages/utcp_file) | `file`, `.env` variable loader |
+| [`utcp_socket`](https://pub.dev/packages/utcp_socket) | `tcp`, `udp` |
+| [`utcp_websocket`](https://pub.dev/packages/utcp_websocket) | `websocket` |

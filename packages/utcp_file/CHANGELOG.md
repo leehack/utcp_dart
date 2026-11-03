@@ -1,3 +1,7 @@
+## Unreleased
+
+- Docs: package cross-links, badges and platform notes.
+
 ## 0.1.0
 
 - Initial release: `file` call template and protocol that load UTCP manuals or OpenAPI documents from local JSON or YAML files and return file content from tool calls.

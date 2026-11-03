@@ -1,5 +1,8 @@
 # utcp
 
+[![pub package](https://img.shields.io/pub/v/utcp.svg)](https://pub.dev/packages/utcp)
+[![CI](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml)
+
 A Dart client for the [Universal Tool Calling Protocol (UTCP)](https://github.com/universal-tool-calling-protocol).
 
 UTCP lets an agent call tools directly through their native interfaces. A provider publishes a
@@ -34,6 +37,32 @@ Tool names are prefixed with their manual name (`weather.get_weather`). `Tool.in
 JSON Schema you hand to an LLM as the tool definition.
 
 A runnable end-to-end example against a local server is in `example/utcp_example.dart`.
+
+## Flutter
+
+The core works in Flutter apps on mobile, desktop and web, and has no Flutter dependency. Create the
+client once, for example in `initState` or a provider, and close it in `dispose`:
+
+```dart
+class _ToolsState extends State<Tools> {
+  late final Future<UtcpClient> _client = UtcpClient.create(
+    config: UtcpClientConfig(
+      manualCallTemplates: [
+        HttpCallTemplate(name: 'weather', url: 'https://api.example.com/utcp'),
+      ],
+    ),
+  );
+
+  @override
+  void dispose() {
+    _client.then((client) => client.close());
+    super.dispose();
+  }
+}
+```
+
+`utcp_websocket` also runs on the web. `utcp_mcp`, `utcp_cli`, `utcp_file` and `utcp_socket` need
+`dart:io`: use them on mobile and desktop, not in a browser.
 
 ## Variables
 
@@ -131,11 +160,16 @@ final client = await UtcpClient.create(protocols: [MyProtocol()]);
 
 Custom auth types register with `Auth.registry.register`.
 
-## Status
+## Packages
 
-This package implements the core client, result post-processors, OpenAPI conversion, and the
-`http`, `sse`, `streamable_http` and `text` transports. The `mcp`, `cli`, `file`, `tcp`, `udp` and
-`websocket` transports ship as separate packages in this repository.
+| Package | Transports |
+| --- | --- |
+| [`utcp`](https://pub.dev/packages/utcp) | Core client, `http` (with OpenAPI conversion), `sse`, `streamable_http`, `text` |
+| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio and streamable HTTP) |
+| [`utcp_cli`](https://pub.dev/packages/utcp_cli) | `cli` |
+| [`utcp_file`](https://pub.dev/packages/utcp_file) | `file`, `.env` variable loader |
+| [`utcp_socket`](https://pub.dev/packages/utcp_socket) | `tcp`, `udp` |
+| [`utcp_websocket`](https://pub.dev/packages/utcp_websocket) | `websocket` |
 
 ## License
 

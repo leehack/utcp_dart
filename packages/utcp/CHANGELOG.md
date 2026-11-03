@@ -1,3 +1,7 @@
+## Unreleased
+
+- Docs: package cross-links, badges and platform notes.
+
 ## 0.2.0
 
 - **Breaking:** `UtcpClient.create` takes `protocols` as a list; each protocol declares its `callTemplateTypes`.

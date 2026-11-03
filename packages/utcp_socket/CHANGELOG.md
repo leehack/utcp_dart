@@ -1,3 +1,7 @@
+## Unreleased
+
+- Docs: package cross-links, badges and platform notes.
+
 ## 0.1.0
 
 - `tcp` transport with length-prefix, delimiter, fixed-length and stream framing.

@@ -1,16 +1,15 @@
 name: utcp_socket
 description: >-
-  TCP and UDP transports for the Universal Tool Calling Protocol (UTCP) Dart
-  client. Discover and call tools over raw sockets.
+  TCP and UDP transports for the Dart UTCP client: let LLM agents discover and call tools over raw sockets.
 version: 0.1.0
 repository: https://github.com/leehack/utcp_dart/tree/main/packages/utcp_socket
 issue_tracker: https://github.com/leehack/utcp_dart/issues
 topics:
   - utcp
-  - ai
-  - agents
   - tcp
-  - udp
+  - llm
+  - agents
+  - tool-calling
 
 environment:
   sdk: ^3.8.0

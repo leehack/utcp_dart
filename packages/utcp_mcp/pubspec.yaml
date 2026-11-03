@@ -1,16 +1,15 @@
 name: utcp_mcp
 description: >-
-  Model Context Protocol (MCP) transport for the Dart UTCP client. Discover
-  and call the tools of MCP servers over stdio and streamable HTTP.
+  MCP transport for the Dart UTCP client: let LLM agents discover and call Model Context Protocol server tools over stdio and streamable HTTP.
 version: 0.1.0
 repository: https://github.com/leehack/utcp_dart/tree/main/packages/utcp_mcp
 issue_tracker: https://github.com/leehack/utcp_dart/issues
 topics:
   - utcp
   - mcp
-  - ai
   - llm
-  - tools
+  - agents
+  - tool-calling
 
 environment:
   sdk: ^3.8.0

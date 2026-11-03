@@ -1,3 +1,7 @@
+## Unreleased
+
+- Docs: package cross-links, badges and platform notes.
+
 ## 0.1.0
 
 - Initial release: the `mcp` call template and communication protocol, for MCP servers over stdio and streamable HTTP.
