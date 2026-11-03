@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 import 'package:utcp/utcp.dart';
 import 'package:utcp_cli/utcp_cli.dart';
@@ -137,37 +138,47 @@ void main() {
       expect('$result', contains('/definitely/not/here'));
     });
 
-    Matcher stoppedEarly([String detail = '']) => throwsA(
-      isA<UtcpException>().having(
-        (e) => e.message,
-        'message',
-        allOf(contains('stopped before the script finished'), contains(detail)),
-      ),
-    );
-
-    test('a script syntax error fails with the shell error', () async {
-      await expectLater(
-        call([const CommandStep('echo "unterminated')]),
-        stoppedEarly('unexpected EOF'),
+    test('a script syntax error returns the shell error', () async {
+      expect(
+        await call([const CommandStep('echo "unterminated')]),
+        contains('unexpected EOF'),
       );
     });
 
-    for (final command in [
-      'echo hello; exit 3',
-      'exit 0',
-      'set -e; echo hello; false',
-      'exec echo hello',
+    for (final (command, expected) in [
+      ('echo hello; exit 3', 'hello'),
+      ('exit 0', ''),
+      ('set -e; echo hello; false', 'hello'),
+      ('exec echo hello', 'hello'),
     ]) {
-      test('a command that ends the script fails the call: $command', () async {
-        await expectLater(
-          call([
-            CommandStep(command, appendToFinalOutput: true),
-            const CommandStep('echo world'),
-          ]),
-          stoppedEarly(),
-        );
-      });
+      test(
+        'a command that ends the script returns its output: $command',
+        () async {
+          expect(
+            await call([
+              CommandStep(command, appendToFinalOutput: true),
+              const CommandStep('echo world'),
+            ]),
+            expected,
+          );
+        },
+      );
     }
+
+    test('outputs selected before the ending command are kept', () async {
+      expect(
+        await call([
+          const CommandStep('echo first', appendToFinalOutput: true),
+          const CommandStep('echo skipped', appendToFinalOutput: false),
+          const CommandStep(
+            'echo boom >&2; exit 3',
+            appendToFinalOutput: false,
+          ),
+          const CommandStep('echo never'),
+        ]),
+        'first\nboom',
+      );
+    });
 
     test('output over maxOutputBytes fails the call', () async {
       final small = CliCommunicationProtocol(maxOutputBytes: 1000);
@@ -628,20 +639,19 @@ void main() {
           CliCallTemplate(name: 'm', commands: commands, workingDir: temp.path),
         );
 
+    final hello = {
+      'name': 'hello',
+      'description': 'Says hello',
+      'tool_call_template': {
+        'call_template_type': 'cli',
+        'commands': [
+          {'command': 'echo hello'},
+        ],
+      },
+    };
     final manual = {
       'utcp_version': '1.0.1',
-      'tools': [
-        {
-          'name': 'hello',
-          'description': 'Says hello',
-          'tool_call_template': {
-            'call_template_type': 'cli',
-            'commands': [
-              {'command': 'echo hello'},
-            ],
-          },
-        },
-      ],
+      'tools': [hello],
     };
 
     test('the output is parsed as a manual', () async {
@@ -670,6 +680,44 @@ void main() {
       final result = await register([const CommandStep('true')]);
       expect(result.success, isFalse);
       expect(result.errors.single, contains('No output'));
+    });
+
+    test('a bare list of tools is a manual', () async {
+      await File('${temp.path}/tools.json').writeAsString(jsonEncode([hello]));
+      final result = await register([const CommandStep('cat tools.json')]);
+      expect(result.errors, isEmpty);
+      expect(result.manual.tools.single.name, 'hello');
+    });
+
+    test('a bad tool is skipped, not the whole manual', () async {
+      await File('${temp.path}/manual.json').writeAsString(
+        jsonEncode({
+          ...manual,
+          'tools': [
+            {'name': 'broken'},
+            hello,
+          ],
+        }),
+      );
+      final records = <LogRecord>[];
+      final subscription = Logger.root.onRecord.listen(records.add);
+      addTearDown(subscription.cancel);
+      final result = await register([const CommandStep('cat manual.json')]);
+      expect(result.errors, isEmpty);
+      expect(result.manual.tools.single.name, 'hello');
+      expect(
+        records.map((r) => r.message),
+        contains(allOf(contains("CLI manual 'm'"), contains("'broken'"))),
+      );
+    });
+
+    test('a manual whose discovery command exits still registers', () async {
+      await File('${temp.path}/manual.json').writeAsString(jsonEncode(manual));
+      final result = await register([
+        const CommandStep('cat manual.json; exit 1'),
+      ]);
+      expect(result.errors, isEmpty);
+      expect(result.manual.tools.single.name, 'hello');
     });
 
     test('output that is not a manual is a failure', () async {

@@ -1,3 +1,9 @@
+## Unreleased
+
+- A command that ends a bash script (`exit`, `exec`, `set -e`) no longer fails the call: the outputs selected before it and its own output are returned, as the spec returns a failing script's output. A script syntax error returns the shell's error text.
+- Discovery accepts a bare list of tools, a single tool, or single tools on separate lines, and skips a tool that does not parse (logged on `utcp.cli`) instead of failing the whole manual.
+- Discovery reads stdout unless it is blank, as tool calls do, so a discovery command that exits non-zero after printing its manual still registers.
+
 ## 0.1.1
 
 - Docs: package cross-links, badges and platform notes.

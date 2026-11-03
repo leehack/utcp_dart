@@ -19,30 +19,33 @@ void main() {
 
   group('script end', () {
     const script = ShellScript('', {}, endMarker: '__UTCP_END_n');
+    Future<String> unread() => throw TestFailure('read the capture file');
 
-    test('the end marker is removed', () {
-      expect(
-        requireFinished(output('a\nb\n__UTCP_END_n\n'), script).stdout,
-        'a\nb\n',
+    test('the end marker and anything after it are removed', () async {
+      final finished = await finishedOutput(
+        output('a\nb\n__UTCP_END_n\ntrap output\n'),
+        script,
+        unread,
       );
+      expect(finished.stdout, 'a\nb\n');
     });
 
-    test('a missing end marker fails with the shell error', () {
-      expect(
-        () => requireFinished(output('a\n', 'bash: oops', 3), script),
-        throwsA(
-          isA<UtcpException>().having(
-            (e) => e.message,
-            'message',
-            allOf(contains('exit code 3'), contains('bash: oops')),
-          ),
-        ),
+    test('a missing end marker appends the stopped command output', () async {
+      final finished = await finishedOutput(
+        output('first\n', 'bash: oops', 3),
+        script,
+        () async => 'boom',
       );
+      expect(finished, (
+        stdout: 'first\nboom',
+        stderr: 'bash: oops',
+        exitCode: 3,
+      ));
     });
 
-    test('PowerShell scripts have no end marker', () {
+    test('PowerShell scripts have no end marker', () async {
       final raw = output('a\n');
-      expect(requireFinished(raw, const ShellScript('', {})), raw);
+      expect(await finishedOutput(raw, const ShellScript('', {}), unread), raw);
     });
   });
 
@@ -77,55 +80,97 @@ void main() {
   });
 
   group('discovery output', () {
+    final hello = {
+      'name': 'hello',
+      'tool_call_template': {
+        'call_template_type': 'cli',
+        'commands': [
+          {'command': 'echo hello'},
+        ],
+      },
+    };
     final manual = {
       'utcp_version': '1.0.1',
       'manual_version': '2.0.0',
-      'tools': [
-        {
-          'name': 'hello',
-          'tool_call_template': {
-            'call_template_type': 'cli',
-            'commands': [
-              {'command': 'echo hello'},
-            ],
-          },
-        },
-      ],
+      'tools': [hello],
     };
 
     test('the whole output is a manual', () {
       final parsed = parseManualOutput(
         const JsonEncoder.withIndent('  ').convert(manual),
       );
-      expect(parsed.manualVersion, '2.0.0');
-      expect(parsed.tools.single.name, 'hello');
+      expect(parsed.manual.manualVersion, '2.0.0');
+      expect(parsed.manual.tools.single.name, 'hello');
     });
 
     test('a one-line manual among log lines is found', () {
       final parsed = parseManualOutput(
         'loading...\n{"note": "not a manual"}\n${jsonEncode(manual)}\ndone\n',
       );
-      expect(parsed.tools.single.name, 'hello');
+      expect(parsed.manual.tools.single.name, 'hello');
+    });
+
+    test('a bare list of tools is a manual', () {
+      final parsed = parseManualOutput(jsonEncode([hello]));
+      expect(parsed.manual.tools.single.name, 'hello');
+      expect(parsed.skipped, isEmpty);
+    });
+
+    test('a single tool is a manual', () {
+      final tool = {...hello, 'description': 'Hi'};
+      final parsed = parseManualOutput(jsonEncode(tool));
+      expect(parsed.manual.tools.single.description, 'Hi');
+    });
+
+    test('single tools on separate lines are collected', () {
+      final tool = {...hello, 'description': 'Hi'};
+      final parsed = parseManualOutput(
+        'log\n${jsonEncode(tool)}\n${jsonEncode({...tool, 'name': 'bye'})}\n',
+      );
+      expect(parsed.manual.tools.map((t) => t.name), ['hello', 'bye']);
+    });
+
+    test('a malformed tool is skipped with its reason', () {
+      final parsed = parseManualOutput(
+        jsonEncode({
+          'utcp_version': '1.0.1',
+          'tools': [
+            {'name': 'broken'},
+            hello,
+          ],
+        }),
+      );
+      expect(parsed.manual.tools.single.name, 'hello');
+      expect(parsed.manual.utcpVersion, '1.0.1');
+      expect(parsed.skipped.single, startsWith("Skipped tool 0 'broken':"));
     });
 
     test('output without a manual is rejected', () {
       expect(() => parseManualOutput('hello'), throwsFormatException);
-      expect(() => parseManualOutput('[1, 2]'), throwsFormatException);
       expect(() => parseManualOutput('{"a": 1}'), throwsFormatException);
     });
 
-    test('a manual with a malformed tool is rejected', () {
-      expect(
-        () => parseManualOutput(
-          jsonEncode({
-            'utcp_version': '1.0.1',
-            'tools': [
-              {'name': 'x'},
-            ],
-          }),
-        ),
-        throwsFormatException,
-      );
+    test('a manual whose tools are all malformed is rejected', () {
+      for (final text in [
+        '[1, 2]',
+        jsonEncode({
+          'utcp_version': '1.0.1',
+          'tools': [
+            {'name': 'x'},
+          ],
+        }),
+      ]) {
+        expect(
+          () => parseManualOutput(text),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              startsWith('No valid tools. Skipped tool 0'),
+            ),
+          ),
+        );
+      }
     });
   });
 }

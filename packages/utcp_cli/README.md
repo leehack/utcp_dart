@@ -5,7 +5,9 @@
 
 The `cli` transport for the [UTCP](https://github.com/universal-tool-calling-protocol) Dart client
 ([`utcp`](https://pub.dev/packages/utcp)). A manual is discovered by running commands that print a
-UTCP manual, and each tool call runs the tool's commands with its arguments.
+UTCP manual, and each tool call runs the tool's commands with its arguments. As in the Python SDK,
+the output may also be a list of tools or a single tool, or have one JSON object per line among
+log lines. A tool that does not parse is skipped with a warning on the `utcp.cli` logger.
 
 ## Usage
 
@@ -124,12 +126,12 @@ only, so treat Windows support as experimental.
 ## Differences from the reference SDKs
 
 - The Python and TypeScript SDKs run each bash command in its own subshell, so `exit`, `exec` or
-  `set -e` ends only that command and the script goes on. Here the commands share one shell (so
-  `cd` and variables carry over), and a command that ends it would leave the call without output.
-  Such a call fails instead, with the shell's exit code and error; a script syntax error fails the
-  same way. Return a status with `false` or `(exit 3)` rather than `exit`. A command may install a
-  `trap '…' EXIT`; the call still completes, and the trap's output, printed as the shell exits
-  after the end marker, is discarded.
+  `set -e` ends only that command and the script goes on. Here the commands share one shell, as
+  the spec requires (so `cd` and variables carry over), and such a command ends the script. The
+  call then returns the outputs selected before it, followed by that command's own output, and
+  later commands do not run. A script syntax error returns the shell's error text. A command may
+  install a `trap '…' EXIT`; its output, printed as the shell exits after the script finished, is
+  discarded.
 - Bash placeholders in arithmetic contexts are rejected (see Security), and output is capped by
   `maxOutputBytes`.
 
