@@ -1,15 +1,15 @@
 import 'dart:convert';
-import 'dart:io' show Directory, pid;
 
 import 'package:mcp_dart/mcp_dart.dart';
 
 /// An MCP server with one tool per result shape the transport maps, plus a
 /// resource. [name] is echoed by the `whoami` tool so tests can tell servers
-/// apart, and the `crash` tool runs [onCrash] to drop the connection while a
-/// call is in flight.
+/// apart, along with [whoami], and the `crash` tool runs [onCrash] to drop the
+/// connection while a call is in flight.
 McpServer buildTestServer({
   String name = 'test_server',
   required Future<CallToolResult> Function() onCrash,
+  Map<String, Object?> Function()? whoami,
 }) {
   final server = McpServer(Implementation(name: name, version: '1.0.0'));
   server
@@ -87,12 +87,11 @@ McpServer buildTestServer({
     )
     ..registerTool(
       'whoami',
-      description: 'Returns the server name, process id and directory',
+      description: 'Returns the server name and what identifies its process',
       inputSchema: JsonSchema.object(),
       callback: (args, extra) => CallToolResult.fromStructuredContent({
         'server': name,
-        'pid': pid,
-        'cwd': Directory.current.path,
+        ...?whoami?.call(),
       }),
     )
     ..registerTool(

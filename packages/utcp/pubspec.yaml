@@ -1,7 +1,7 @@
 name: utcp
 description: >-
   LLM tool calling for Dart and Flutter: a UTCP client that calls tools over HTTP, SSE and OpenAPI directly, with no wrapper server.
-version: 0.2.0
+version: 0.2.1
 repository: https://github.com/leehack/utcp_dart/tree/main/packages/utcp
 issue_tracker: https://github.com/leehack/utcp_dart/issues
 topics:

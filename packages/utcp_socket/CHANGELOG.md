@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.1
 
 - Docs: package cross-links, badges and platform notes.
 

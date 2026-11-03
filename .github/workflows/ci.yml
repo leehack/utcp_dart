@@ -34,5 +34,7 @@ jobs:
           sdk: stable
       - run: dart pub get
       - run: dart test
-      - if: matrix.package == 'utcp' || matrix.package == 'utcp_websocket'
+      - if: matrix.package == 'utcp' || matrix.package == 'utcp_mcp' || matrix.package == 'utcp_websocket'
         run: dart test -p chrome test/unit
+      - if: matrix.package == 'utcp_mcp'
+        run: dart test -p chrome test/integration test/e2e

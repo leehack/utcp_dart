@@ -35,6 +35,8 @@ final class LoopbackMcpServer {
       request.response
         ..statusCode = ok ? 200 : 401
         ..headers.contentType = ContentType.json
+        // Browser tests fetch tokens from another origin.
+        ..headers.set('Access-Control-Allow-Origin', '*')
         ..write(jsonEncode(ok ? {'access_token': 'good'} : {'error': 'no'}));
       await request.response.close();
     });

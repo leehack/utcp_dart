@@ -61,8 +61,9 @@ class _ToolsState extends State<Tools> {
 }
 ```
 
-`utcp_websocket` also runs on the web. `utcp_mcp`, `utcp_cli`, `utcp_file` and `utcp_socket` need
-`dart:io`: use them on mobile and desktop, not in a browser.
+`utcp_websocket` also runs on the web, and so does `utcp_mcp` with streamable HTTP servers.
+`utcp_cli`, `utcp_file` and `utcp_socket` need `dart:io`: use them on mobile and desktop, not in a
+browser.
 
 ## LLM tool calling
 

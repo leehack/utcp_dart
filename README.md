@@ -59,7 +59,7 @@ LLM tool-calling loop ([`claude_tool_use.dart`](packages/utcp/example/claude_too
 | --- | --- | --- |
 | `utcp` | Yes | Yes |
 | `utcp_websocket` | Yes | Yes (no handshake headers) |
-| `utcp_mcp` | Yes | Streamable HTTP only (coming) |
+| `utcp_mcp` | Yes | Streamable HTTP servers (stdio needs a native platform) |
 | `utcp_cli` | Yes | No: browsers cannot spawn processes |
 | `utcp_socket` | Yes | No: browsers cannot open raw sockets |
 | `utcp_file` | Yes | No: browsers cannot read files by path |

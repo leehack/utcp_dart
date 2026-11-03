@@ -1,7 +1,7 @@
 name: utcp_websocket
 description: >-
   WebSocket transport for the Dart UTCP client: let LLM agents discover and call tools over ws:// and wss://, on every platform.
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/leehack/utcp_dart/tree/main/packages/utcp_websocket
 issue_tracker: https://github.com/leehack/utcp_dart/issues
 topics:
