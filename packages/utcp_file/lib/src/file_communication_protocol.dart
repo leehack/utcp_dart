@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 import 'package:utcp/utcp.dart';
@@ -14,9 +15,18 @@ class FileCommunicationProtocol extends CommunicationProtocol {
   /// Relative file paths resolve against [rootDir], or the current
   /// directory when it is null, like the client `root_dir` of the Python and
   /// TypeScript SDKs.
-  FileCommunicationProtocol({this.rootDir});
+  FileCommunicationProtocol({
+    this.rootDir,
+    this.maxFileBytes = 10 * 1024 * 1024,
+  });
 
+  /// Directory relative file paths resolve against; the current directory
+  /// when null.
   final String? rootDir;
+
+  /// Largest file, in bytes, that discovery or a tool call reads; a larger
+  /// file fails. The reference SDKs have no limit.
+  final int maxFileBytes;
 
   @override
   Map<String, JsonFactory<CallTemplate>> get callTemplateTypes => const {
@@ -24,8 +34,11 @@ class FileCommunicationProtocol extends CommunicationProtocol {
   };
 
   /// The absolute path [template] refers to.
+  ///
+  /// `..` segments are kept for the OS to resolve, so `link/..` is the
+  /// parent of the symlink's target, as in Python, not [rootDir].
   String resolve(FileCallTemplate template) =>
-      p.normalize(p.absolute(rootDir ?? p.current, template.filePath));
+      p.absolute(rootDir ?? p.current, template.filePath);
 
   @override
   Future<RegisterManualResult> registerManual(
@@ -39,22 +52,27 @@ class FileCommunicationProtocol extends CommunicationProtocol {
     try {
       final file = File(path);
       if (!await file.exists()) return failure('Manual file not found: $path');
-      final content = await file.readAsString();
+      final content = await _read(path);
       final json = asJsonMap(switch (p.extension(path).toLowerCase()) {
         '.yaml' || '.yml' => decodeYaml(content),
         _ => jsonDecode(content),
       }, 'Manual file');
-      return RegisterManualResult(
-        manualCallTemplate: template,
-        manual: OpenApiConverter.isOpenApi(json)
-            ? OpenApiConverter(
-                json,
-                specUrl: Uri.file(path),
-                callTemplateName: template.name,
-                authTools: template.authTools,
-              ).convert()
-            : UtcpManual.fromJson(json),
-      );
+      // As in the Python SDK, a file counts as a remote origin: neither an
+      // OpenAPI document nor a UTCP manual in it may point tools at loopback.
+      final source = Uri.file(path);
+      final UtcpManual manual;
+      if (OpenApiConverter.isOpenApi(json)) {
+        manual = OpenApiConverter(
+          json,
+          specUrl: source,
+          callTemplateName: template.name,
+          authTools: template.authTools,
+        ).convert();
+      } else {
+        manual = UtcpManual.fromJson(json);
+        rejectRemoteLoopbackToolUrls(source, manual, 'manual discovery');
+      }
+      return RegisterManualResult(manualCallTemplate: template, manual: manual);
     } on FormatException catch (e) {
       return failure("Invalid manual file '$path': ${e.message}");
     } on UtcpException catch (e) {
@@ -76,11 +94,30 @@ class FileCommunicationProtocol extends CommunicationProtocol {
       requireCallTemplate<FileCallTemplate>(toolCallTemplate),
     );
     try {
-      return await File(path).readAsString();
+      return await _read(path);
     } on FileSystemException catch (e) {
       throw UtcpException(
         "Could not read file '$path' for tool '$toolName': ${e.message}",
       );
+    }
+  }
+
+  /// The UTF-8 text of the file at [path], read only up to [maxFileBytes].
+  Future<String> _read(String path) async {
+    final bytes = BytesBuilder(copy: false);
+    await for (final chunk in File(path).openRead(0, maxFileBytes + 1)) {
+      bytes.add(chunk);
+    }
+    if (bytes.length > maxFileBytes) {
+      throw FileSystemException(
+        'File is larger than the limit of $maxFileBytes bytes',
+        path,
+      );
+    }
+    try {
+      return utf8.decode(bytes.takeBytes());
+    } on FormatException {
+      throw FileSystemException('File is not valid UTF-8 text', path);
     }
   }
 }

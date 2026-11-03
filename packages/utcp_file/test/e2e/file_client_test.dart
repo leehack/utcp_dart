@@ -68,6 +68,36 @@ local_README=README.txt # inline comment
     ]);
   });
 
+  test('OpenAPI tools register only when http is allowed', () async {
+    await File('${temp.path}/openapi.json').writeAsString('''
+{
+  "openapi": "3.0.0",
+  "servers": [{"url": "https://pets.example.com"}],
+  "paths": {"/pets": {"get": {"operationId": "listPets"}}}
+}
+''');
+    Future<List<String>> tools(List<String>? allowed) async {
+      final client = await UtcpClient.fromJson(
+        {
+          'manual_call_templates': [
+            {
+              'name': 'pets',
+              'call_template_type': 'file',
+              'file_path': 'openapi.json',
+              'allowed_communication_protocols': ?allowed,
+            },
+          ],
+        },
+        protocols: [FileCommunicationProtocol(rootDir: temp.path)],
+      );
+      addTearDown(client.close);
+      return [for (final tool in await client.getTools()) tool.name];
+    }
+
+    expect(await tools(null), isEmpty);
+    expect(await tools(['file', 'http']), ['pets.listPets']);
+  });
+
   test('a failed file manual leaves the client usable', () async {
     final client = await UtcpClient.fromJson(
       {

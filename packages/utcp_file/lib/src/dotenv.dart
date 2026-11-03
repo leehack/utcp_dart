@@ -8,11 +8,14 @@ import 'package:utcp/utcp.dart';
 /// The file is read on every lookup, so edits are picked up, and a missing
 /// file defines nothing. See [parseDotEnv] for the format.
 class DotEnvVariableLoader extends VariableLoader {
+  /// A loader for the file at [envFilePath].
   DotEnvVariableLoader(this.envFilePath, {this.environment});
 
+  /// Reads a loader from its JSON form (`env_file_path`).
   factory DotEnvVariableLoader.fromJson(JsonMap json) =>
       DotEnvVariableLoader(json.string('env_file_path'));
 
+  /// The `variable_loader_type` of this loader.
   static const type = 'dotenv';
 
   /// Registers [DotEnvVariableLoader.fromJson] in [VariableLoader.registry],
@@ -38,6 +41,7 @@ class DotEnvVariableLoader extends VariableLoader {
     )[key];
   }
 
+  /// The JSON form read by [DotEnvVariableLoader.fromJson].
   JsonMap toJson() => {
     'variable_loader_type': type,
     'env_file_path': envFilePath,

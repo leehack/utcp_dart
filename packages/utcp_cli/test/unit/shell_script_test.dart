@@ -119,6 +119,118 @@ void main() {
       );
     });
 
+    test(r'code inside $(...) and backticks resets the quoting', () {
+      expect(
+        substitute(r'echo "n: $(cat UTCP_ARG_v_UTCP_END)"', {'v': 'x'}).$1,
+        'echo "n: \$(cat "\$$v")"',
+      );
+      expect(
+        substitute('echo "n: `cat UTCP_ARG_v_UTCP_END`"', {'v': 'x'}).$1,
+        'echo "n: `cat "\$$v"`"',
+      );
+      expect(
+        substitute(
+          r'''echo "$(printf '%s' 'UTCP_ARG_v_UTCP_END')"''',
+          {'v': 'x'},
+        ).$1,
+        'echo "\$(printf \'%s\' \'\'"\$$v"\'\')"',
+      );
+      expect(
+        substitute(
+          r'echo "$(echo "UTCP_ARG_v_UTCP_END")" UTCP_ARG_v_UTCP_END',
+          {'v': 'x'},
+        ).$1,
+        'echo "\$(echo "\${$v}")" "\$$v"',
+      );
+    });
+
+    test('a quote inside a comment does not change the quoting', () {
+      expect(
+        substitute("echo hi # don't\nprintf '%s' UTCP_ARG_v_UTCP_END", {
+          'v': 'x',
+        }).$1,
+        "echo hi # don't\nprintf '%s' \"\$$v\"",
+      );
+      expect(
+        substitute('echo a#b UTCP_ARG_v_UTCP_END', {'v': 'x'}).$1,
+        'echo a#b "\$$v"',
+      );
+    });
+
+    test(r"placeholders inside $'...' resume ANSI-C quoting", () {
+      expect(
+        substitute(r"echo $'a\' UTCP_ARG_v_UTCP_END'", {'v': 'x'}).$1,
+        'echo \$\'a\\\' \'"\$$v"\$\'\'',
+      );
+    });
+
+    group('arithmetic contexts are rejected:', () {
+      for (final command in [
+        r'echo $((UTCP_ARG_v_UTCP_END + 1))',
+        r'echo "$(( UTCP_ARG_v_UTCP_END ))"',
+        '(( UTCP_ARG_v_UTCP_END > 3 ))',
+        'for ((i = 0; i < UTCP_ARG_v_UTCP_END; i++)); do :; done',
+        r'echo $[UTCP_ARG_v_UTCP_END]',
+        r'echo ${x:UTCP_ARG_v_UTCP_END}',
+        r'echo "${a[UTCP_ARG_v_UTCP_END]}"',
+        'a[UTCP_ARG_v_UTCP_END]=1',
+        '[[ UTCP_ARG_v_UTCP_END -gt 3 ]]',
+        'if [[ "UTCP_ARG_v_UTCP_END" -eq 3 ]]; then echo y; fi',
+        '[[ x == y || UTCP_ARG_v_UTCP_END -le 3 ]]',
+        'let n=UTCP_ARG_v_UTCP_END',
+        'if true; then let "n = UTCP_ARG_v_UTCP_END"; fi',
+        'declare -i n=UTCP_ARG_v_UTCP_END',
+        'local -ri n=UTCP_ARG_v_UTCP_END',
+        r'echo $(( $(echo UTCP_ARG_v_UTCP_END) ))',
+        r'let n=$(echo UTCP_ARG_v_UTCP_END)',
+        "(( 'UTCP_ARG_v_UTCP_END' ))",
+      ]) {
+        test(command, () {
+          expect(
+            () => substitute(command, {'v': '1'}),
+            throwsA(
+              isA<UtcpException>().having(
+                (e) => e.message,
+                'message',
+                allOf(contains('UTCP_ARG_v_UTCP_END'), contains('run code')),
+              ),
+            ),
+          );
+        });
+      }
+    });
+
+    test('other contexts are allowed', () {
+      for (final command in [
+        '[ UTCP_ARG_v_UTCP_END -gt 3 ]',
+        'test UTCP_ARG_v_UTCP_END -eq 3',
+        '[[ UTCP_ARG_v_UTCP_END == 3 ]]',
+        r'[[ -n "UTCP_ARG_v_UTCP_END" ]] && echo $((1 + 2))',
+        r'echo $((1 + 2)) UTCP_ARG_v_UTCP_END',
+        'export N=UTCP_ARG_v_UTCP_END',
+        'local n=UTCP_ARG_v_UTCP_END',
+        'let n=1; echo UTCP_ARG_v_UTCP_END',
+        'echo let UTCP_ARG_v_UTCP_END',
+        'echo "a[UTCP_ARG_v_UTCP_END]"',
+        r'echo "${HOME}/UTCP_ARG_v_UTCP_END"',
+      ]) {
+        expect(substitute(command, {'v': '1'}).$2, {v: '1'}, reason: command);
+      }
+    });
+
+    test('a NUL character in an argument is rejected', () {
+      expect(
+        () => substitute('printf %s UTCP_ARG_v_UTCP_END', {'v': 'a\u0000b'}),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains("'v'"), contains('NUL')),
+          ),
+        ),
+      );
+    });
+
     test('a missing argument is an error', () {
       expect(
         () => substitute('echo UTCP_ARG_v_UTCP_END', {}),
@@ -189,7 +301,9 @@ void main() {
         expect(lines.where((l) => l.startsWith('printf')), [
           r'''printf '%s\n' "${CMD_1_OUTPUT}"''',
           r'''printf '%s\n' "${CMD_3_OUTPUT}"''',
+          r"printf '%s\n' __UTCP_END_abc123",
         ]);
+        expect(script.endMarker, '__UTCP_END_abc123');
       },
     );
 
@@ -203,6 +317,7 @@ void main() {
       );
       expect(script.source.split('\n').where((l) => l.startsWith('printf')), [
         r'''printf '%s\n' "${CMD_1_OUTPUT}"''',
+        r"printf '%s\n' __UTCP_END_abc123",
       ]);
     });
 
@@ -222,6 +337,7 @@ void main() {
         r'Write-Output $CMD_1_OUTPUT',
         r'Write-Output $CMD_3_OUTPUT',
       ]);
+      expect(script.endMarker, isNull);
     });
 
     test('bash needs a capture file', () {

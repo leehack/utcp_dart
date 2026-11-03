@@ -96,6 +96,14 @@ void main() {
       ),
       ('a non-string working_dir', <String, Object?>{'working_dir': 1}),
       (
+        'a blank command',
+        <String, Object?>{
+          'commands': [
+            {'command': ' \n'},
+          ],
+        },
+      ),
+      (
         'auth',
         <String, Object?>{
           'auth': {'auth_type': 'basic', 'username': 'u', 'password': 'p'},
@@ -111,7 +119,12 @@ void main() {
     }
   });
 
-  test('an empty command list is a programming error', () {
+  test('an empty command list or a blank command is a programming error', () {
     expect(() => CliCallTemplate(commands: const []), throwsArgumentError);
+    expect(
+      () =>
+          CliCallTemplate(commands: const [CommandStep('ls'), CommandStep('')]),
+      throwsArgumentError,
+    );
   });
 }

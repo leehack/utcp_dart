@@ -118,16 +118,6 @@ void main() {
       expect(await call([const CommandStep("printf '%s' -n")]), '-n');
     });
 
-    test('an empty command is allowed', () async {
-      expect(
-        await call([
-          const CommandStep(''),
-          const CommandStep(r'echo "<$CMD_0_OUTPUT>"'),
-        ]),
-        '<>',
-      );
-    });
-
     test('JSON output is decoded', () async {
       expect(
         await call([
@@ -147,10 +137,69 @@ void main() {
       expect('$result', contains('/definitely/not/here'));
     });
 
-    test('a script syntax error returns the shell error', () async {
-      expect(
-        '${await call([const CommandStep('echo "unterminated')])}',
-        contains('unexpected EOF'),
+    Matcher stoppedEarly([String detail = '']) => throwsA(
+      isA<UtcpException>().having(
+        (e) => e.message,
+        'message',
+        allOf(contains('stopped before the script finished'), contains(detail)),
+      ),
+    );
+
+    test('a script syntax error fails with the shell error', () async {
+      await expectLater(
+        call([const CommandStep('echo "unterminated')]),
+        stoppedEarly('unexpected EOF'),
+      );
+    });
+
+    for (final command in [
+      'echo hello; exit 3',
+      'exit 0',
+      'set -e; echo hello; false',
+      'exec echo hello',
+    ]) {
+      test('a command that ends the script fails the call: $command', () async {
+        await expectLater(
+          call([
+            CommandStep(command, appendToFinalOutput: true),
+            const CommandStep('echo world'),
+          ]),
+          stoppedEarly(),
+        );
+      });
+    }
+
+    test('output over maxOutputBytes fails the call', () async {
+      final small = CliCommunicationProtocol(maxOutputBytes: 1000);
+      addTearDown(small.close);
+      Future<Object?> printBytes(int bytes) => small.callTool(
+        client,
+        'test.tool',
+        const {},
+        CliCallTemplate(
+          commands: [CommandStep("head -c $bytes /dev/zero | tr '\\0' a")],
+        ),
+      );
+      expect(await printBytes(900), 'a' * 900);
+      await expectLater(
+        printBytes(5000),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains('more than 1000 bytes'),
+          ),
+        ),
+      );
+    });
+
+    test('a NUL character in an argument fails the call', () async {
+      await expectLater(
+        call(
+          [const CommandStep('printf %s UTCP_ARG_v_UTCP_END')],
+          arguments: {'v': 'a\u0000b'},
+        ),
+        throwsA(isA<UtcpException>()),
       );
     });
 
@@ -227,6 +276,61 @@ void main() {
         ),
         [value, 'a-$value-b'],
       );
+    });
+
+    test(r'an argument inside "$(...)" or backticks is one word', () async {
+      final script = File('test/support/print_args.dart').absolute.path;
+      const value = 'a  b *';
+      final program = "'${Platform.resolvedExecutable}' '$script'";
+      for (final command in [
+        'echo "\$($program UTCP_ARG_v_UTCP_END)"',
+        'echo "`$program UTCP_ARG_v_UTCP_END`"',
+      ]) {
+        expect(
+          await call(
+            [CommandStep(command)],
+            arguments: {'v': value},
+            workingDir: temp.path,
+          ),
+          [value],
+          reason: command,
+        );
+      }
+    });
+
+    test(r'a glob argument inside "$(...)" reads no other file', () async {
+      await File('${temp.path}/secret.txt').writeAsString('SECRET');
+      final result = await call(
+        [const CommandStep(r'echo "content: $(cat UTCP_ARG_f_UTCP_END)"')],
+        arguments: {'f': '*'},
+        workingDir: temp.path,
+      );
+      expect('$result', isNot(contains('SECRET')));
+      expect('$result', contains('*'));
+    });
+
+    test('an argument in an arithmetic context is rejected, not run', () async {
+      const payload = r'a[$(touch "$CANARY")]';
+      for (final command in [
+        'if [[ UTCP_ARG_n_UTCP_END -gt 3 ]]; then echo big; fi',
+        r'echo $(( UTCP_ARG_n_UTCP_END + 1 ))',
+      ]) {
+        await expectLater(
+          call(
+            [CommandStep(command)],
+            arguments: {'n': payload},
+            envVars: {'CANARY': canary().path},
+          ),
+          throwsA(isA<UtcpException>()),
+          reason: command,
+        );
+      }
+      // `[ ]` accepts only integer literals, so it is the safe comparison.
+      expect(
+        '${await call([const CommandStep('[ UTCP_ARG_n_UTCP_END -gt 3 ] && echo big')], arguments: {'n': payload}, envVars: {'CANARY': canary().path})}',
+        contains('integer expression expected'),
+      );
+      expect(canary().existsSync(), isFalse);
     });
 
     test('a glob argument is not expanded', () async {
@@ -417,7 +521,12 @@ void main() {
 
     test('cancelling a streaming call kills the process tree', () async {
       final pidFile = File('${temp.path}/pid');
-      final subscription = protocol
+      // A timeout far beyond the test's own, so only the cancel can stop it.
+      final patient = CliCommunicationProtocol(
+        callTimeout: const Duration(minutes: 10),
+      );
+      addTearDown(patient.close);
+      final subscription = patient
           .callToolStreaming(
             client,
             'test.slow',
@@ -427,7 +536,7 @@ void main() {
           .listen((_) => fail('No result expected'));
       final pid = await readPid(pidFile);
       expect(await isAlive(pid), isTrue);
-      await subscription.cancel();
+      await subscription.cancel().timeout(seconds(5));
       expect(await diesWithin(pid), isTrue);
     });
 

@@ -2,12 +2,23 @@ import 'package:utcp/utcp.dart';
 
 /// One command of a [CliCallTemplate].
 class CommandStep {
+  /// A step running [command]; see [appendToFinalOutput] for its output.
   const CommandStep(this.command, {this.appendToFinalOutput});
 
-  factory CommandStep.fromJson(JsonMap json) => CommandStep(
-    json.string('command'),
-    appendToFinalOutput: json.optBool('append_to_final_output'),
-  );
+  /// Reads a step from its JSON form (`command`, `append_to_final_output`).
+  ///
+  /// Throws a [FormatException] when a field has the wrong type or the
+  /// command is blank.
+  factory CommandStep.fromJson(JsonMap json) {
+    final command = json.string('command');
+    if (command.trim().isEmpty) {
+      throw const FormatException("Field 'command' must not be blank.");
+    }
+    return CommandStep(
+      command,
+      appendToFinalOutput: json.optBool('append_to_final_output'),
+    );
+  }
 
   /// Shell command text. `UTCP_ARG_<name>_UTCP_END` placeholders take the
   /// tool argument `<name>`; `$CMD_<i>_OUTPUT` holds the output of command
@@ -18,6 +29,7 @@ class CommandStep {
   /// the last command's output is.
   final bool? appendToFinalOutput;
 
+  /// The JSON form read by [CommandStep.fromJson].
   JsonMap toJson() => {
     'command': command,
     'append_to_final_output': ?appendToFinalOutput,
@@ -29,8 +41,14 @@ class CommandStep {
 ///
 /// Tool arguments never become script text: each placeholder is replaced by
 /// a reference to a per-call environment variable that carries the value, so
-/// an argument cannot inject shell syntax.
+/// an argument cannot inject shell syntax. Bash still evaluates a value used
+/// as a number as code, so a placeholder in an arithmetic context is
+/// rejected; see the package README for the contexts to avoid.
 class CliCallTemplate extends CallTemplate {
+  /// A template running [commands] in order.
+  ///
+  /// Throws an [ArgumentError] when [commands] is empty or a command is
+  /// blank.
   CliCallTemplate({
     super.name,
     required this.commands,
@@ -42,8 +60,19 @@ class CliCallTemplate extends CallTemplate {
     if (commands.isEmpty) {
       throw ArgumentError.value(commands, 'commands', 'Must not be empty');
     }
+    if (commands.any((step) => step.command.trim().isEmpty)) {
+      throw ArgumentError.value(
+        commands,
+        'commands',
+        'Must not contain a blank command',
+      );
+    }
   }
 
+  /// Reads a template from its JSON form.
+  ///
+  /// Throws a [FormatException] when a field is malformed, `commands` is
+  /// empty or a command is blank, or `auth` is set.
   factory CliCallTemplate.fromJson(JsonMap json) {
     if (json['auth'] != null) {
       throw const FormatException('cli call templates do not support auth.');
@@ -65,8 +94,10 @@ class CliCallTemplate extends CallTemplate {
     );
   }
 
+  /// The `call_template_type` of CLI templates.
   static const type = 'cli';
 
+  /// Commands run in order in one shell; never empty.
   final List<CommandStep> commands;
 
   /// Variables set for the commands, on top of the inherited ones.

@@ -17,6 +17,35 @@ void main() {
   ScriptOutput output(String stdout, [String stderr = '', int exitCode = 0]) =>
       (stdout: stdout, stderr: stderr, exitCode: exitCode);
 
+  group('script end', () {
+    const script = ShellScript('', {}, endMarker: '__UTCP_END_n');
+
+    test('the end marker is removed', () {
+      expect(
+        requireFinished(output('a\nb\n__UTCP_END_n\n'), script).stdout,
+        'a\nb\n',
+      );
+    });
+
+    test('a missing end marker fails with the shell error', () {
+      expect(
+        () => requireFinished(output('a\n', 'bash: oops', 3), script),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('exit code 3'), contains('bash: oops')),
+          ),
+        ),
+      );
+    });
+
+    test('PowerShell scripts have no end marker', () {
+      final raw = output('a\n');
+      expect(requireFinished(raw, const ShellScript('', {})), raw);
+    });
+  });
+
   group('tool output', () {
     test('text is trimmed', () {
       expect(parseToolOutput(output('  hello\n\n'), Shell.bash), 'hello');

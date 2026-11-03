@@ -2,6 +2,7 @@ import 'package:utcp/utcp.dart';
 
 /// A UTCP manual, or a tool's content, in a local JSON or YAML file.
 class FileCallTemplate extends CallTemplate {
+  /// A template for the file at [filePath].
   const FileCallTemplate({
     super.name,
     required this.filePath,
@@ -9,6 +10,9 @@ class FileCallTemplate extends CallTemplate {
     super.allowedCommunicationProtocols,
   });
 
+  /// Reads a template from its JSON form.
+  ///
+  /// Throws a [FormatException] when a field is malformed or `auth` is set.
   factory FileCallTemplate.fromJson(JsonMap json) {
     if (json['auth'] != null) {
       throw const FormatException('file call templates do not support auth.');
@@ -21,6 +25,7 @@ class FileCallTemplate extends CallTemplate {
     );
   }
 
+  /// The `call_template_type` of file templates.
   static const type = 'file';
 
   /// Absolute, or relative to the protocol's root directory. Files ending

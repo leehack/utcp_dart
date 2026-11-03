@@ -140,6 +140,10 @@ tools:
 openapi: 3.0.0
 info: {title: Pets}
 servers: [{url: https://pets.example.com/v1}]
+components:
+  securitySchemes:
+    key: {type: apiKey, in: header, name: X-Api-Key}
+security: [{key: []}]
 paths:
   /pets/{id}:
     get:
@@ -161,6 +165,12 @@ paths:
       final template = tool.toolCallTemplate as HttpCallTemplate;
       expect(template.url, 'https://pets.example.com/v1/pets/{id}');
       expect(tool.inputs.required, ['id']);
+      expect(
+        template.auth,
+        isA<ApiKeyAuth>()
+            .having((a) => a.apiKey, 'apiKey', 'k')
+            .having((a) => a.varName, 'varName', 'X-Api-Key'),
+      );
     });
 
     test('may not point tools at loopback', () async {
@@ -181,6 +191,95 @@ paths:
       final result = await register('local.json');
       expect(result.success, isFalse);
       expect(result.errors.single, contains('loopback'));
+    });
+  });
+
+  group('UTCP manuals', () {
+    Map<String, Object?> httpManual(String url) => {
+      'tools': [
+        {
+          'name': 'x',
+          'tool_call_template': {'call_template_type': 'http', 'url': url},
+        },
+      ],
+    };
+
+    test('may not point tools at loopback', () async {
+      await write('local.json', jsonEncode(httpManual('http://127.0.0.1/x')));
+      final result = await register('local.json');
+      expect(result.success, isFalse);
+      expect(result.errors.single, contains('loopback'));
+    });
+
+    test('may point tools at a remote host', () async {
+      await write('remote.json', jsonEncode(httpManual('https://a.example/x')));
+      expect((await register('remote.json')).errors, isEmpty);
+    });
+  });
+
+  group('paths', () {
+    test('.. after a symlink is resolved by the OS', () async {
+      // temp/link -> temp/real/sub, so link/.. is temp/real, not temp.
+      await Directory('${temp.path}/real/sub').create(recursive: true);
+      await Link('${temp.path}/link').create('${temp.path}/real/sub');
+      await write('real/manual.json', jsonEncode(manual));
+      await write('manual.json', '{"tools": []}');
+      final result = await register('link/../manual.json');
+      expect(result.errors, isEmpty);
+      expect(result.manual.tools, hasLength(2));
+    }, testOn: 'posix');
+
+    test('a file over maxFileBytes is not read', () async {
+      await write('big.txt', 'x' * 101);
+      final small = FileCommunicationProtocol(
+        rootDir: temp.path,
+        maxFileBytes: 100,
+      );
+      await write('ok.txt', 'x' * 100);
+      expect(
+        await small.callTool(
+          client,
+          'local.ok',
+          const {},
+          const FileCallTemplate(filePath: 'ok.txt'),
+        ),
+        'x' * 100,
+      );
+      await expectLater(
+        small.callTool(
+          client,
+          'local.big',
+          const {},
+          const FileCallTemplate(filePath: 'big.txt'),
+        ),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains('larger than the limit of 100 bytes'),
+          ),
+        ),
+      );
+      await write('big.json', '{"tools": []}${' ' * 100}');
+      final result = await small.registerManual(
+        client,
+        const FileCallTemplate(filePath: 'big.json'),
+      );
+      expect(result.success, isFalse);
+      expect(result.errors.single, contains('larger than the limit'));
+    });
+
+    test('a file that is not UTF-8 fails the call', () async {
+      await File('${temp.path}/bin').writeAsBytes([0xff, 0xfe, 0x00]);
+      await expectLater(
+        protocol.callTool(
+          client,
+          'local.bin',
+          const {},
+          const FileCallTemplate(filePath: 'bin'),
+        ),
+        throwsA(isA<UtcpException>()),
+      );
     });
   });
 

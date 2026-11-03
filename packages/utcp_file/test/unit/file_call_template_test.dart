@@ -48,10 +48,11 @@ void main() {
   });
 
   test('relative paths resolve against the root directory', () {
+    // `..` is left to the OS, which resolves it after following symlinks.
     const template = FileCallTemplate(filePath: 'a/../manual.json');
     expect(
       FileCommunicationProtocol(rootDir: '/srv/tools').resolve(template),
-      '/srv/tools/manual.json',
+      '/srv/tools/a/../manual.json',
     );
     expect(
       FileCommunicationProtocol(

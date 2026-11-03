@@ -7,6 +7,31 @@ import 'shell_script.dart';
 /// What a finished shell process wrote and returned.
 typedef ScriptOutput = ({String stdout, String stderr, int exitCode});
 
+/// [output] with the [ShellScript.endMarker] line removed from stdout.
+///
+/// Throws a [UtcpException] when the marker is missing: the script stopped
+/// before its end, so the selected outputs were never printed. The shell's
+/// own stderr (command stderr is captured separately) says why.
+ScriptOutput requireFinished(ScriptOutput output, ShellScript script) {
+  final marker = script.endMarker;
+  if (marker == null) return output;
+  final line = '$marker\n';
+  if (output.stdout.endsWith(line)) {
+    return (
+      stdout: output.stdout.substring(0, output.stdout.length - line.length),
+      stderr: output.stderr,
+      exitCode: output.exitCode,
+    );
+  }
+  final detail = output.stderr.trim();
+  throw UtcpException(
+    'CLI commands stopped before the script finished (exit code '
+    '${output.exitCode}): a command ran `exit` or `exec`, `set -e` stopped '
+    'the script, or it has a syntax error.'
+    '${detail.isEmpty ? '' : ' Shell error: $detail'}',
+  );
+}
+
 /// The tool result of [output]: decoded JSON when the trimmed text starts
 /// with `{` or `[` and parses, otherwise the trimmed text.
 ///

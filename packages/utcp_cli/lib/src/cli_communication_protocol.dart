@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:utcp/utcp.dart';
 
@@ -16,12 +17,16 @@ import 'shell_script.dart';
 /// a UTCP manual. A tool call runs the tool template's commands with the
 /// arguments and returns the output, decoded as JSON when it is JSON.
 ///
-/// A script that outlives its timeout, a cancelled [callToolStreaming]
-/// subscription, and [close] kill the shell and every process it started.
+/// A script that outlives its timeout or writes more than [maxOutputBytes],
+/// a cancelled [callToolStreaming] subscription, and [close] kill the shell
+/// and every process it started. A bash script that a command ends early
+/// (`exit`, `exec`, `set -e`) fails the call.
 class CliCommunicationProtocol extends CommunicationProtocol {
+  /// Creates a protocol with the given limits for each script run.
   CliCommunicationProtocol({
     this.discoveryTimeout = const Duration(seconds: 60),
     this.callTimeout = const Duration(seconds: 120),
+    this.maxOutputBytes = 10 * 1024 * 1024,
   });
 
   /// Limit for discovery commands; the reference SDKs use 60 seconds.
@@ -29,6 +34,11 @@ class CliCommunicationProtocol extends CommunicationProtocol {
 
   /// Limit for tool calls; the reference SDKs use 120 seconds.
   final Duration callTimeout;
+
+  /// Limit on the bytes a script may write to stdout and stderr together;
+  /// a script that writes more is killed and the call fails. The reference
+  /// SDKs have no limit.
+  final int maxOutputBytes;
 
   final _runs = <_Run>{};
   bool _closed = false;
@@ -152,7 +162,7 @@ class CliCommunicationProtocol extends CommunicationProtocol {
         captureFile: '${captureDir.path}${Platform.pathSeparator}output',
       );
       final process = await _start(shell, script, template);
-      return await _wait(run, process, timeout);
+      return requireFinished(await _wait(run, process, timeout), script);
     } on FileSystemException catch (e) {
       throw UtcpException('Could not create the CLI output file: ${e.message}');
     } finally {
@@ -197,10 +207,23 @@ class CliCommunicationProtocol extends CommunicationProtocol {
     Duration timeout,
   ) async {
     process.stdin.close().ignore();
-    const decoder = Utf8Decoder(allowMalformed: true);
+    var budget = maxOutputBytes;
+    Future<String> read(Stream<List<int>> stream) async {
+      final bytes = BytesBuilder(copy: false);
+      await for (final chunk in stream) {
+        budget -= chunk.length;
+        if (budget < 0) {
+          run.abort('wrote more than $maxOutputBytes bytes of output');
+          break;
+        }
+        bytes.add(chunk);
+      }
+      return const Utf8Decoder(allowMalformed: true).convert(bytes.takeBytes());
+    }
+
     final finished = Future.wait([
-      process.stdout.transform(decoder).join(),
-      process.stderr.transform(decoder).join(),
+      read(process.stdout),
+      read(process.stderr),
       process.exitCode,
     ]);
     final timer = Timer(
@@ -209,11 +232,13 @@ class CliCommunicationProtocol extends CommunicationProtocol {
     );
     try {
       final outcome = await Future.any<Object>([finished, run.aborted]);
+      // An abort can race a finishing script; its reason wins, so output
+      // cut short by the limit is never returned as a result.
       if (outcome case [
         final String stdout,
         final String stderr,
         final int exitCode,
-      ]) {
+      ] when run.reason == null) {
         return (stdout: stdout, stderr: stderr, exitCode: exitCode);
       }
       await killProcessTree(process);
@@ -223,7 +248,7 @@ class CliCommunicationProtocol extends CommunicationProtocol {
         const Duration(seconds: 5),
         onTimeout: () => const [],
       );
-      throw UtcpException('CLI command $outcome.');
+      throw UtcpException('CLI command ${run.reason}.');
     } finally {
       timer.cancel();
     }
@@ -235,14 +260,21 @@ final class _Run {
   final _aborted = Completer<String>();
   final _finished = Completer<void>();
 
+  String? _reason;
+
+  /// Why the run was aborted, or null while it was not.
+  String? get reason => _reason;
+
   /// Completes with the reason when the run is aborted.
   Future<String> get aborted => _aborted.future;
 
   /// Completes when the run, and any process it started, has ended.
   Future<void> get finished => _finished.future;
 
-  void abort(String reason) {
-    if (!_aborted.isCompleted) _aborted.complete(reason);
+  void abort(String why) {
+    if (_aborted.isCompleted) return;
+    _reason = why;
+    _aborted.complete(why);
   }
 
   void complete() {
