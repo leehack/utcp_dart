@@ -3,6 +3,7 @@ import '../http/sse_call_template.dart';
 import '../http/streamable_http_call_template.dart';
 import '../json.dart';
 import '../registry.dart';
+import '../text/text_call_template.dart';
 import 'auth.dart';
 
 /// Describes how to reach a manual or a tool through one transport.
@@ -21,6 +22,7 @@ abstract class CallTemplate {
     HttpCallTemplate.type: HttpCallTemplate.fromJson,
     SseCallTemplate.type: SseCallTemplate.fromJson,
     StreamableHttpCallTemplate.type: StreamableHttpCallTemplate.fromJson,
+    TextCallTemplate.type: TextCallTemplate.fromJson,
   });
 
   static CallTemplate fromJson(JsonMap json) => registry.parse(json);

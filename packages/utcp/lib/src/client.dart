@@ -12,6 +12,7 @@ import 'http/http_communication_protocol.dart';
 import 'http/sse_communication_protocol.dart';
 import 'http/streamable_http_communication_protocol.dart';
 import 'json.dart';
+import 'text/text_communication_protocol.dart';
 import 'tool_repository.dart';
 import 'variables.dart';
 
@@ -23,6 +24,7 @@ final Map<String, CommunicationProtocol Function()> _coreProtocols = {
   'http': HttpCommunicationProtocol.new,
   'sse': SseCommunicationProtocol.new,
   'streamable_http': StreamableHttpCommunicationProtocol.new,
+  'text': TextCommunicationProtocol.new,
 };
 
 /// Discovers tools from UTCP manuals and calls them through the matching

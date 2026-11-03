@@ -10,6 +10,7 @@ import '../json.dart';
 import '../registry.dart';
 import 'http_call_template.dart';
 import 'http_transport.dart';
+import 'openapi_converter.dart';
 import 'security.dart';
 
 final _log = Logger('utcp.http');
@@ -68,7 +69,7 @@ class HttpCommunicationProtocol extends CommunicationProtocol {
       );
       return RegisterManualResult(
         manualCallTemplate: template,
-        manual: _manualFrom(document, response.url),
+        manual: _manualFrom(document, response.url, template),
       );
     } on Exception catch (e) {
       _log.warning("Discovery from '${template.name}' failed: $e");
@@ -78,23 +79,31 @@ class HttpCommunicationProtocol extends CommunicationProtocol {
     }
   }
 
-  UtcpManual _manualFrom(JsonMap document, Uri source) {
+  /// [source] is the URL after redirects: it decides whether the document
+  /// is local or remote, and relative OpenAPI URLs resolve against it.
+  UtcpManual _manualFrom(
+    JsonMap document,
+    Uri source,
+    HttpCallTemplate template,
+  ) {
+    final UtcpManual manual;
     if (UtcpManual.isManual(document)) {
-      final manual = UtcpManual.fromJson(document);
-      rejectRemoteLoopbackToolUrls(source, manual, 'manual discovery');
-      return manual;
-    }
-    if (document.containsKey('openapi') ||
-        document.containsKey('swagger') ||
-        document.containsKey('paths')) {
-      throw const UtcpException(
-        'OpenAPI specifications are not supported yet; serve a UTCP manual '
-        'instead.',
+      manual = UtcpManual.fromJson(document);
+    } else if (OpenApiConverter.isOpenApi(document)) {
+      manual = OpenApiConverter(
+        document,
+        specUrl: source,
+        callTemplateName: template.name,
+        authTools: template.authTools,
+        headers: template.headers,
+      ).convert();
+    } else {
+      throw const FormatException(
+        'Response is neither a UTCP manual nor an OpenAPI specification.',
       );
     }
-    throw const FormatException(
-      'Response is neither a UTCP manual nor an OpenAPI specification.',
-    );
+    rejectRemoteLoopbackToolUrls(source, manual, 'manual discovery');
+    return manual;
   }
 
   @override
