@@ -22,8 +22,8 @@ class Tool {
     return Tool(
       name: name,
       description: json.optString('description') ?? '',
-      inputs: JsonSchema(json.optObject('inputs') ?? const {}),
-      outputs: JsonSchema(json.optObject('outputs') ?? const {}),
+      inputs: JsonSchema.fromJson(json.optObject('inputs') ?? const {}),
+      outputs: JsonSchema.fromJson(json.optObject('outputs') ?? const {}),
       tags: json.optStringList('tags') ?? const [],
       averageResponseSize: json.optInt('average_response_size'),
       toolCallTemplate: CallTemplate.fromJson(

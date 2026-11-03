@@ -85,13 +85,7 @@ const EXPECTED_DIFFS = [
 // Documents from another SDK, re-serialized by Dart, that TypeScript cannot
 // parse: { source SDK: { seed id: reason } }. `accept` fails when one of
 // them starts parsing.
-const ACCEPT_EXCLUDED = {
-  python: {
-    'manual/http_tools':
-      'Python writes every JSON Schema keyword it models, unset ones as null ("$schema": null, ...); TypeScript rejects the nulls, and Dart keeps tool schemas as received.',
-    'manual/minimal_tool': 'Python writes unset JSON Schema keywords as null; see manual/http_tools.',
-  },
-};
+const ACCEPT_EXCLUDED = {};
 
 const SERIALIZERS = {
   call_template: sdk.CallTemplateSerializer,
