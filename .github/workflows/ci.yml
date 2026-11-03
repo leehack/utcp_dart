@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [utcp]
+        package: [utcp, utcp_mcp]
     defaults:
       run:
         working-directory: packages/${{ matrix.package }}

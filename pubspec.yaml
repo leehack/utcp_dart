@@ -6,6 +6,7 @@ environment:
 
 workspace:
   - packages/utcp
+  - packages/utcp_mcp
 
 dev_dependencies:
   lints: ^6.0.0
