@@ -184,6 +184,15 @@ void main() {
         r'echo $(( $(echo UTCP_ARG_v_UTCP_END) ))',
         r'let n=$(echo UTCP_ARG_v_UTCP_END)',
         "(( 'UTCP_ARG_v_UTCP_END' ))",
+        // `let`/`declare -i` inside a `{ }` group or a function body, and
+        // behind wrapper words or a `\` escape, are detected too.
+        '{ let n=UTCP_ARG_v_UTCP_END; }',
+        'f() { local -i n=UTCP_ARG_v_UTCP_END; }; f',
+        'if true; then { declare -i y=UTCP_ARG_v_UTCP_END; }; fi',
+        'builtin declare -i n=UTCP_ARG_v_UTCP_END',
+        r'\declare -i n=UTCP_ARG_v_UTCP_END',
+        'command let n=UTCP_ARG_v_UTCP_END',
+        'time let n=UTCP_ARG_v_UTCP_END',
       ]) {
         test(command, () {
           expect(
@@ -213,9 +222,108 @@ void main() {
         'echo let UTCP_ARG_v_UTCP_END',
         'echo "a[UTCP_ARG_v_UTCP_END]"',
         r'echo "${HOME}/UTCP_ARG_v_UTCP_END"',
+        'case UTCP_ARG_v_UTCP_END in a) :;; esac',
+        '{ echo UTCP_ARG_v_UTCP_END; }',
+        'cat <<EOF\nUTCP_ARG_v_UTCP_END\nEOF',
       ]) {
         expect(substitute(command, {'v': '1'}).$2, {v: '1'}, reason: command);
       }
+    });
+
+    group('heredocs keep the quoting in sync:', () {
+      test('a body does not desync quoting for a later placeholder', () {
+        expect(
+          substitute('cat <<EOF\nsay "hi\nEOF\ncat UTCP_ARG_v_UTCP_END', {
+            'v': 'x',
+          }).$1,
+          endsWith('cat "\$$v"'),
+        );
+      });
+
+      test('an unquoted body expands a placeholder with a braced variable', () {
+        expect(
+          substitute('cat <<EOF\nUTCP_ARG_v_UTCP_END\nEOF', {'v': 'x'}).$1,
+          'cat <<EOF\n\${$v}\nEOF',
+        );
+      });
+
+      test('a placeholder in a quoted-delimiter body is rejected', () {
+        for (final command in [
+          "cat <<'EOF'\nUTCP_ARG_v_UTCP_END\nEOF",
+          'cat <<"EOF"\nUTCP_ARG_v_UTCP_END\nEOF',
+          'cat <<\\EOF\nUTCP_ARG_v_UTCP_END\nEOF',
+        ]) {
+          expect(
+            () => substitute(command, {'v': 'x'}),
+            throwsA(
+              isA<UtcpException>().having(
+                (e) => e.message,
+                'message',
+                contains('heredoc'),
+              ),
+            ),
+            reason: command,
+          );
+        }
+      });
+
+      test('`<<-` strips leading tabs from the terminator', () {
+        expect(
+          substitute('\tcat <<-EOF\n\tUTCP_ARG_v_UTCP_END\n\tEOF', {
+            'v': 'x',
+          }).$1,
+          '\tcat <<-EOF\n\t\${$v}\n\tEOF',
+        );
+      });
+    });
+
+    test('a case statement in a command substitution is rejected', () {
+      for (final command in [
+        'echo "\$(case y in y) echo UTCP_ARG_v_UTCP_END;; esac)"',
+        'echo "`case y in y) echo UTCP_ARG_v_UTCP_END;; esac`"',
+      ]) {
+        expect(
+          () => substitute(command, {'v': 'x'}),
+          throwsA(
+            isA<UtcpException>().having(
+              (e) => e.message,
+              'message',
+              allOf(contains('UTCP_ARG_v_UTCP_END'), contains('case')),
+            ),
+          ),
+          reason: command,
+        );
+      }
+    });
+
+    group('the argument value is checked independently of the scanner:', () {
+      test('`[` next to a command substitution is rejected', () {
+        for (final value in [r'x[$(id)]', 'a[`id`]b']) {
+          expect(
+            () => substitute('echo UTCP_ARG_v_UTCP_END', {'v': value}),
+            throwsA(
+              isA<UtcpException>().having(
+                (e) => e.message,
+                'message',
+                allOf(contains("'v'"), contains('subscript')),
+              ),
+            ),
+            reason: value,
+          );
+        }
+      });
+
+      test('a JSON array value still passes', () {
+        expect(substitute('echo UTCP_ARG_v_UTCP_END', {'v': '[1,2]'}).$2, {
+          v: '[1,2]',
+        });
+        expect(
+          substitute('echo UTCP_ARG_v_UTCP_END', {
+            'v': [1, 2],
+          }).$2,
+          {v: '[1,2]'},
+        );
+      });
     });
 
     test('a NUL character in an argument is rejected', () {

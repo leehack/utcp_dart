@@ -311,9 +311,13 @@ void main() {
 
     test('an argument in an arithmetic context is rejected, not run', () async {
       const payload = r'a[$(touch "$CANARY")]';
+      // The exploit value carries an array subscript with a command
+      // substitution, so it is refused in any context: the arithmetic ones
+      // by the scanner and `[ ]` by the value check.
       for (final command in [
         'if [[ UTCP_ARG_n_UTCP_END -gt 3 ]]; then echo big; fi',
         r'echo $(( UTCP_ARG_n_UTCP_END + 1 ))',
+        '[ UTCP_ARG_n_UTCP_END -gt 3 ] && echo big',
       ]) {
         await expectLater(
           call(
@@ -325,12 +329,13 @@ void main() {
           reason: command,
         );
       }
-      // `[ ]` accepts only integer literals, so it is the safe comparison.
+      expect(canary().existsSync(), isFalse);
+      // `[ ]` accepts only integer literals, so a non-integer value is a safe
+      // error rather than evaluated arithmetic.
       expect(
-        '${await call([const CommandStep('[ UTCP_ARG_n_UTCP_END -gt 3 ] && echo big')], arguments: {'n': payload}, envVars: {'CANARY': canary().path})}',
+        '${await call([const CommandStep('[ UTCP_ARG_n_UTCP_END -gt 3 ] && echo big')], arguments: {'n': 'notanumber'})}',
         contains('integer expression expected'),
       );
-      expect(canary().existsSync(), isFalse);
     });
 
     test('a glob argument is not expanded', () async {
@@ -342,6 +347,119 @@ void main() {
           workingDir: temp.path,
         ),
         '*',
+      );
+    });
+  });
+
+  group('scanner bypasses', () {
+    File canary() => File('${temp.path}/pwned');
+
+    test(
+      'a heredoc body does not desync quoting for a later placeholder',
+      () async {
+        await File('${temp.path}/secret.txt').writeAsString('SECRET');
+        expect(
+          await call(
+            [
+              const CommandStep(
+                'cat <<EOF\nsay "hi\nEOF\nprintf \'<%s>\' '
+                'UTCP_ARG_v_UTCP_END',
+              ),
+            ],
+            arguments: {'v': 'a  b *'},
+            workingDir: temp.path,
+          ),
+          'say "hi\n<a  b *>',
+        );
+      },
+    );
+
+    test(
+      'a case in a command substitution is rejected before running',
+      () async {
+        final canaryFile = canary();
+        await expectLater(
+          call(
+            [
+              const CommandStep(
+                'printf %s "\$(case x in x) printf %s '
+                'UTCP_ARG_v_UTCP_END;; esac)"',
+              ),
+            ],
+            arguments: {'v': r'$(touch "$CANARY")'},
+            envVars: {'CANARY': canaryFile.path},
+          ),
+          throwsA(
+            isA<UtcpException>().having(
+              (e) => e.message,
+              'message',
+              contains('case'),
+            ),
+          ),
+        );
+        expect(canaryFile.existsSync(), isFalse);
+      },
+    );
+
+    test(
+      'an integer declaration in a group or function body is rejected',
+      () async {
+        final canaryFile = canary();
+        for (final command in [
+          '{ declare -i n=UTCP_ARG_v_UTCP_END; }',
+          'f() { local -i n=UTCP_ARG_v_UTCP_END; }; f',
+          'builtin declare -i n=UTCP_ARG_v_UTCP_END',
+          'command let n=UTCP_ARG_v_UTCP_END',
+        ]) {
+          await expectLater(
+            call(
+              [CommandStep(command)],
+              arguments: {'v': r'a[$(touch "$CANARY")]'},
+              envVars: {'CANARY': canaryFile.path},
+            ),
+            throwsA(isA<UtcpException>()),
+            reason: command,
+          );
+        }
+        expect(canaryFile.existsSync(), isFalse);
+      },
+    );
+
+    test('a value with `[` and a command substitution is rejected', () async {
+      final canaryFile = canary();
+      await expectLater(
+        call(
+          [const CommandStep('echo UTCP_ARG_v_UTCP_END')],
+          arguments: {'v': r'x[$(touch "$CANARY")]'},
+          envVars: {'CANARY': canaryFile.path},
+        ),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains("'v'"), contains('subscript')),
+          ),
+        ),
+      );
+      expect(canaryFile.existsSync(), isFalse);
+    });
+
+    test('a JSON array value still passes', () async {
+      expect(
+        await call(
+          [const CommandStep('printf %s UTCP_ARG_v_UTCP_END')],
+          arguments: {
+            'v': [1, 2, 3],
+          },
+        ),
+        [1, 2, 3],
+      );
+    });
+
+    test('a trap on EXIT does not fail the call', () async {
+      expect(
+        await call([const CommandStep("trap 'echo trap-ran' EXIT; echo hi")]),
+        'hi',
       );
     });
   });
