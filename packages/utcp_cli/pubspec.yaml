@@ -1,0 +1,25 @@
+name: utcp_cli
+description: >-
+  CLI transport for the Universal Tool Calling Protocol (UTCP) Dart client.
+  Discover and call tools that run as local command-line programs.
+version: 0.1.0
+repository: https://github.com/leehack/utcp_dart/tree/main/packages/utcp_cli
+issue_tracker: https://github.com/leehack/utcp_dart/issues
+topics:
+  - utcp
+  - ai
+  - llm
+  - agents
+  - cli
+
+environment:
+  sdk: ^3.8.0
+
+resolution: workspace
+
+dependencies:
+  utcp: ^0.2.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.0
