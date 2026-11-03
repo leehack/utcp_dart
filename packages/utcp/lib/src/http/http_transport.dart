@@ -372,22 +372,23 @@ final class HttpTransport {
     context,
   );
 
-  /// Sends [request] and returns once the headers of a successful response
-  /// arrive within [timeout]; the body is left to the caller.
+  /// Sends [request] and returns once the response headers arrive within
+  /// [timeout]; the body is left to the caller.
   ///
-  /// An error status is read within the same [timeout] and thrown as a
-  /// [UtcpHttpException] naming [errorContext]. Completing [abortTrigger]
+  /// With an [errorContext], an error status is read within the same
+  /// [timeout] and thrown as a [UtcpHttpException] naming it; without one,
+  /// error responses are returned like any other. Completing [abortTrigger]
   /// cancels the request, or ends the body of a response already returned.
   Future<HttpStreamedResult> open(
     HttpRequestSpec request, {
     required String context,
     required Duration timeout,
-    required String errorContext,
+    String? errorContext,
     Future<void>? abortTrigger,
   }) => _withTimeout(
     (abort) async {
       final response = await _follow(request, context, abort);
-      await response.ensureSuccess(errorContext);
+      if (errorContext != null) await response.ensureSuccess(errorContext);
       return response;
     },
     timeout,
