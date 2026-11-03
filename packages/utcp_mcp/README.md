@@ -59,12 +59,12 @@ WebSocket MCP servers are not supported.
 
 | Field | Servers | Default | Meaning |
 | --- | --- | --- | --- |
-| `command`, `args` | stdio | `args: []` | Process to start. |
+| `command`, `args` | stdio | `args: []` | Process to start. `command` may be an array; its first element is the command and the rest go before `args`. |
 | `env` | stdio | `{}` | Added to this process's environment. |
 | `cwd` | stdio | inherited | Working directory. |
 | `url` | http | | Streamable HTTP endpoint, or the event stream URL of an `sse` server. |
 | `headers` | http | `{}` | Sent with every request. |
-| `auth_token` | http | | Sent as `Authorization: Bearer <token>`. |
+| `auth_token` | http | | Sent as `Authorization: Bearer <token>`. A string `auth`, as MCP hosts write it, is read the same way. An `auth` object (interactive OAuth) is rejected. |
 | `timeout` | both | `30` | Seconds allowed to connect and for each request. |
 | `sse_read_timeout` | http | `300` | Longest silence tolerated on an event stream, in seconds. |
 | `terminate_on_close` | http | `true` | End the server session (HTTP `DELETE`) on close. |
@@ -75,16 +75,22 @@ that carry no `auth_token` or `Authorization` header of their own. OAuth2 tokens
 credential configuration and refreshed when they expire.
 
 With `register_resources_as_tools: true`, each MCP resource is also registered as a tool named
-`resource_<name>` that returns the resource's `contents`.
+`resource_<name>` that returns the resource's `contents`. When resources share a name, or a tool
+of the server already has that name, each of those resources is named `resource_<name>_<n>`
+instead, numbered from 1 in URI order, so every name reads one resource and tools keep theirs.
 
 ## Behavior
 
 - Tools are named `manual.server.tool`, so tools of different servers never collide.
+- Local `$ref`s in tool input and output schemas are inlined, as in the TypeScript SDK, and the
+  root `$defs` dropped. A cyclic, remote or unresolvable reference stays in place along with
+  `$defs`, and a schema that would expand past 10,000 nodes is kept as the server sent it.
 - A result's `structuredContent` is returned as is (a FastMCP `{"result": value}` wrapper around a
   non-object value is removed). Otherwise text content is parsed as JSON, then as a number, and
   returned as a string if neither applies; other content items are returned as their JSON. One item
   is returned on its own, several as a list. As in the Python and TypeScript SDKs, an `isError`
-  result is returned the same way rather than thrown. JSON-RPC errors throw a `UtcpException`.
+  result is returned the same way rather than thrown. A JSON-RPC error from the server throws an
+  `McpRpcException`, a `UtcpException` whose `code` is the error code.
 - One session per server, configuration and credentials is opened on first use and reused. A session
   whose connection drops is replaced. Listing tools or resources and reading a resource are retried
   once on a fresh session when the connection fails, as in the Python SDK. A tool call is retried

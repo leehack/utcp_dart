@@ -4,7 +4,8 @@ import 'package:utcp/utcp.dart';
 ///
 /// Tools are registered as `manual_name.server_name.tool_name`. With
 /// [registerResourcesAsTools], each resource is also registered as a
-/// `manual_name.server_name.resource_<name>` tool that reads it.
+/// `manual_name.server_name.resource_<name>` tool that reads it, numbered
+/// `resource_<name>_<n>` when that name is not unique on the server.
 class McpCallTemplate extends CallTemplate {
   const McpCallTemplate({
     super.name,
@@ -92,7 +93,7 @@ sealed class McpServerConfig {
           ),
         };
     return switch (transport) {
-      McpStdioServer.transport => McpStdioServer.fromJson(json),
+      McpStdioServer.transport => McpStdioServer.fromJson(json, name),
       'sse' => McpHttpServer.fromJson(json, name, McpHttpProtocol.sse),
       _ when _streamableHttp.contains(transport) => McpHttpServer.fromJson(
         json,
@@ -128,13 +129,32 @@ class McpStdioServer extends McpServerConfig {
     super.timeout = const Duration(seconds: 30),
   });
 
-  factory McpStdioServer.fromJson(JsonMap json) => McpStdioServer(
-    command: json.string('command'),
-    args: json.optStringList('args') ?? const [],
-    env: json.optStringMap('env') ?? const {},
-    cwd: json.optString('cwd'),
-    timeout: _seconds(json, 'timeout', 30),
-  );
+  /// `command` may be an array, as in the UTCP security guide: its first
+  /// element is the command and the rest go before `args`.
+  factory McpStdioServer.fromJson(JsonMap json, [String name = 'server']) {
+    if (json.containsKey('auth')) {
+      throw FormatException(
+        "MCP server '$name' is a stdio server and cannot take 'auth'. "
+        "Pass its credentials in 'env'.",
+      );
+    }
+    final words = json['command'] is List<Object?>
+        ? json.optStringList('command')!
+        : [json.string('command')];
+    if (words.isEmpty) {
+      throw FormatException(
+        "Field 'command' of MCP server '$name' must not be an empty array.",
+      );
+    }
+    final [command, ...prefix] = words;
+    return McpStdioServer(
+      command: command,
+      args: [...prefix, ...?json.optStringList('args')],
+      env: json.optStringMap('env') ?? const {},
+      cwd: json.optString('cwd'),
+      timeout: _seconds(json, 'timeout', 30),
+    );
+  }
 
   static const transport = 'stdio';
 
@@ -209,12 +229,34 @@ class McpHttpServer extends McpServerConfig {
       url: url,
       protocol: protocol,
       headers: json.optStringMap('headers') ?? const {},
-      authToken: json.optString('auth_token'),
+      authToken: _authToken(json, name),
       timeout: _seconds(json, 'timeout', 30),
       sseReadTimeout: _seconds(json, 'sse_read_timeout', 300),
       terminateOnClose: json.optBool('terminate_on_close') ?? true,
       notificationStreamMaxRetries: retries,
     );
+  }
+
+  /// MCP host configuration files (and mcp-use, under the Python SDK) give
+  /// a bearer token as a string `auth`. An `auth` object there configures an
+  /// interactive OAuth flow, which is not supported.
+  static String? _authToken(JsonMap json, String name) {
+    final token = json.optString('auth_token');
+    switch (json['auth']) {
+      case null:
+        return token;
+      case final String auth when token == null || token == auth:
+        return auth;
+      case String():
+        throw FormatException(
+          "MCP server '$name' has both 'auth' and 'auth_token'; use one.",
+        );
+      default:
+        throw FormatException(
+          "Field 'auth' of MCP server '$name' must be a bearer token string. "
+          "For OAuth2, set 'auth' on the MCP call template.",
+        );
+    }
   }
 
   static const transport = 'http';
@@ -228,8 +270,9 @@ class McpHttpServer extends McpServerConfig {
   /// Static headers sent with every request.
   final Map<String, String> headers;
 
-  /// Sent as `Authorization: Bearer <token>`. Takes precedence over the
-  /// manual-level `auth`.
+  /// Sent as `Authorization: Bearer <token>`. Read from `auth_token`, or
+  /// from a string `auth`, and written as `auth_token`. Takes precedence over
+  /// the manual-level `auth`.
   final String? authToken;
 
   /// Longest silence tolerated on a server-sent event stream.

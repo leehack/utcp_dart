@@ -20,6 +20,9 @@ final class InMemoryServers {
   /// JSON-RPC method.
   final failSending = <String, Exception>{};
 
+  /// Adds tools and resources to every server [call] starts.
+  void Function(McpServer server)? configure;
+
   /// How often a `crash` tool has run.
   int crashes = 0;
 
@@ -47,6 +50,7 @@ final class InMemoryServers {
         return Completer<CallToolResult>().future;
       },
     );
+    configure?.call(mcpServer);
     _servers.add(mcpServer);
     await mcpServer.connect(
       IOStreamTransport(stream: toServer.stream, sink: toClient.sink),

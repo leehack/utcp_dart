@@ -1,4 +1,5 @@
 import 'package:test/test.dart';
+import 'package:utcp/utcp.dart';
 import 'package:utcp_mcp/src/mcp_mapping.dart';
 import 'package:utcp_mcp/utcp_mcp.dart';
 
@@ -152,6 +153,7 @@ void main() {
     test('maps a resource to a tool that reads it', () {
       final tool = toolFromMcpResource(
         {'name': 'config', 'uri': 'file:///config.json'},
+        'resource_config',
         'fs',
         template,
       );
@@ -165,6 +167,298 @@ void main() {
 
     test('rejects a tool without a name', () {
       expect(() => toolFromMcp({}, 'fs', template), throwsFormatException);
+    });
+  });
+
+  group('resourceTools', () {
+    JsonMap resource(String name, String uri) => {'name': name, 'uri': uri};
+    Map<String, String> uris(
+      List<JsonMap> resources, [
+      Set<String> tools = const {},
+    ]) => {
+      for (final MapEntry(:key, :value) in resourceTools(
+        resources,
+        tools,
+      ).entries)
+        key: value.string('uri'),
+    };
+
+    test('names a resource resource_<name> when that is free', () {
+      expect(uris([resource('config', 'file:///c')], {'read'}), {
+        'resource_config': 'file:///c',
+      });
+    });
+
+    test('numbers resources that share a name, in URI order', () {
+      final resources = [
+        resource('log', 'file:///b'),
+        resource('log', 'file:///a'),
+      ];
+      expect(uris(resources), {
+        'resource_log_1': 'file:///a',
+        'resource_log_2': 'file:///b',
+      });
+      expect(uris(resources.reversed.toList()), uris(resources));
+    });
+
+    test('never takes the name of a tool', () {
+      expect(uris([resource('x', 'file:///x')], {'resource_x'}), {
+        'resource_x_1': 'file:///x',
+      });
+      expect(
+        uris(
+          [resource('x', 'file:///1'), resource('x', 'file:///2')],
+          {'resource_x_1'},
+        ),
+        {'resource_x_2': 'file:///1', 'resource_x_3': 'file:///2'},
+      );
+    });
+
+    test('skips a number another resource is named after', () {
+      expect(
+        uris([
+          resource('a', 'file:///1'),
+          resource('a', 'file:///2'),
+          resource('a_1', 'file:///3'),
+        ]),
+        {
+          'resource_a_1': 'file:///3',
+          'resource_a_2': 'file:///1',
+          'resource_a_3': 'file:///2',
+        },
+      );
+    });
+
+    test('counts a URI listed twice once', () {
+      expect(uris([resource('c', 'file:///c'), resource('c', 'file:///c')]), {
+        'resource_c': 'file:///c',
+      });
+    });
+
+    test('rejects a resource without a name or URI', () {
+      expect(
+        () => resourceTools([
+          {'uri': 'file:///c'},
+        ], const {}),
+        throwsFormatException,
+      );
+      expect(
+        () => resourceTools([
+          {'name': 'c'},
+        ], const {}),
+        throwsFormatException,
+      );
+    });
+  });
+
+  group('inlineSchemaRefs', () {
+    test(r'inlines $defs references and drops the inlined $defs', () {
+      expect(
+        inlineSchemaRefs({
+          'type': 'object',
+          'properties': {
+            'address': {r'$ref': r'#/$defs/Address'},
+            'tags': {
+              'type': 'array',
+              'items': {r'$ref': '#/definitions/Tag'},
+            },
+          },
+          r'$defs': {
+            'Address': {
+              'type': 'object',
+              'properties': {
+                'city': {'type': 'string'},
+              },
+            },
+          },
+          'definitions': {
+            'Tag': {'type': 'string'},
+          },
+        }),
+        {
+          'type': 'object',
+          'properties': {
+            'address': {
+              'type': 'object',
+              'properties': {
+                'city': {'type': 'string'},
+              },
+            },
+            'tags': {
+              'type': 'array',
+              'items': {'type': 'string'},
+            },
+          },
+        },
+      );
+    });
+
+    test(r'merges keywords next to $ref over the target', () {
+      expect(
+        inlineSchemaRefs({
+          'properties': {
+            'when': {r'$ref': r'#/$defs/Date', 'description': 'Due date'},
+          },
+          r'$defs': {
+            'Date': {'type': 'string', 'description': 'A date'},
+          },
+        }),
+        {
+          'properties': {
+            'when': {'type': 'string', 'description': 'Due date'},
+          },
+        },
+      );
+    });
+
+    test('follows nested references and decodes JSON pointers', () {
+      expect(
+        inlineSchemaRefs({
+          'properties': {
+            'a': {r'$ref': r'#/$defs/a~1b'},
+            'b': {r'$ref': r'#/$defs/c%25d'},
+          },
+          r'$defs': {
+            'a/b': {r'$ref': r'#/$defs/leaf'},
+            'c%d': {r'$ref': r'#/$defs/leaf'},
+            'leaf': {'type': 'integer'},
+          },
+        })['properties'],
+        {
+          'a': {'type': 'integer'},
+          'b': {'type': 'integer'},
+        },
+      );
+    });
+
+    test(r'leaves a cycle as a $ref and keeps the $defs it points into', () {
+      final schema = {
+        r'$ref': r'#/$defs/Node',
+        r'$defs': {
+          'Node': {
+            'type': 'object',
+            'properties': {
+              'children': {
+                'type': 'array',
+                'items': {r'$ref': r'#/$defs/Node'},
+              },
+              'root': {r'$ref': '#'},
+            },
+          },
+        },
+      };
+      final inlined = inlineSchemaRefs(schema);
+      expect(inlined['type'], 'object');
+      expect(inlined['properties'], {
+        'children': {
+          'type': 'array',
+          'items': {r'$ref': r'#/$defs/Node'},
+        },
+        'root': {r'$ref': '#'},
+      });
+      expect(inlined[r'$defs'], schema[r'$defs']);
+    });
+
+    test('leaves remote, anchor and unresolvable references in place', () {
+      final schema = {
+        'properties': {
+          'remote': {r'$ref': 'https://example.com/schema.json'},
+          'anchor': {r'$ref': '#node'},
+          'missing': {r'$ref': r'#/$defs/Missing'},
+          'bad': {r'$ref': r'#/$defs/%'},
+        },
+        r'$defs': {
+          'Used': {'type': 'string'},
+        },
+      };
+      expect(inlineSchemaRefs(schema), schema);
+    });
+
+    test(r'leaves data keywords and a property named $ref alone', () {
+      final schema = {
+        'properties': {
+          r'$ref': {r'$ref': r'#/$defs/S'},
+          'value': {
+            'const': {r'$ref': r'#/$defs/S'},
+            'default': {r'$ref': r'#/$defs/S'},
+          },
+        },
+        r'$defs': {
+          'S': {'type': 'string'},
+        },
+      };
+      expect(inlineSchemaRefs(schema)['properties'], {
+        r'$ref': {'type': 'string'},
+        'value': {
+          'const': {r'$ref': r'#/$defs/S'},
+          'default': {r'$ref': r'#/$defs/S'},
+        },
+      });
+    });
+
+    test('returns a schema that would expand exponentially unchanged', () {
+      final defs = <String, Object?>{
+        'd0': {'type': 'string'},
+      };
+      for (var i = 1; i <= 20; i++) {
+        defs['d$i'] = {
+          'type': 'array',
+          'prefixItems': [
+            {r'$ref': '#/\$defs/d${i - 1}'},
+            {r'$ref': '#/\$defs/d${i - 1}'},
+          ],
+        };
+      }
+      final schema = {
+        'properties': {
+          'bomb': {r'$ref': r'#/$defs/d20'},
+        },
+        r'$defs': defs,
+      };
+      expect(inlineSchemaRefs(schema), same(schema));
+    });
+
+    test('returns a schema without references as is', () {
+      final schema = {
+        'type': 'object',
+        r'$defs': {
+          'Unused': {'type': 'string'},
+        },
+      };
+      expect(inlineSchemaRefs(schema), schema);
+      expect(inlineSchemaRefs(null), isEmpty);
+    });
+
+    test('toolFromMcp inlines the input and output schemas', () {
+      final tool = toolFromMcp(
+        {
+          'name': 'create',
+          'inputSchema': {
+            'type': 'object',
+            'properties': {
+              'item': {r'$ref': r'#/$defs/Item'},
+            },
+            r'$defs': {
+              'Item': {'type': 'string'},
+            },
+          },
+          'outputSchema': {
+            r'$ref': r'#/$defs/Out',
+            r'$defs': {
+              'Out': {'type': 'object'},
+            },
+          },
+        },
+        'fs',
+        const McpCallTemplate(config: McpConfig(mcpServers: {})),
+      );
+      expect(tool.inputs.json, {
+        'type': 'object',
+        'properties': {
+          'item': {'type': 'string'},
+        },
+      });
+      expect(tool.outputs.json, {'type': 'object'});
     });
   });
 }

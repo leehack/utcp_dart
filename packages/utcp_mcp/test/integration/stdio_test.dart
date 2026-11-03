@@ -96,8 +96,35 @@ void main() {
 
   test('reports a JSON-RPC error and keeps the process', () async {
     final pid = await serverPid();
-    await expectLater(call('missing'), throwsA(isA<UtcpException>()));
+    await expectLater(
+      call('missing'),
+      throwsA(isA<McpRpcException>().having((e) => e.code, 'code', -32602)),
+    );
     expect(await serverPid(), pid);
+  });
+
+  test('starts a command given as an array, as the spec writes it', () async {
+    final server = stdioTestServer();
+    final template = McpCallTemplate.fromJson({
+      'name': 'array',
+      'call_template_type': 'mcp',
+      'config': {
+        'mcpServers': {
+          'tools': {
+            'transport': 'stdio',
+            'command': [server.command, ...server.args],
+            'env': {'MCP_SERVER_NAME': 'from_array'},
+          },
+        },
+      },
+    });
+    final result = await protocol.callTool(
+      caller,
+      'array.tools.whoami',
+      const {},
+      template,
+    );
+    expect(asJsonMap(result, 'whoami')['server'], 'from_array');
   });
 
   test('replaces a server process that died', () async {

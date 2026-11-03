@@ -120,27 +120,20 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     String serverName,
     McpServerConfig server,
   ) async {
-    final tools = await _withSession(
-      serverName,
-      server,
-      template.auth,
-      (client) => _paginate((cursor) async {
-        final page = await client.listTools(
-          params: mcp.ListToolsRequest(cursor: cursor),
-          options: mcp.RequestOptions(timeout: server.timeout),
-        );
-        return (page.tools.map<JsonMap>((t) => t.toJson()), page.nextCursor);
-      }),
-    );
+    final tools = await _listTools(serverName, server, template);
     final result = [
       for (final tool in tools) toolFromMcp(tool, serverName, template),
     ];
     if (template.registerResourcesAsTools) {
       try {
         final resources = await _listResources(serverName, server, template);
+        final names = {for (final tool in tools) tool.string('name')};
         result.addAll([
-          for (final resource in resources)
-            toolFromMcpResource(resource, serverName, template),
+          for (final MapEntry(key: name, value: resource) in resourceTools(
+            resources,
+            names,
+          ).entries)
+            toolFromMcpResource(resource, name, serverName, template),
         ]);
       } on UtcpException catch (e) {
         // Resources are optional; their absence must not fail discovery.
@@ -156,6 +149,23 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     );
     return result;
   }
+
+  Future<List<JsonMap>> _listTools(
+    String serverName,
+    McpServerConfig server,
+    McpCallTemplate template,
+  ) => _withSession(
+    serverName,
+    server,
+    template.auth,
+    (client) => _paginate((cursor) async {
+      final page = await client.listTools(
+        params: mcp.ListToolsRequest(cursor: cursor),
+        options: mcp.RequestOptions(timeout: server.timeout),
+      );
+      return (page.tools.map<JsonMap>((t) => t.toJson()), page.nextCursor);
+    }),
+  );
 
   Future<List<JsonMap>> _listResources(
     String serverName,
@@ -212,12 +222,10 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     final (serverName, server, name) = _route(template, toolName);
     if (template.registerResourcesAsTools &&
         name.startsWith(resourceToolPrefix)) {
-      return _readResource(
-        template,
-        serverName,
-        server,
-        name.substring(resourceToolPrefix.length),
-      );
+      if (await _resourceUri(template, serverName, server, name)
+          case final uri?) {
+        return _readResource(template, serverName, server, uri);
+      }
     }
     final result = await _withSession(
       serverName,
@@ -232,20 +240,32 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     return toolResultValue(result.toJson());
   }
 
+  /// The URI of the resource that the tool [name] reads, or null when [name]
+  /// is not a resource tool, named as discovery names them.
+  Future<String?> _resourceUri(
+    McpCallTemplate template,
+    String serverName,
+    McpServerConfig server,
+    String name,
+  ) async {
+    final List<JsonMap> resources;
+    try {
+      resources = await _listResources(serverName, server, template);
+    } on McpRpcException {
+      // As in discovery, a server without resources has no resource tools.
+      return null;
+    }
+    final tools = await _listTools(serverName, server, template);
+    final names = {for (final tool in tools) tool.string('name')};
+    return resourceTools(resources, names)[name]?.string('uri');
+  }
+
   Future<JsonMap> _readResource(
     McpCallTemplate template,
     String serverName,
     McpServerConfig server,
-    String resourceName,
+    String uri,
   ) async {
-    final resources = await _listResources(serverName, server, template);
-    final resource = resources.firstWhere(
-      (r) => r['name'] == resourceName,
-      orElse: () => throw UtcpException(
-        "Resource '$resourceName' not found on MCP server '$serverName'.",
-      ),
-    );
-    final uri = resource.string('uri');
     final result = await _withSession(
       serverName,
       server,
@@ -335,7 +355,11 @@ class McpCommunicationProtocol extends CommunicationProtocol {
         );
         continue;
       }
-      throw UtcpException("MCP server '$serverName': $message");
+      final error = "MCP server '$serverName': $message";
+      throw switch (failure.code) {
+        final code? => McpRpcException(error, code: code),
+        null => UtcpException(error),
+      };
     }
   }
 
@@ -601,12 +625,24 @@ class McpCommunicationProtocol extends CommunicationProtocol {
   }
 }
 
+/// An MCP server answered a request, such as a tool call, with a JSON-RPC
+/// error. The message names the server and is redacted like every other
+/// error of [McpCommunicationProtocol]; the error's `data` is not kept.
+class McpRpcException extends UtcpException {
+  const McpRpcException(super.message, {required this.code});
+
+  /// The JSON-RPC error code, such as -32602 (invalid params) or a
+  /// server-defined code.
+  final int code;
+}
+
 final class _Failure {
   _Failure(
     this.message, {
     this.retry = false,
     this.keepSession = false,
     this.unsent = false,
+    this.code,
   });
 
   static final _connectionClosed = RegExp(
@@ -636,6 +672,7 @@ final class _Failure {
     return _Failure(
       '${error.message} (JSON-RPC error ${error.code})',
       keepSession: true,
+      code: error.code,
     );
   }
 
@@ -665,6 +702,9 @@ final class _Failure {
 
   /// Whether the request provably never reached the server.
   final bool unsent;
+
+  /// The JSON-RPC error code the server answered with.
+  final int? code;
 }
 
 final class _Session {

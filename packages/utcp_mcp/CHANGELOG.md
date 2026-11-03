@@ -5,6 +5,11 @@
 - Legacy HTTP+SSE MCP servers are supported: `transport` or `type` `sse` selects them, and an `http` server that answers its first request with 404 or 405 falls back to SSE.
 - A server's `type` is read as MCP host configuration files write it, and `streamable-http`, `streamable_http` and `streamableHttp` are accepted as `http`. Before, `{"type": "sse"}` was silently treated as streamable HTTP.
 - A `ws://` or `wss://` server URL is rejected when the config is parsed, with an error saying WebSocket MCP servers are not supported.
+- A string `auth` on an HTTP server is used as its bearer token, as MCP hosts write it. An `auth` object, or `auth` on a stdio server, is rejected naming the server instead of being dropped.
+- Resource tools are unique: resources that share a name, or whose `resource_<name>` is a tool's name, become `resource_<name>_<n>` in URI order, and a tool named `resource_<name>` is called instead of shadowed.
+- Local `$ref`s in tool schemas are inlined, as the TypeScript SDK does; cycles stay references and expansion is bounded.
+- A JSON-RPC error from the server throws `McpRpcException`, whose `code` is the error code.
+- A stdio `command` may be an array, as in the UTCP security guide: the first element is the command and the rest go before `args`.
 
 ## 0.1.1
 
