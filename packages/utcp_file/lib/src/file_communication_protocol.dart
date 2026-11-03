@@ -22,6 +22,7 @@ class FileCommunicationProtocol extends CommunicationProtocol {
   FileCommunicationProtocol({
     this.rootDir,
     this.maxFileBytes = 10 * 1024 * 1024,
+    this.allowLoopbackTools = false,
   }) {
     DotEnvVariableLoader.register();
   }
@@ -33,6 +34,17 @@ class FileCommunicationProtocol extends CommunicationProtocol {
   /// Largest file, in bytes, that discovery or a tool call reads; a larger
   /// file fails. The reference SDKs have no limit.
   final int maxFileBytes;
+
+  /// Whether a manual file may point tools or OAuth2 token URLs at loopback
+  /// addresses (`localhost`, `127.0.0.1`, `::1`). Off by default: a manual
+  /// file is treated like one fetched from a remote origin, since it may
+  /// have been written by someone else.
+  ///
+  /// Turn it on only when every manual file this protocol reads is trusted.
+  /// A manual that can then reach services on the agent's machine, which
+  /// often skip authentication for local callers, is as powerful as code
+  /// running there.
+  final bool allowLoopbackTools;
 
   @override
   Map<String, JsonFactory<CallTemplate>> get callTemplateTypes => const {
@@ -63,9 +75,9 @@ class FileCommunicationProtocol extends CommunicationProtocol {
         '.yaml' || '.yml' => decodeYaml(content),
         _ => jsonDecode(content),
       }, 'Manual file');
-      // As in the Python SDK, a file counts as a remote origin: neither an
-      // OpenAPI document nor a UTCP manual in it may point tools at loopback.
-      final source = Uri.file(path);
+      // A file counts as a remote origin, as it does for OpenAPI documents
+      // in the Python SDK, unless the caller trusts its manual files.
+      final source = allowLoopbackTools ? null : Uri.file(path);
       final UtcpManual manual;
       if (OpenApiConverter.isOpenApi(json)) {
         manual = OpenApiConverter(
@@ -76,7 +88,9 @@ class FileCommunicationProtocol extends CommunicationProtocol {
         ).convert();
       } else {
         manual = UtcpManual.fromJson(json);
-        rejectRemoteLoopbackToolUrls(source, manual, 'manual discovery');
+        if (source != null) {
+          rejectRemoteLoopbackToolUrls(source, manual, 'manual discovery');
+        }
       }
       return RegisterManualResult(manualCallTemplate: template, manual: manual);
     } on FormatException catch (e) {

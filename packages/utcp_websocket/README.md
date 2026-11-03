@@ -112,7 +112,9 @@ the call consumes them.
 The same rules as the core HTTP transport:
 
 - `wss://` anywhere; plain `ws://` only to `localhost`, `127.0.0.0/8` or `::1`
-  (`isSecureWebSocketUrl`, `ensureSecureWebSocketUrl`).
+  (`isSecureWebSocketUrl`, `ensureSecureWebSocketUrl`). The URL is checked when the template is
+  parsed, as in the Python reference, with each `${VAR}` treated as a non-loopback value, and again
+  on the substituted URL when connecting.
 - A redirect of the upgrade request is never followed: it would carry the handshake headers to a
   host the URL check never saw. (Dart's `WebSocket.connect` follows them, so the VM handshake is
   done by this package.)

@@ -58,11 +58,13 @@ void main() {
     return file.writeAsString(content);
   }
 
-  Future<RegisterManualResult> register(String filePath) =>
-      protocol.registerManual(
-        client,
-        FileCallTemplate(name: 'local', filePath: filePath),
-      );
+  Future<RegisterManualResult> register(
+    String filePath, {
+    bool allowLoopbackTools = false,
+  }) => FileCommunicationProtocol(
+    rootDir: temp.path,
+    allowLoopbackTools: allowLoopbackTools,
+  ).registerManual(client, FileCallTemplate(name: 'local', filePath: filePath));
 
   group('discovery', () {
     test('a JSON manual is loaded relative to the root directory', () async {
@@ -192,6 +194,27 @@ paths:
       expect(result.success, isFalse);
       expect(result.errors.single, contains('loopback'));
     });
+
+    test('may point tools at loopback when allowed', () async {
+      await write(
+        'local.json',
+        jsonEncode({
+          'openapi': '3.0.0',
+          'servers': [
+            {'url': 'http://localhost:8080'},
+          ],
+          'paths': {
+            '/x': {
+              'get': {'operationId': 'x'},
+            },
+          },
+        }),
+      );
+      final result = await register('local.json', allowLoopbackTools: true);
+      expect(result.errors, isEmpty);
+      final template = result.manual.tools.single.toolCallTemplate;
+      expect(template.endpoints, ['http://localhost:8080/x']);
+    });
   });
 
   group('UTCP manuals', () {
@@ -209,6 +232,34 @@ paths:
       final result = await register('local.json');
       expect(result.success, isFalse);
       expect(result.errors.single, contains('loopback'));
+    });
+
+    test('may point tools and token URLs at loopback when allowed', () async {
+      await write(
+        'local.json',
+        jsonEncode({
+          'tools': [
+            {
+              'name': 'x',
+              'tool_call_template': {
+                'call_template_type': 'http',
+                'url': 'http://127.0.0.1/x',
+                'auth': {
+                  'auth_type': 'oauth2',
+                  'token_url': 'http://localhost/token',
+                  'client_id': 'id',
+                  'client_secret': 'secret',
+                },
+              },
+            },
+          ],
+        }),
+      );
+      final result = await register('local.json', allowLoopbackTools: true);
+      expect(result.errors, isEmpty);
+      expect(result.manual.tools.single.toolCallTemplate.endpoints, [
+        'http://127.0.0.1/x',
+      ]);
     });
 
     test('may point tools at a remote host', () async {

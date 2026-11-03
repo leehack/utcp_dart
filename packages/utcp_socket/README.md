@@ -55,7 +55,7 @@ an empty manual.
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `host`, `port` | required | Server address. |
-| `request_data_format` | `json` | `json` sends the arguments as one object. `text` fills `request_data_template`, replacing `UTCP_ARG_<name>_UTCP_ARG` with each argument (strings as is, other values as JSON); without a template the values are joined by spaces. |
+| `request_data_format` | `json` | `json` sends the arguments as one object. `text` fills `request_data_template`, replacing `UTCP_ARG_<name>_UTCP_ARG` with each argument (strings as is, other values as JSON); without a template the values are written as Python's `str()` does (`True`, `None`, `['a', 1]`) and joined by spaces. |
 | `response_byte_format` | `utf-8` | Encoding of the response, with Python's names: `utf-8`, `ascii`, `latin-1`, `utf-16` (`-le`, `-be`) or `cp1252`. Another name fails when the template is parsed. `null` returns the raw bytes, as does a response that does not decode. |
 | `timeout` | `30000` | Milliseconds. |
 
@@ -70,7 +70,7 @@ delimited:
 | --- | --- | --- |
 | `stream` (default) | `max_response_size` (65536) | Until the server closes, goes quiet for `timeout`, or `max_response_size` bytes. |
 | `length_prefix` | `length_prefix_bytes` (1, 2, 4, 8; default 4), `length_prefix_endian` (`big`) | Requests and responses carry their byte length first. |
-| `delimiter` | `message_delimiter` (`\x00`), `interpret_escape_sequences` (`true`) | Requests and responses end with the delimiter. Python escapes such as `\n` or `\x00` are interpreted unless disabled. |
+| `delimiter` | `message_delimiter` (`\x00`), `interpret_escape_sequences` (`true`) | Requests and responses end with the delimiter. Python escapes such as `\n`, `\x00` or `\N{RECORD SEPARATOR}` are interpreted unless disabled. |
 | `fixed_length` | `fixed_message_length` (required) | Exactly that many bytes. |
 
 `timeout` bounds the connect and each wait for data, as in the reference. `max_response_size`
@@ -97,8 +97,13 @@ transport.
 - Arguments are substituted in one pass, so an argument value cannot introduce placeholders, and a
   `text` template that looks like JSON (starts with `{` or `[`) gets its string arguments
   JSON-escaped, as the WebSocket reference does.
-- Non-string values in `text` requests are written as JSON (Python writes `str(value)`, e.g.
-  `True`), and JSON is written compactly.
+- JSON is written compactly (`[1,2]`, where Python writes `[1, 2]`). Without a template, `text`
+  requests follow Python's `str()`, except that non-ASCII characters inside list and map items
+  are escaped only when they are control, separator or common format characters.
+- `\N{name}` in a delimiter accepts only the names (and aliases such as `NUL` or `RS`) of Basic
+  Latin, Latin-1 Supplement, General Punctuation and U+FEFF; any other name is rejected when the
+  template is parsed. Python accepts every Unicode name, which would need a table of over a
+  megabyte.
 - Partial reads are reassembled for every framing, framed responses are capped by `maxFrameBytes`
   (the reference has no cap), and the remote-manual loopback rule above is applied.
 - `response_byte_format` supports the encodings listed above, not every Python codec.

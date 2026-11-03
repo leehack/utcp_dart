@@ -1,5 +1,7 @@
 import 'package:utcp/utcp.dart';
 
+import 'websocket_security.dart';
+
 /// How a text response to [WebSocketCallTemplate] is returned.
 enum WebSocketResponseFormat {
   /// Parsed as JSON; text that is not JSON is returned as is.
@@ -40,6 +42,10 @@ class WebSocketCallTemplate extends CallTemplate {
          'message must be a String or a JsonMap',
        );
 
+  /// Reads a template from its JSON form.
+  ///
+  /// Throws a [FormatException] when a field is malformed or `url` is
+  /// neither `wss://` nor `ws://` to a loopback address.
   factory WebSocketCallTemplate.fromJson(JsonMap json) {
     final message = json['message'];
     if (message != null && message is! String && message is! Map) {
@@ -52,9 +58,11 @@ class WebSocketCallTemplate extends CallTemplate {
     if (timeout <= 0) {
       throw FormatException("Field 'timeout' must be positive, got $timeout.");
     }
+    final url = json.string('url');
+    checkWebSocketUrlTemplate(url);
     return WebSocketCallTemplate(
       name: json.optString('name'),
-      url: json.string('url'),
+      url: url,
       message: message is String ? message : json.optObject('message'),
       protocol: json.optString('protocol'),
       keepAlive: json.optBool('keep_alive') ?? true,

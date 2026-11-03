@@ -1,3 +1,7 @@
+## Unreleased
+
+- `WebSocketCallTemplate.fromJson` rejects a `url` that is neither `wss://` nor `ws://` to a loopback address, as the Python reference does; the check when connecting stays.
+
 ## 0.1.1
 
 - Docs: package cross-links, badges and platform notes.

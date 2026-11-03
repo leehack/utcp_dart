@@ -65,10 +65,18 @@ void main() {
       expect(jsonDecode(request), {'q': '", "isAdmin": true, "x": "'});
     });
 
-    test('text without a template joins the values with spaces', () {
+    test('text without a template joins the values as Python str()', () {
       expect(
-        formatRequest({'a': 'x', 'b': 2, 'c': false}, text()),
-        'x 2 false',
+        formatRequest({
+          'a': 'x',
+          'b': 2,
+          'c': false,
+          'd': null,
+          'e': 1.0,
+          'f': ['y', true],
+          'g': {'k': 'v'},
+        }, text()),
+        "x 2 False None 1.0 ['y', True] {'k': 'v'}",
       );
       expect(formatRequest({'a': 'x'}, text('')), 'x');
     });

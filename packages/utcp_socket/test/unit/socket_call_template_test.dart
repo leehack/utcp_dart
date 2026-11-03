@@ -91,6 +91,7 @@ void main() {
           );
       expect(tcp(r'\r\n').delimiterBytes, [13, 10]);
       expect(tcp(r'\x00').delimiterBytes, [0]);
+      expect(tcp(r'\N{RECORD SEPARATOR}').delimiterBytes, [0x1e]);
       expect(tcp(r'\r\n', interpret: false).delimiterBytes, [92, 114, 92, 110]);
       expect(tcp('').delimiterBytes, [0], reason: 'empty means NUL');
       expect(tcp('\n').delimiterBytes, [10]);
@@ -108,6 +109,7 @@ void main() {
       ('max_response_size', 0, 'max_response_size'),
       ('response_byte_format', 'klingon', "response_byte_format 'klingon'"),
       ('message_delimiter', r'\x0', 'escape'),
+      ('message_delimiter', r'\N{SNOWMAN}', 'SNOWMAN'),
       ('auth', {'auth_type': 'basic'}, 'auth'),
     ]) {
       test('rejects $field = $value', () {
