@@ -1,0 +1,184 @@
+name: Release on prep merge
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: release-on-prep-merge
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag unpublished package versions
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PUBDEV_WAIT_ATTEMPTS: 90
+      PUBDEV_WAIT_INTERVAL_SECONDS: 10
+    steps:
+      - name: Check release-prep gate
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+              echo "Run this workflow from main, not $GITHUB_REF." >&2
+              exit 1
+            fi
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          head_ref="$(jq -r '.pull_request.head.ref' "$GITHUB_EVENT_PATH")"
+          head_repo="$(jq -r '.pull_request.head.repo.full_name // ""' "$GITHUB_EVENT_PATH")"
+          labels="$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")"
+
+          should_release=false
+          reason="no release-prep label and branch is not release/prep-*"
+          if printf '%s\n' "$labels" | grep -Fxq release-prep || [[ "$head_ref" == release/prep-* ]]; then
+            should_release=true
+          fi
+          if [[ "$should_release" == true && "$head_repo" != "$GITHUB_REPOSITORY" ]]; then
+            should_release=false
+            reason="head branch is from $head_repo, not $GITHUB_REPOSITORY"
+          fi
+          if [[ "$should_release" == true ]]; then
+            files="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files")"
+            if ! jq -e 'any(.[][]; .status == "modified" and (.filename | test("^packages/[^/]+/pubspec\\.yaml$")))' <<< "$files" >/dev/null; then
+              should_release=false
+              reason="the PR modifies no packages/*/pubspec.yaml"
+            fi
+          fi
+
+          if [[ "$should_release" != true ]]; then
+            echo "Skipping release: $reason."
+          fi
+          echo "should_release=$should_release" >> "$GITHUB_OUTPUT"
+
+      - name: Check release token
+        if: steps.gate.outputs.should_release == 'true'
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "${RELEASE_TOKEN:-}" ]]; then
+            echo "Missing the RELEASE_AUTOMATION_TOKEN secret. Tags pushed with GITHUB_TOKEN do not start publish_pubdev.yml, so add a fine-grained PAT with Contents: read and write on this repository (see AGENTS.md, Releasing), then rerun this workflow." >&2
+            exit 1
+          fi
+
+      # A clean checkout: `dart pub publish --dry-run` fails on a dirty tree.
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.should_release == 'true'
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+
+      - uses: dart-lang/setup-dart@v1
+        if: steps.gate.outputs.should_release == 'true'
+        with:
+          sdk: stable
+
+      - name: Plan and validate the release
+        if: steps.gate.outputs.should_release == 'true'
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart pub get
+          dart run tool/release_plan.dart > "$RUNNER_TEMP/release_plan.txt"
+          if [[ ! -s "$RUNNER_TEMP/release_plan.txt" ]]; then
+            echo "Every package version is already on pub.dev; nothing to release."
+            exit 0
+          fi
+
+          release_sha="$(git rev-parse HEAD)"
+          while read -r name version; do
+            echo "::group::dart pub publish --dry-run ($name $version)"
+            (cd "packages/$name" && dart pub publish --dry-run < /dev/null)
+            echo "::endgroup::"
+
+            # A rerun resumes from tags this commit already pushed. A tag on
+            # another commit would publish that commit's package instead.
+            tag="$name-v$version"
+            tag_sha="$(git ls-remote --tags origin "refs/tags/$tag" "refs/tags/$tag^{}" | awk 'END {print $1}')"
+            if [[ -n "$tag_sha" && "$tag_sha" != "$release_sha" ]]; then
+              echo "$tag already exists at $tag_sha, not $release_sha, and $name $version is not on pub.dev. No tags were pushed." >&2
+              echo "If nothing should be published from $tag_sha, delete the tag (git push origin :refs/tags/$tag) and rerun this workflow. Otherwise release $name at a new version from a new release-prep PR." >&2
+              exit 1
+            fi
+          done < "$RUNNER_TEMP/release_plan.txt"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Push tags and wait for pub.dev
+        if: steps.plan.outputs.release_sha != ''
+        env:
+          RELEASE_SHA: ${{ steps.plan.outputs.release_sha }}
+          RELEASE_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          push_tag() {
+            local tag="$1-v$2"
+            if [[ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]]; then
+              echo "$tag already points at $RELEASE_SHA; waiting for its publish run."
+              return 0
+            fi
+            echo "Creating $tag at $RELEASE_SHA."
+            GH_TOKEN="$RELEASE_TOKEN" gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$tag" -f "sha=$RELEASE_SHA" >/dev/null
+          }
+
+          # The package listing, not the version URL: pub resolves
+          # dependents' constraints from the listing.
+          wait_for_pub() {
+            local name="$1" version="$2"
+            for attempt in $(seq 1 "$PUBDEV_WAIT_ATTEMPTS"); do
+              if curl -fsSL --max-time 30 "https://pub.dev/api/packages/$name" |
+                jq -e --arg v "$version" 'any(.versions[]; .version == $v)' >/dev/null; then
+                echo "$name $version is on pub.dev."
+                return 0
+              fi
+              echo "Waiting for $name $version on pub.dev ($attempt/$PUBDEV_WAIT_ATTEMPTS)."
+              sleep "$PUBDEV_WAIT_INTERVAL_SECONDS"
+            done
+            echo "$name $version did not appear on pub.dev." >&2
+            echo "Open the 'Publish to pub.dev' run for $name-v$version. If it failed transiently, rerun it; if pub.dev refused the OIDC token, check that automated publishing for $name allows leehack/utcp_dart with tag pattern $name-v{{version}}, then rerun it. Once $name $version is on pub.dev, rerun this workflow to tag the rest." >&2
+            echo "If the cause is in the repository, fix it and release $name at a new version from a new release-prep PR." >&2
+            exit 1
+          }
+
+          # utcp first: transports constrain it, so it must be on pub.dev
+          # before their versions are.
+          mapfile -t plan < "$RUNNER_TEMP/release_plan.txt"
+          dependents=()
+          for entry in "${plan[@]}"; do
+            read -r name version <<< "$entry"
+            if [[ "$name" == utcp ]]; then
+              push_tag utcp "$version"
+              wait_for_pub utcp "$version"
+            else
+              dependents+=("$entry")
+            fi
+          done
+          for entry in "${dependents[@]}"; do
+            read -r name version <<< "$entry"
+            push_tag "$name" "$version"
+          done
+          for entry in "${dependents[@]}"; do
+            read -r name version <<< "$entry"
+            wait_for_pub "$name" "$version"
+          done

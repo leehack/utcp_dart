@@ -15,7 +15,9 @@ it, and encode any behavior the spec leaves open in a test.
   heavy dependency (`mcp`, `cli`, `file`, `socket`, `websocket`). A transport
   package depends on `utcp` and never the reverse.
 - The root `pubspec.yaml` is a pub workspace. Add a new package to its
-  `workspace:` list and to the CI matrix.
+  `workspace:` list, to the CI matrix, and to the tags in
+  `.github/workflows/publish_pubdev.yml`.
+- `tool/` holds the release scripts; their tests are in the root `test/`.
 
 ## Build and test
 
@@ -23,6 +25,7 @@ it, and encode any behavior the spec leaves open in a test.
 dart pub get
 dart format --output=none --set-exit-if-changed .
 dart analyze --fatal-infos
+dart test   # release tooling
 (cd packages/<package> && dart test)
 (cd packages/utcp && dart test -p chrome test/unit)
 ```
@@ -83,13 +86,55 @@ dart analyze --fatal-infos
 - Order imports SDK, package, then relative, with a blank line between
   groups.
 
-## Changelog and releases
+## Changelog
 
-- Each package has its own `CHANGELOG.md` and version. New entries go under
-  `## Unreleased`, one short user-facing bullet per change.
-- Publish only in an explicit release task: move `Unreleased` into the new
-  version, run `dart pub publish --dry-run` in the package, and publish the
-  packages a release depends on first.
+Each package has its own `CHANGELOG.md` and version. New entries go under
+`## Unreleased`, one short user-facing bullet per change.
+
+## Releasing
+
+Merging a release-prep PR publishes every package whose pubspec version is
+not on pub.dev. Release only in an explicit release task, and never run
+`dart pub publish` by hand.
+
+1. On an up-to-date `main`, run
+   `dart run tool/prepare_release.dart <package>:<major|minor|patch>...`.
+   It bumps the versions and renames each `## Unreleased` to the new version.
+   If the new `utcp` is outside a transport's `utcp` constraint, it raises the
+   constraint, and that transport must be released too.
+2. Run the git and `gh pr create` commands it prints. The PR comes from
+   `release/prep-*` and carries the `release-prep` label.
+3. Merge it. `release_on_prep_merge.yml` checks every unpublished version
+   (semver, the first changelog heading, the `utcp` constraint,
+   `dart pub publish --dry-run`) before pushing any tag. It then pushes
+   `utcp-v<version>`, waits for it on pub.dev, and pushes the other
+   `<package>-v<version>` tags. Each tag runs `publish_pubdev.yml`, which
+   publishes through pub.dev OIDC and creates a GitHub Release.
+
+To release what is already unpublished on `main`, run *Release on prep
+merge* from the Actions tab on `main`.
+
+One-time setup by the owner:
+
+- Repository secret `RELEASE_AUTOMATION_TOKEN`: a fine-grained PAT for
+  `leehack/utcp_dart` only, with Contents: Read and write. Tags pushed with
+  `GITHUB_TOKEN` start no workflows.
+- Repository label `release-prep`.
+- On pub.dev, for each package: Admin → Automated publishing → Enable
+  publishing from GitHub Actions, repository `leehack/utcp_dart`, tag pattern
+  `<package>-v{{version}}` (for example `utcp_mcp-v{{version}}`). A new
+  package's first version must be published by hand.
+
+When a run fails:
+
+- A validation error pushes no tag. Fix it in a new release-prep PR.
+- A *Publish to pub.dev* run that failed transiently: rerun it, then rerun
+  the failed release run with *Re-run jobs* so it keeps the same commit. It
+  skips published versions and reuses the tags it already pushed.
+- A tag on another commit whose version is not on pub.dev blocks the
+  release. Delete the tag if nothing should be published from it, or release
+  that package at a new version.
+- A version on pub.dev cannot be replaced; fix forward with a new version.
 
 ## Writing for people
 
