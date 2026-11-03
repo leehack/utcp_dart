@@ -248,6 +248,69 @@ items:
     });
   });
 
+  group('JsonSchema.fromJson', () {
+    test('drops null keywords as the Python SDK writes them, recursively', () {
+      final schema = JsonSchema.fromJson({
+        r'$schema': null,
+        'type': 'object',
+        'title': null,
+        'properties': {
+          'city': {'type': 'string', 'enum': null, 'minLength': null},
+          'tags': {
+            'type': 'array',
+            'items': {'type': 'string', 'format': null},
+          },
+        },
+        'anyOf': [
+          {'type': 'object', 'pattern': null},
+        ],
+        'additionalProperties': {'type': 'number', 'maximum': null},
+      });
+      expect(schema, {
+        'type': 'object',
+        'properties': {
+          'city': {'type': 'string'},
+          'tags': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+        },
+        'anyOf': [
+          {'type': 'object'},
+        ],
+        'additionalProperties': {'type': 'number'},
+      });
+    });
+
+    test('keeps a null const or default, and nulls inside values', () {
+      final schema = JsonSchema.fromJson({
+        'const': null,
+        'default': null,
+        'enum': ['a', null],
+        'examples': [null],
+        'properties': {'x': null},
+      });
+      expect(schema, {
+        'const': null,
+        'default': null,
+        'enum': ['a', null],
+        'examples': [null],
+        'properties': {'x': null},
+      });
+    });
+
+    test('Tool.fromJson reads schemas this way', () {
+      final tool = Tool.fromJson({
+        'name': 't',
+        'inputs': {'type': 'object', 'title': null},
+        'outputs': {'description': null},
+        'tool_call_template': {'call_template_type': 'text', 'content': ''},
+      });
+      expect(tool.inputs, {'type': 'object'});
+      expect(tool.outputs, isEmpty);
+    });
+  });
+
   group('TypeRegistry', () {
     test('parses by discriminator and keeps existing parsers', () {
       final registry = TypeRegistry<String>('kind', {
