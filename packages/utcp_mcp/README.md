@@ -1,5 +1,8 @@
 # utcp_mcp
 
+[![pub package](https://img.shields.io/pub/v/utcp_mcp.svg)](https://pub.dev/packages/utcp_mcp)
+[![CI](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml)
+
 The `mcp` transport for the [Dart UTCP client](https://pub.dev/packages/utcp): discover and call
 the tools of [Model Context Protocol](https://modelcontextprotocol.io) servers, over stdio or
 streamable HTTP, through the same `UtcpClient` API as every other UTCP tool. Built on
@@ -92,13 +95,41 @@ With `register_resources_as_tools: true`, each MCP resource is also registered a
   that fails to start. Call `silenceMcpLogs()` or `setMcpLogHandler()` from `package:mcp_dart` to
   change that.
 
+## Platforms
+
+Streamable HTTP servers work on every platform, browsers included (Flutter web, `dart compile js`
+and `dart compile wasm`). stdio servers start a child process, so they need `dart:io`: the Dart VM,
+or Flutter on desktop or mobile.
+
+On the web:
+
+- A stdio server fails like an unreachable one: discovery reports `Server '<name>': stdio MCP
+  servers need a native platform ...` and calling one of its tools throws a `UtcpException`. One
+  failed server fails the whole manual, so keep HTTP servers in a manual of their own.
+- Requests go through the browser's `fetch` (`BrowserClient` from `package:http`), which streams
+  responses, so the event streams of streamable HTTP work as on the VM.
+- The server, and an OAuth2 token endpoint, must allow cross-origin requests from the page. An MCP
+  server has to accept `POST`, `GET` and `DELETE` with the `Authorization`, `Content-Type`,
+  `Mcp-Session-Id`, `MCP-Protocol-Version` and `Last-Event-ID` headers (plus any static
+  `headers`), and list `Mcp-Session-Id` in `Access-Control-Expose-Headers`; without that the
+  client cannot read the session id. `mcp_dart`'s `StreamableMcpServer` does all this for a page
+  served from loopback.
+- Every redirect fails the request with `Failed to fetch`. `HttpTransport` checks each hop itself,
+  so it asks `package:http` not to follow redirects, and `fetch` can then only refuse them: a
+  redirect it hands back unfollowed is opaque, without its status or `Location`, so the next hop
+  cannot be checked. Use the server's final URL. Since no redirect is followed, no credential can
+  reach another origin through one.
+- Browsers drop a `Cookie` header set by the page, so `api_key` auth with `"location": "cookie"`
+  sends nothing. Use a header or query API key.
+- `UTCP_MCP_CHILD_STDERR` has no effect.
+
 ## Security
 
 HTTP servers follow the same rules as the other UTCP HTTP transports, enforced by `HttpTransport`
 from `package:utcp`: HTTPS anywhere, plain HTTP only to a literal loopback address, every redirect
-re-validated, no redirect from a remote host into loopback, and credentials dropped when a redirect
-leaves the origin. OAuth2 token requests follow no redirects at all, and the token must be a
-non-empty string of visible ASCII.
+re-validated (in browsers, refused; see [Platforms](#platforms)), no redirect from a remote host
+into loopback, and credentials dropped when a redirect leaves the origin. OAuth2 token requests
+follow no redirects at all, and the token must be a non-empty string of visible ASCII.
 
 `mcp_dart`'s HTTP transport creates its own `http.Client` and takes none as a parameter.
 `utcp_mcp` constructs it inside `http.runWithClient`, so that client is a wrapper that sends every
@@ -117,3 +148,14 @@ configuration you trust. A manual fetched over HTTP cannot smuggle in `mcp` tool
 them unless that manual's call template lists `mcp` in `allowed_communication_protocols`. Even then,
 `McpCallTemplate.endpoints` lists the HTTP server URLs, so a manual from a remote origin cannot
 point an `mcp` tool at a loopback server.
+
+## Packages
+
+| Package | Transports |
+| --- | --- |
+| [`utcp`](https://pub.dev/packages/utcp) | Core client, `http` (with OpenAPI conversion), `sse`, `streamable_http`, `text` |
+| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio and streamable HTTP) |
+| [`utcp_cli`](https://pub.dev/packages/utcp_cli) | `cli` |
+| [`utcp_file`](https://pub.dev/packages/utcp_file) | `file`, `.env` variable loader |
+| [`utcp_socket`](https://pub.dev/packages/utcp_socket) | `tcp`, `udp` |
+| [`utcp_websocket`](https://pub.dev/packages/utcp_websocket) | `websocket` |

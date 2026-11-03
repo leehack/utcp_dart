@@ -1,3 +1,8 @@
+## 0.2.1
+
+- Docs: package cross-links, badges and platform notes.
+- Example: `example/claude_tool_use.dart` gives UTCP tools to an LLM through the Claude Messages API tool-use loop.
+
 ## 0.2.0
 
 - **Breaking:** `UtcpClient.create` takes `protocols` as a list; each protocol declares its `callTemplateTypes`.

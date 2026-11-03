@@ -1,5 +1,8 @@
 # utcp_file
 
+[![pub package](https://img.shields.io/pub/v/utcp_file.svg)](https://pub.dev/packages/utcp_file)
+[![CI](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml)
+
 The `file` transport and the `.env` variable loader for the
 [UTCP](https://github.com/universal-tool-calling-protocol) Dart client
 ([`utcp`](https://pub.dev/packages/utcp)).
@@ -85,3 +88,14 @@ CERT="-----BEGIN-----
 -----END-----"                 # quoted values may span lines
 ENDPOINT=${URL}api/v1          # ${NAME} and ${NAME:-default} expand earlier values, then the environment
 ```
+
+## Packages
+
+| Package | Transports |
+| --- | --- |
+| [`utcp`](https://pub.dev/packages/utcp) | Core client, `http` (with OpenAPI conversion), `sse`, `streamable_http`, `text` |
+| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio and streamable HTTP) |
+| [`utcp_cli`](https://pub.dev/packages/utcp_cli) | `cli` |
+| [`utcp_file`](https://pub.dev/packages/utcp_file) | `file`, `.env` variable loader |
+| [`utcp_socket`](https://pub.dev/packages/utcp_socket) | `tcp`, `udp` |
+| [`utcp_websocket`](https://pub.dev/packages/utcp_websocket) | `websocket` |

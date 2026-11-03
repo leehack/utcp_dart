@@ -1,3 +1,7 @@
+## 0.1.1
+
+- Docs: package cross-links, badges and platform notes.
+
 ## 0.1.0
 
 - Initial release: `cli` call template and protocol with multi-step commands, injection-safe argument placeholders, `$CMD_<i>_OUTPUT` references, `env_vars`, `inherit_env_vars` and `working_dir`.

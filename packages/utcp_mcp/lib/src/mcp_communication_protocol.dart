@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
@@ -10,13 +9,15 @@ import 'package:utcp/utcp.dart';
 import 'mcp_call_template.dart';
 import 'mcp_http_client.dart';
 import 'mcp_mapping.dart';
+import 'stdio_transport.dart';
 
 final _log = Logger('utcp.mcp');
 
 /// Opens the `mcp_dart` transport for one configured server.
 ///
 /// [auth] is the manual-level auth. The default factory starts stdio servers
-/// as child processes and connects to HTTP servers through [HttpTransport].
+/// as child processes, which only native platforms can do, and connects to
+/// HTTP servers through [HttpTransport].
 typedef McpTransportFactory =
     FutureOr<mcp.Transport> Function(
       String serverName,
@@ -400,20 +401,7 @@ class McpCommunicationProtocol extends CommunicationProtocol {
   ) async {
     switch (server) {
       case McpStdioServer():
-        return mcp.StdioClientTransport(
-          mcp.StdioServerParameters(
-            command: server.command,
-            args: server.args,
-            environment: server.env,
-            workingDirectory: server.cwd,
-            stderrMode: Platform.environment[childStderrVariable] == 'inherit'
-                ? ProcessStartMode.inheritStdio
-                : ProcessStartMode.normal,
-            // A dead child is replaced by a fresh session, not restarted
-            // behind the session's back.
-            restartOnUnexpectedExit: false,
-          ),
-        );
+        return openStdioTransport(server);
       case McpHttpServer():
         ensureSecureUrl(server.url, "MCP server '$serverName'");
         final client = McpHttpClient(
@@ -626,7 +614,7 @@ final class _Failure {
       retry: true,
       unsent: _rejectedBeforeSending.hasMatch(message),
     ),
-    IOException() => _Failure('$error', retry: true),
+    _ when isIOException(error) => _Failure('$error', retry: true),
     http.ClientException(:final message) => _Failure(message, retry: true),
     TimeoutException() => _Failure('$error'),
     mcp.StreamableHttpError(:final message) => _Failure(message),
