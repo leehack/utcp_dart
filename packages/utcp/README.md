@@ -38,6 +38,27 @@ JSON Schema you hand to an LLM as the tool definition.
 
 A runnable end-to-end example against a local server is in `example/utcp_example.dart`.
 
+## Configuration files
+
+`UtcpClient.fromFile` and `UtcpClientConfig.fromFile` read the configuration format shared with
+the Python and TypeScript SDKs from a JSON file, or a YAML file when it ends in `.yaml` or `.yml`.
+`UtcpClientConfig.toJson` writes it back. They need `dart:io`, so not in a browser.
+
+```dart
+final client = await UtcpClient.fromFile(
+  'utcp_config.yaml',
+  protocols: [FileCommunicationProtocol()], // from utcp_file
+  rootDir: '/srv/tools', // resolves relative file paths; the current directory when unset
+);
+```
+
+The client parses call templates with the parsers of its own `protocols` first. A protocol that
+serves a type `CallTemplate.registry` does not know yet adds it there, but never replaces a parser
+already registered, so one client's protocols do not change how other clients parse.
+
+Manuals created by this package declare `utcp_version` `utcpProtocolVersion` (`1.1.0`), the spec
+version it implements.
+
 ## Flutter
 
 The core works in Flutter apps on mobile, desktop and web, and has no Flutter dependency. Create the
@@ -96,6 +117,11 @@ Call templates can reference `${VAR}` or `$VAR`. Values are resolved from
 
 Inside a manual, variables are namespaced by the manual name, with underscores in the name doubled:
 `${API_KEY}` in manual `my_api` resolves `my__api_API_KEY`. This matches the Python and TypeScript SDKs.
+Manual names keep Unicode letters and numbers, as in Python (`café` stays `café`; TypeScript would
+make it `caf_`), and every other character becomes `_`.
+
+A string containing a JSON Schema `$ref` is left as it is; `$refresh_token` and other variables
+that merely start with `ref` are still replaced, as in Python.
 
 ## HTTP call templates
 
@@ -117,6 +143,10 @@ config that uses it does not load in Python.
 scoring, which also matches the tool name and partial words. The spec's search page describes the
 Python SDK's simpler scoring, so the SDKs can rank tools differently. As in TypeScript, a `limit`
 of 0 returns every tool; Python returns none.
+
+Custom strategies and tool repositories register with `ToolSearchStrategy.registry.register` and
+`ToolRepository.registry.register`, keyed by `tool_search_strategy_type` and
+`tool_repository_type`.
 
 ## Streaming transports
 

@@ -11,7 +11,7 @@ Future<void> main() async {
   server.listen((request) async {
     final body = switch (request.uri.path) {
       '/utcp' => {
-        'utcp_version': '1.0.1',
+        'utcp_version': utcpProtocolVersion,
         'tools': [
           {
             'name': 'get_weather',

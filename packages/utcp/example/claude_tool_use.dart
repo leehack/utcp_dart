@@ -169,7 +169,7 @@ Future<HttpServer> _serveWeatherTool() async {
   server.listen((request) async {
     final body = request.uri.path == '/utcp'
         ? {
-            'utcp_version': '1.0.1',
+            'utcp_version': utcpProtocolVersion,
             'tools': [
               {
                 'name': 'get_weather',

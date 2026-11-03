@@ -20,6 +20,11 @@ abstract class VariableLoader {
 
   /// The value of [key], or `null` when this loader does not define it.
   FutureOr<String?> get(String key);
+
+  /// The `load_variables_from` entry [registry] parses back into this
+  /// loader, or `null` when it has no JSON form. `UtcpClientConfig.toJson`
+  /// leaves out loaders without one.
+  JsonMap? toJson() => null;
 }
 
 /// Resolves `${VAR}` and `$VAR` placeholders in call templates.
@@ -43,7 +48,10 @@ class VariableSubstitutor {
   final Map<String, String>? environment;
 
   static final _placeholder = RegExp(r'\$\{(\w+)\}|\$(\w+)');
-  static final _validNamespace = RegExp(r'^\w+$');
+  static final _jsonSchemaRef = RegExp(r'\$ref(?!\w)');
+
+  /// Unicode letters, numbers and `_`, as Python's `str.isalnum()` check.
+  static final _validNamespace = RegExp(r'^[\p{L}\p{N}_]+$', unicode: true);
 
   static String namespacedKey(String key, String? namespace) =>
       namespace == null ? key : '${namespace.replaceAll('_', '__')}_$key';
@@ -61,8 +69,9 @@ class VariableSubstitutor {
   }
 
   /// Returns a deep copy of [value] with every placeholder in its strings
-  /// replaced. Strings containing `$ref` are left untouched so JSON Schema
-  /// references survive.
+  /// replaced. Strings containing `$ref` not followed by a word character
+  /// are left untouched so JSON Schema references survive, while variables
+  /// such as `$refresh_token` are still replaced, as in the Python SDK.
   Future<Object?> substitute(Object? value, {String? namespace}) async {
     _checkNamespace(namespace);
     return _substitute(value, namespace);
@@ -81,7 +90,7 @@ class VariableSubstitutor {
   Future<Object?> _substitute(Object? value, String? namespace) async {
     switch (value) {
       case String():
-        if (value.contains(r'$ref')) return value;
+        if (value.contains(_jsonSchemaRef)) return value;
         final buffer = StringBuffer();
         var last = 0;
         for (final match in _placeholder.allMatches(value)) {
@@ -113,7 +122,7 @@ class VariableSubstitutor {
     void visit(Object? node) {
       switch (node) {
         case String():
-          if (node.contains(r'$ref')) return;
+          if (node.contains(_jsonSchemaRef)) return;
           for (final match in _placeholder.allMatches(node)) {
             found.add(
               namespacedKey(match.group(1) ?? match.group(2)!, namespace),

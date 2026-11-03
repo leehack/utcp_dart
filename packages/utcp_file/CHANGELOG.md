@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Relative file paths resolve against the client's `rootDir` when `FileCommunicationProtocol` has none.
 - `FileCommunicationProtocol` registers the `dotenv` variable loader, so `DotEnvVariableLoader.register()` is no longer needed with it.
 
 ## 0.1.1

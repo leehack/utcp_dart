@@ -2,8 +2,10 @@ import '../json.dart';
 import 'call_template.dart';
 import 'tool.dart';
 
-/// UTCP protocol version written into manuals created by this package.
-const utcpProtocolVersion = '1.0.1';
+/// The UTCP specification version this package implements, written as
+/// `utcp_version` into the manuals it creates. Every default in the package
+/// reads it from here.
+const utcpProtocolVersion = '1.1.0';
 
 /// The document a provider returns during discovery.
 class UtcpManual {
