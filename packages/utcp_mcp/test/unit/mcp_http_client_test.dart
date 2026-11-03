@@ -197,6 +197,23 @@ void main() {
       expect(sent.map((r) => r.url.host), everyElement('mcp.example.com'));
     });
 
+    test('drops the session id when a redirect leaves the origin', () async {
+      redirectTo('https://other.example.com/mcp');
+      final response = await client().send(
+        http.Request('GET', Uri.parse('https://mcp.example.com/mcp'))
+          ..headers['mcp-session-id'] = 'session-secret'
+          ..headers['accept'] = 'text/event-stream',
+      );
+      await response.stream.drain<void>();
+      expect(sent.map((r) => r.url.host), [
+        'mcp.example.com',
+        'other.example.com',
+      ]);
+      expect(sent[0].headers['mcp-session-id'], 'session-secret');
+      expect(sent[1].headers.keys, isNot(contains('mcp-session-id')));
+      expect(sent[1].headers['accept'], 'text/event-stream');
+    });
+
     test('refuses a redirect to plain HTTP or into loopback', () async {
       for (final target in [
         'http://other.example.com/mcp',
@@ -267,6 +284,46 @@ void main() {
       );
     });
   });
+
+  test(
+    'the protocol fetches OAuth2 tokens without following redirects',
+    () async {
+      final requests = <Uri>[];
+      final protocol = McpCommunicationProtocol(
+        httpClient: MockClient((request) async {
+          requests.add(request.url);
+          return request.url.path == '/token'
+              ? http.Response(
+                  '',
+                  307,
+                  headers: {'location': 'https://auth.example.com/token2'},
+                )
+              : http.Response(jsonEncode({'access_token': 'tok'}), 200);
+        }),
+      );
+      final caller = await UtcpClient.create();
+      addTearDown(caller.close);
+      addTearDown(protocol.close);
+      final result = await protocol.registerManual(
+        caller,
+        const McpCallTemplate(
+          name: 'm',
+          config: McpConfig(
+            mcpServers: {
+              'remote': McpHttpServer(url: 'https://mcp.example.com/mcp'),
+            },
+          ),
+          auth: OAuth2Auth(
+            tokenUrl: 'https://auth.example.com/token',
+            clientId: 'id',
+            clientSecret: 'secret',
+          ),
+        ),
+      );
+      expect(result.success, isFalse);
+      expect(requests.map((u) => u.path), everyElement('/token'));
+    },
+  );
 
   test('the protocol rejects an insecure server URL at discovery', () async {
     final protocol = McpCommunicationProtocol(

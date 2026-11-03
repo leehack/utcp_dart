@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:test/test.dart';
 import 'package:utcp/utcp.dart';
 import 'package:utcp_mcp/utcp_mcp.dart';
@@ -179,5 +183,67 @@ void main() {
         },
       }, 'notification_stream_max_retries');
     });
+  });
+
+  test('endpoints list the HTTP server URLs', () {
+    final template = McpCallTemplate.fromJson({
+      'call_template_type': 'mcp',
+      'config': {
+        'mcpServers': {
+          'local': {'command': 'node'},
+          'remote': {'url': 'https://mcp.example.com/mcp'},
+        },
+      },
+    });
+    expect(template.endpoints, ['https://mcp.example.com/mcp']);
+  });
+
+  test('an HTTP manual from a remote origin may not declare loopback MCP '
+      'servers', () async {
+    final client = await UtcpClient.create(
+      protocols: [
+        HttpCommunicationProtocol(
+          transport: HttpTransport(
+            client: MockClient(
+              (_) async => http.Response(
+                jsonEncode({
+                  'utcp_version': '1.0.1',
+                  'manual_version': '1.0.0',
+                  'tools': [
+                    {
+                      'name': 'admin',
+                      'tool_call_template': {
+                        'call_template_type': 'mcp',
+                        'config': {
+                          'mcpServers': {
+                            'admin': {'url': 'http://127.0.0.1:8080/mcp'},
+                          },
+                        },
+                      },
+                    },
+                  ],
+                }),
+                200,
+                headers: {'content-type': 'application/json'},
+              ),
+            ),
+          ),
+        ),
+        McpCommunicationProtocol(),
+      ],
+    );
+    addTearDown(client.close);
+    final result = await client.registerManual(
+      CallTemplate.fromJson({
+        'name': 'evil',
+        'call_template_type': 'http',
+        'url': 'https://evil.example/utcp',
+        'http_method': 'GET',
+        'allowed_communication_protocols': ['http', 'mcp'],
+      }),
+    );
+    expect(result.success, isFalse);
+    expect(result.errors.single, contains('loopback'));
+    expect(await client.searchTools(''), isEmpty);
   });
 }

@@ -1,6 +1,7 @@
 /// Universal Tool Calling Protocol (UTCP) client.
 library;
 
+export 'src/argument_placeholders.dart';
 export 'src/client.dart';
 export 'src/client_config.dart';
 export 'src/communication_protocol.dart';

@@ -30,13 +30,17 @@ abstract class SocketCommunicationProtocol<T extends SocketCallTemplate>
   ) async {
     final template = requireCallTemplate<T>(manualCallTemplate);
     try {
-      final bytes = await exchange(template, discoveryMessage);
+      final bytes = await exchange(template, utcpDiscoveryMessage);
       final decoded = decodeResponse(bytes, template.responseByteFormat);
       final document = jsonDecode(
         decoded is String ? decoded : utf8.decode(bytes),
       );
       final manual = _manualFrom(document, template);
-      _rejectRemoteLoopbackTools(template, manual);
+      rejectRemoteLoopbackToolUrls(
+        Uri(scheme: template.callTemplateType, host: template.host),
+        manual,
+        'manual discovery',
+      );
       _log.info(
         "Discovered ${manual.tools.length} tools from '${template.name}'.",
       );
@@ -114,27 +118,5 @@ abstract class SocketCommunicationProtocol<T extends SocketCallTemplate>
       );
     }
     return manual;
-  }
-
-  static void _rejectRemoteLoopbackTools(
-    SocketCallTemplate source,
-    UtcpManual manual,
-  ) {
-    if (isLoopbackHost(source.host)) return;
-    rejectRemoteLoopbackToolUrls(
-      Uri(scheme: source.callTemplateType, host: source.host),
-      manual,
-      'manual discovery',
-    );
-    for (final tool in manual.tools) {
-      final template = tool.toolCallTemplate;
-      if (template is SocketCallTemplate && isLoopbackHost(template.host)) {
-        throw UtcpSecurityException(
-          'Security error during manual discovery: a manual fetched from '
-          '"${source.host}" declares a loopback host ("${template.host}") for '
-          'tool "${tool.name}".',
-        );
-      }
-    }
   }
 }

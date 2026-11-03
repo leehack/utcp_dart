@@ -210,6 +210,45 @@ void main() {
       );
     });
 
+    test('a delimited frame over max_response_size fails', () async {
+      final template = _tcp(TcpFramingStrategy.delimiter, maxResponseSize: 4);
+      for (final read in [
+        _reads([utf8.encode('abcdef\n')]),
+        _byteByByte(utf8.encode('abcde\n')),
+      ]) {
+        await expectLater(
+          readFrame(read, template),
+          throwsA(
+            isA<UtcpException>().having(
+              (e) => e.message,
+              'message',
+              contains('max_response_size'),
+            ),
+          ),
+        );
+      }
+    });
+
+    test('a fixed length over max_response_size fails', () async {
+      await expectLater(
+        readFrame(
+          _reads([List.filled(8, 1)]),
+          _tcp(
+            TcpFramingStrategy.fixedLength,
+            fixedLength: 8,
+            maxResponseSize: 4,
+          ),
+        ),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains('max_response_size'),
+          ),
+        ),
+      );
+    });
+
     test('fixed length reads exactly that many bytes', () async {
       final template = _tcp(TcpFramingStrategy.fixedLength, fixedLength: 3);
       expect(await readFrame(_byteByByte([1, 2, 3, 4]), template), [1, 2, 3]);

@@ -8,12 +8,6 @@ import 'websocket_call_template.dart';
 
 final _log = Logger('utcp.websocket');
 
-/// Sent to discover a provider's manual, spelled as the Python transport
-/// writes it.
-const discoveryMessage = '{"type": "utcp"}';
-
-final _argPlaceholder = RegExp('UTCP_ARG_(.+?)_UTCP_ARG');
-
 /// The text frame sent for a tool call.
 ///
 /// Without a template the arguments are sent as one JSON object. A string
@@ -24,17 +18,17 @@ final _argPlaceholder = RegExp('UTCP_ARG_(.+?)_UTCP_ARG');
 String formatMessage(Object? template, ToolArguments arguments) =>
     switch (template) {
       null => jsonEncode(arguments),
-      String() => _substitute(
-        template,
-        arguments,
-        jsonEscape: RegExp(r'^\s*[{[]').hasMatch(template),
-      ),
+      String() => substituteArgumentPlaceholders(template, arguments),
       _ => jsonEncode(_substituteDeep(template, arguments)),
     };
 
 Object? _substituteDeep(Object? value, ToolArguments arguments) =>
     switch (value) {
-      String() => _substitute(value, arguments, jsonEscape: false),
+      String() => substituteArgumentPlaceholders(
+        value,
+        arguments,
+        jsonEscape: false,
+      ),
       Map<Object?, Object?>() => {
         for (final MapEntry(:key, :value) in value.entries)
           '$key': _substituteDeep(value, arguments),
@@ -44,24 +38,6 @@ Object? _substituteDeep(Object? value, ToolArguments arguments) =>
       ],
       _ => value,
     };
-
-/// Replaces each `UTCP_ARG_<name>_UTCP_ARG` with the argument [name]:
-/// strings as they are (or JSON-escaped), other values as JSON. Placeholders
-/// without a matching argument stay as written. A single pass, so an
-/// argument value cannot introduce placeholders of its own.
-String _substitute(
-  String template,
-  ToolArguments arguments, {
-  required bool jsonEscape,
-}) => template.replaceAllMapped(_argPlaceholder, (match) {
-  final name = match.group(1)!;
-  if (!arguments.containsKey(name)) return match.group(0)!;
-  final value = arguments[name];
-  if (value is! String) return jsonEncode(value);
-  if (!jsonEscape) return value;
-  final quoted = jsonEncode(value);
-  return quoted.substring(1, quoted.length - 1);
-});
 
 /// A received frame as a tool result: text per [format], binary as bytes.
 Object? decodeMessage(Object? data, WebSocketResponseFormat? format) {

@@ -27,9 +27,11 @@ typedef McpTransportFactory =
 /// The `mcp` transport: discovers and calls the tools of MCP servers.
 ///
 /// One MCP session per server configuration and credentials is opened on
-/// first use and reused across calls. A session whose connection drops is
-/// replaced, and a call that fails because the connection closed is retried
-/// once on a fresh session. Sessions close when the last manual using them is
+/// first use and reused across calls. A session whose connection has closed
+/// is replaced on the next request. Listing tools and resources and
+/// reading a resource are retried once on a fresh session when the
+/// connection drops; a tool call only when it was rejected before being
+/// sent, since the server may already have run it. Sessions close when the last manual using them is
 /// deregistered, and every session and child process closes in [close].
 class McpCommunicationProtocol extends CommunicationProtocol {
   /// [httpClient] is used for HTTP MCP servers and OAuth2 token requests;
@@ -88,7 +90,7 @@ class McpCommunicationProtocol extends CommunicationProtocol {
       final perServer = await Future.wait([
         for (final MapEntry(key: name, value: server) in servers.entries)
           _discover(template, name, server).catchError((Object e) {
-            errors.add("Server '$name': ${_message(e)}");
+            errors.add("Server '$name': ${_redact(_message(e), server)}");
             return const <Tool>[];
           }, test: (e) => e is UtcpException || e is FormatException),
       ]);
@@ -139,7 +141,8 @@ class McpCommunicationProtocol extends CommunicationProtocol {
       } on UtcpException catch (e) {
         // Resources are optional; their absence must not fail discovery.
         _log.warning(
-          "Could not list resources of MCP server '$serverName': ${e.message}",
+          "Could not list resources of MCP server '$serverName': "
+          '${_redact(e.message, server)}',
         );
       }
     }
@@ -219,6 +222,7 @@ class McpCommunicationProtocol extends CommunicationProtocol {
         mcp.CallToolRequest(name: name, arguments: arguments),
         options: mcp.RequestOptions(timeout: server.timeout),
       ),
+      idempotent: false,
     );
     return toolResultValue(result.toJson());
   }
@@ -284,13 +288,16 @@ class McpCommunicationProtocol extends CommunicationProtocol {
   }
 
   /// Runs [operation] on the session for [server], replacing the session
-  /// when its connection fails.
+  /// when its connection fails. A request that was never sent is retried
+  /// once on a fresh session; any other failure only for an [idempotent]
+  /// operation, since a tool call may already have run.
   Future<T> _withSession<T>(
     String serverName,
     McpServerConfig server,
     Auth? auth,
-    Future<T> Function(mcp.McpClient client) operation,
-  ) async {
+    Future<T> Function(mcp.McpClient client) operation, {
+    bool idempotent = true,
+  }) async {
     final key = _sessionKey(serverName, server, auth);
     for (var attempt = 1; ; attempt++) {
       final pending = _session(key, serverName, server, auth);
@@ -307,14 +314,15 @@ class McpCommunicationProtocol extends CommunicationProtocol {
         failure = classified;
       }
       if (!failure.keepSession) await _evict(key, pending);
-      if (failure.retry && attempt == 1) {
+      final message = _redact(failure.message, server);
+      if (failure.retry && attempt == 1 && (idempotent || failure.unsent)) {
         _log.info(
-          "MCP session for '$serverName' failed (${failure.message}); "
-          'retrying on a new session.',
+          "MCP session for '$serverName' failed ($message); retrying on a "
+          'new session.',
         );
         continue;
       }
-      throw UtcpException("MCP server '$serverName': ${failure.message}");
+      throw UtcpException("MCP server '$serverName': $message");
     }
   }
 
@@ -358,8 +366,13 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     } on Object catch (e) {
       final failure = _Failure.of(e);
       if (failure == null) rethrow;
+      final command = switch (server) {
+        McpStdioServer(:final command) => " (command '$command')",
+        McpHttpServer() => '',
+      };
       throw UtcpException(
-        "Could not connect to MCP server '$serverName': ${failure.message}",
+        "Could not connect to MCP server '$serverName'$command: "
+        '${_redact(failure.message, server)}',
       );
     } finally {
       if (!connected) await session.close();
@@ -458,6 +471,39 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     Auth? auth,
   ) => jsonEncode([serverName, server.toJson(), auth?.toJson()]);
 
+  /// Values shorter than this are left in messages: they cannot hide a
+  /// usable secret, and replacing them would garble the text.
+  static const _minSecretLength = 4;
+
+  /// The first line of [message], with every configured value of [server]
+  /// that may carry a secret (stdio `args` and `env`, HTTP headers, token,
+  /// and URL user info and query values) masked. Later lines hold stack
+  /// traces and, for a process that failed to start, its command line.
+  static String _redact(String message, McpServerConfig server) {
+    final uri = server is McpHttpServer ? Uri.tryParse(server.url) : null;
+    final secrets =
+        [
+          ...switch (server) {
+            McpStdioServer(:final args, :final env) => [...args, ...env.values],
+            McpHttpServer(:final headers, :final authToken) => [
+              ...headers.values,
+              ?authToken,
+            ],
+          },
+          if (uri != null) ...[
+            ...uri.userInfo.split(':'),
+            ...uri.queryParametersAll.values.expand((v) => v),
+          ],
+        ].where((s) => s.length >= _minSecretLength).toList()..sort(
+          (a, b) => b.length.compareTo(a.length),
+        );
+    var text = message.split('\n').first.trimRight();
+    for (final secret in secrets) {
+      text = text.replaceAll(secret, '***');
+    }
+    return text;
+  }
+
   static String _message(Object error) => switch (error) {
     UtcpException(:final message) => message,
     FormatException(:final message) => message,
@@ -478,11 +524,23 @@ class McpCommunicationProtocol extends CommunicationProtocol {
 }
 
 final class _Failure {
-  _Failure(this.message, {this.retry = false, this.keepSession = false});
+  _Failure(
+    this.message, {
+    this.retry = false,
+    this.keepSession = false,
+    this.unsent = false,
+  });
 
   static final _connectionClosed = RegExp(
     r'connection (closed|is closing)',
     caseSensitive: false,
+  );
+
+  /// How `mcp_dart`'s protocol and transports reject a request before
+  /// writing any of it, on a session that is closing or closed.
+  static final _rejectedBeforeSending = RegExp(
+    r'^(Connection is closing\.|Not connected to a transport\.|'
+    r'Cannot send message: )',
   );
 
   /// JSON-RPC errors are answers from a live session, except the two that
@@ -507,7 +565,11 @@ final class _Failure {
   /// null for anything else, which is a bug to surface unchanged.
   static _Failure? of(Object error) => switch (error) {
     mcp.McpError() => _Failure.fromMcpError(error),
-    StateError(:final message) => _Failure(message, retry: true),
+    StateError(:final message) => _Failure(
+      message,
+      retry: true,
+      unsent: _rejectedBeforeSending.hasMatch(message),
+    ),
     IOException() => _Failure('$error', retry: true),
     http.ClientException(:final message) => _Failure(message, retry: true),
     TimeoutException() => _Failure('$error'),
@@ -520,6 +582,9 @@ final class _Failure {
   final String message;
   final bool retry;
   final bool keepSession;
+
+  /// Whether the request provably never reached the server.
+  final bool unsent;
 }
 
 final class _Session {

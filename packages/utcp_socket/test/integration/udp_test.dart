@@ -1,6 +1,7 @@
 @Tags(['integration'])
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -97,13 +98,13 @@ void main() {
   });
 
   test('zero response datagrams sends without waiting', () async {
-    final server = await serve((_, _) {});
+    final request = Completer<Datagram>();
+    final server = await serve((_, d) => request.complete(d));
     final result = await protocol.callTool(client, 't', {
       'fire': 'forget',
     }, at(server, datagrams: 0));
     expect(result, '');
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    expect(utf8.decode(server.received.single.data), '{"fire":"forget"}');
+    expect(utf8.decode((await request.future).data), '{"fire":"forget"}');
   });
 
   test('ignores datagrams from other addresses', () async {

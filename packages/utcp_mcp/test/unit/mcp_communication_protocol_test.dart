@@ -1,4 +1,7 @@
-import 'package:mcp_dart/mcp_dart.dart' show silenceMcpLogs;
+import 'dart:async';
+
+import 'package:logging/logging.dart';
+import 'package:mcp_dart/mcp_dart.dart' show IOStreamTransport, silenceMcpLogs;
 import 'package:test/test.dart';
 import 'package:utcp/utcp.dart';
 import 'package:utcp_mcp/utcp_mcp.dart';
@@ -78,6 +81,50 @@ void main() {
         contains('manual.alpha.echo'),
       );
     });
+
+    test(
+      'errors and logs name the command, never args, env or stack traces',
+      () async {
+        final records = <String>[];
+        final logs = Logger.root.onRecord.listen((r) => records.add(r.message));
+        addTearDown(logs.cancel);
+        final failing = McpCommunicationProtocol(
+          transportFactory: (name, server, auth) => _FailingTransport(
+            'Failed to start server process: ProcessException: denied '
+            'SECRET-ARG-1 SECRET-ENV-2\n'
+            '  Command: /opt/mcp-server --token SECRET-ARG-1\n'
+            '#0      _ProcessImpl._start (dart:io-patch/process_patch.dart:1)',
+          ),
+        );
+        addTearDown(failing.close);
+        final result = await failing.registerManual(
+          caller,
+          const McpCallTemplate(
+            name: 'm',
+            config: McpConfig(
+              mcpServers: {
+                'srv': McpStdioServer(
+                  command: '/opt/mcp-server',
+                  args: ['--token', 'SECRET-ARG-1'],
+                  env: {'API_KEY': 'SECRET-ENV-2'},
+                ),
+              },
+            ),
+          ),
+        );
+        expect(result.success, isFalse);
+        final error = result.errors.single;
+        expect(error, contains("'srv'"));
+        expect(error, contains('/opt/mcp-server'));
+        expect(error, contains('denied'));
+        expect(records, isNotEmpty);
+        for (final text in [error, ...records]) {
+          expect(text, isNot(contains('SECRET')));
+          expect(text, isNot(contains('#0')));
+          expect(text, isNot(contains('\n')));
+        }
+      },
+    );
 
     test('fails a manual without servers', () async {
       final result = await protocol.registerManual(
@@ -215,7 +262,7 @@ void main() {
       expect(servers.connections, ['alpha']);
     });
 
-    test('retries once when the connection drops mid-call', () async {
+    test('never retries a tool call the server may have run', () async {
       await expectLater(
         call('manual.alpha.crash'),
         throwsA(
@@ -226,9 +273,10 @@ void main() {
           ),
         ),
       );
-      expect(servers.connections, ['alpha', 'alpha'], reason: 'one retry');
+      expect(servers.crashes, 1, reason: 'the tool ran once');
+      expect(servers.connections, ['alpha']);
       await call('manual.alpha.echo', {'message': 'after'});
-      expect(servers.connections, ['alpha', 'alpha', 'alpha']);
+      expect(servers.connections, ['alpha', 'alpha']);
     });
 
     test('streams the result as a single chunk', () async {
@@ -321,4 +369,16 @@ void main() {
       );
     });
   });
+}
+
+/// A transport whose start fails the way a stdio child that cannot start
+/// does, with its command line and a stack trace in the message.
+final class _FailingTransport extends IOStreamTransport {
+  _FailingTransport(this.message)
+    : super(stream: const Stream.empty(), sink: StreamController<List<int>>());
+
+  final String message;
+
+  @override
+  Future<void> start() => Future.error(StateError(message));
 }

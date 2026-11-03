@@ -77,13 +77,18 @@ With `register_resources_as_tools: true`, each MCP resource is also registered a
   is returned on its own, several as a list. As in the Python and TypeScript SDKs, an `isError`
   result is returned the same way rather than thrown. JSON-RPC errors throw a `UtcpException`.
 - One session per server, configuration and credentials is opened on first use and reused. A session
-  whose connection drops is replaced, and a call that fails because the connection closed is retried
-  once. Sessions close when the last manual using them is deregistered; `close` ends every session and
-  child process.
+  whose connection drops is replaced. Listing tools or resources and reading a resource are retried
+  once on a fresh session when the connection fails, as in the Python SDK. A tool call is retried
+  only when `mcp_dart` rejected it before sending it; once it may have reached the server it is
+  never sent again, since the tool may already have run. Sessions close when the last manual using
+  them is deregistered; `close` ends every session and child process.
+- Errors and logs name the server and, for stdio, its command, but never its `args`, `env`,
+  headers or token, and carry no stack traces.
 - MCP has no tool-level streaming, so `callToolStreaming` yields the whole result once.
 - Child-process stderr is discarded. Set `UTCP_MCP_CHILD_STDERR=inherit` to see it.
-- `mcp_dart` writes its own debug logs to stderr. Call `silenceMcpLogs()` or `setMcpLogHandler()`
-  from `package:mcp_dart` to change that.
+- `mcp_dart` writes its own debug logs to stderr, including the full command line of a stdio server
+  that fails to start. Call `silenceMcpLogs()` or `setMcpLogHandler()` from `package:mcp_dart` to
+  change that.
 
 ## Security
 
@@ -101,8 +106,12 @@ request through `HttpTransport`. Known gaps:
   is constructed, as `mcp_dart` 2.4 does.
 - A token the server revokes before its `expires_in` keeps being sent until it expires locally,
   because the `utcp` token cache cannot be invalidated yet.
+- Response bodies are read by `mcp_dart` without a size limit, so an HTTP server you register can
+  make this process buffer a large JSON response or event in memory.
 - WebSocket and legacy SSE MCP servers are not supported.
 
 A stdio server runs with the privileges of this process, so register `mcp` manuals only from
 configuration you trust. A manual fetched over HTTP cannot smuggle in `mcp` tools: the client drops
-them unless that manual's call template lists `mcp` in `allowed_communication_protocols`.
+them unless that manual's call template lists `mcp` in `allowed_communication_protocols`. Even then,
+`McpCallTemplate.endpoints` lists the HTTP server URLs, so a manual from a remote origin cannot
+point an `mcp` tool at a loopback server.

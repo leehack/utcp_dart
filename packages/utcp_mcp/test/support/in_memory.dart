@@ -16,6 +16,9 @@ final class InMemoryServers {
   /// Server names whose connection attempts fail.
   final failing = <String>{};
 
+  /// How often a `crash` tool has run.
+  int crashes = 0;
+
   /// Client transports handed out and not closed yet.
   int open = 0;
 
@@ -35,6 +38,7 @@ final class InMemoryServers {
     final mcpServer = buildTestServer(
       name: serverName,
       onCrash: () {
+        crashes++;
         unawaited(toClient.close());
         return Completer<CallToolResult>().future;
       },

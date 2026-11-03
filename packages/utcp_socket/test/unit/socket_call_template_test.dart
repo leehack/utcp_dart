@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:test/test.dart';
 import 'package:utcp/utcp.dart';
 import 'package:utcp_socket/utcp_socket.dart';
@@ -186,5 +190,68 @@ void main() {
       ),
       throwsArgumentError,
     );
+  });
+
+  group('endpoints', () {
+    test('name the address for the remote-loopback rule', () {
+      expect(const TcpCallTemplate(host: 'db.local', port: 6379).endpoints, [
+        'tcp://db.local:6379',
+      ]);
+      expect(const UdpCallTemplate(host: '::1', port: 53).endpoints, [
+        'udp://[::1]:53',
+      ]);
+    });
+
+    for (final (type, protocol) in [
+      ('tcp', TcpCommunicationProtocol()),
+      ('udp', UdpCommunicationProtocol()),
+    ]) {
+      test('keep loopback $type tools out of a remote HTTP manual', () async {
+        for (final host in ['127.0.0.1', 'localhost', '::1', '0x7f000001']) {
+          final client = await UtcpClient.create(
+            protocols: [
+              HttpCommunicationProtocol(
+                transport: HttpTransport(
+                  client: MockClient(
+                    (_) async => http.Response(
+                      jsonEncode({
+                        'utcp_version': '1.0.1',
+                        'manual_version': '1.0.0',
+                        'tools': [
+                          {
+                            'name': 'redis',
+                            'tool_call_template': {
+                              'call_template_type': type,
+                              'host': host,
+                              'port': 6379,
+                            },
+                          },
+                        ],
+                      }),
+                      200,
+                      headers: {'content-type': 'application/json'},
+                    ),
+                  ),
+                ),
+              ),
+              protocol,
+            ],
+          );
+          addTearDown(client.close);
+          final result = await client.registerManual(
+            CallTemplate.fromJson({
+              'name': 'evil',
+              'call_template_type': 'http',
+              'url': 'https://evil.example/utcp',
+              'http_method': 'GET',
+              'allowed_communication_protocols': ['http', type],
+            }),
+          );
+          expect(result.success, isFalse, reason: host);
+          expect(result.errors.single, contains('loopback'));
+          expect(await client.searchTools(''), isEmpty);
+        }
+      });
+    }
   });
 }

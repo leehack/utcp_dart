@@ -194,7 +194,6 @@ void main() {
       final closed = server.closed.stream.first;
       await server.sockets.single.close();
       await closed;
-      await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(
         await protocol.callTool(client, 't', {'b': 2}, template),
         'echo:{"b":2}',
@@ -228,13 +227,22 @@ void main() {
       expect(headers.value('X-Api-Key'), 'k1');
     });
 
-    test('a different header field value opens its own connection', () async {
+    test('a call with header fields closes its own connection', () async {
       final server = await echo();
       final template = at(server, headerFields: ['X-User']);
-      await protocol.callTool(client, 't', {'X-User': 'a'}, template);
-      await protocol.callTool(client, 't', {'X-User': 'b'}, template);
-      await protocol.callTool(client, 't', {'X-User': 'a'}, template);
-      expect(server.requests.map((r) => r.headers.value('X-User')), ['a', 'b']);
+      final closed = server.closed.stream.take(3).drain<void>();
+      for (final user in ['a', 'b', 'a']) {
+        expect(
+          await protocol.callTool(client, 't', {'X-User': user}, template),
+          'echo:{}',
+        );
+      }
+      expect(server.requests.map((r) => r.headers.value('X-User')), [
+        'a',
+        'b',
+        'a',
+      ]);
+      await closed.timeout(const Duration(seconds: 2));
     });
 
     test('basic auth and query API keys', () async {
@@ -418,9 +426,10 @@ void main() {
       );
     });
 
-    test('a refused connection is a UtcpException', () async {
+    test('a refused connection is a UtcpException without the query', () async {
       final unused = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      final url = 'ws://localhost:${unused.port}/ws';
+      final port = unused.port;
+      final url = 'ws://localhost:$port/ws?token=s3cret';
       await unused.close();
       await expectLater(
         protocol.callTool(
@@ -429,8 +438,120 @@ void main() {
           const {},
           WebSocketCallTemplate(url: url),
         ),
-        throwsA(isA<UtcpException>()),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('ws://localhost:$port/ws'),
+              isNot(contains('s3cret')),
+            ),
+          ),
+        ),
       );
+    });
+
+    test('a dropped handshake is reported without the query', () async {
+      final server = await serve(
+        (_, _) {},
+        onRequest: (request) async {
+          (await request.response.detachSocket(writeHeaders: false)).destroy();
+          return true;
+        },
+      );
+      await expectLater(
+        protocol.callTool(
+          client,
+          't',
+          const {},
+          WebSocketCallTemplate(url: '${server.url}?token=s3cret'),
+        ),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains(server.url), isNot(contains('s3cret'))),
+          ),
+        ),
+      );
+    });
+
+    test('rejects a wrong Sec-WebSocket-Accept', () async {
+      final server = await serve(
+        (_, _) {},
+        onRequest: (request) async {
+          request.response
+            ..statusCode = HttpStatus.switchingProtocols
+            ..headers.set(HttpHeaders.connectionHeader, 'Upgrade')
+            ..headers.set(HttpHeaders.upgradeHeader, 'websocket')
+            ..headers.set('Sec-WebSocket-Accept', 'bm90IHRoZSBrZXk=');
+          (await request.response.detachSocket()).destroy();
+          return true;
+        },
+      );
+      await expectLater(
+        protocol.callTool(client, 't', const {}, at(server)),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains('Sec-WebSocket-Accept'),
+          ),
+        ),
+      );
+    });
+
+    test('a redirect error names its target without the query', () async {
+      final server = await serve(
+        (_, _) {},
+        onRequest: (request) async {
+          request.response
+            ..statusCode = HttpStatus.found
+            ..headers.set(
+              HttpHeaders.locationHeader,
+              'wss://elsewhere.example/ws?token=s3cret',
+            );
+          await request.response.close();
+          return true;
+        },
+      );
+      await expectLater(
+        protocol.callTool(client, 't', const {}, at(server)),
+        throwsA(
+          isA<UtcpSecurityException>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('wss://elsewhere.example/ws'),
+              isNot(contains('s3cret')),
+            ),
+          ),
+        ),
+      );
+    });
+
+    test('close aborts a handshake the server never answers', () async {
+      final arrived = Completer<void>();
+      final server = await serve(
+        (_, _) {},
+        onRequest: (request) {
+          arrived.complete();
+          return Completer<bool>().future;
+        },
+      );
+      final call = expectLater(
+        protocol.callTool(client, 't', const {}, at(server)),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains('cancelled'),
+          ),
+        ),
+      );
+      await arrived.future;
+      await protocol.close().timeout(const Duration(seconds: 2));
+      await call;
     });
   });
 

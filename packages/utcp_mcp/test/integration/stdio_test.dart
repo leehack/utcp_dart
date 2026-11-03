@@ -122,7 +122,7 @@ void main() {
     await waitForExit(pid);
   });
 
-  test('reports a command that cannot start', () async {
+  test('reports a command that cannot start without its args', () async {
     final result = await protocol.registerManual(
       caller,
       const McpCallTemplate(
@@ -131,6 +131,8 @@ void main() {
           mcpServers: {
             'nothing': McpStdioServer(
               command: '/nonexistent/utcp-mcp-server',
+              args: ['--token', 'SECRET-ARG-123'],
+              env: {'API_KEY': 'SECRET-ENV-456'},
               timeout: Duration(seconds: 5),
             ),
           },
@@ -138,6 +140,10 @@ void main() {
       ),
     );
     expect(result.success, isFalse);
-    expect(result.errors.single, startsWith("Server 'nothing':"));
+    final error = result.errors.single;
+    expect(error, startsWith("Server 'nothing':"));
+    expect(error, contains('/nonexistent/utcp-mcp-server'));
+    expect(error, isNot(contains('SECRET')));
+    expect(error, isNot(contains('#0')));
   });
 }

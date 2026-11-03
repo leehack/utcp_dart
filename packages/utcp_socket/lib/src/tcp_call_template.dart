@@ -130,7 +130,7 @@ class TcpCallTemplate extends SocketCallTemplate {
   final int? fixedMessageLength;
 
   /// Most bytes read for one response. [TcpFramingStrategy.stream] framing
-  /// stops reading there; length-prefix and delimiter framing fail beyond it.
+  /// stops reading there; every other framing fails beyond it.
   final int maxResponseSize;
 
   @override

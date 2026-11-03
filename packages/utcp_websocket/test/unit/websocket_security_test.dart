@@ -53,6 +53,27 @@ void main() {
     }
   });
 
+  test('the rejection names the URL without credentials', () {
+    expect(
+      () => ensureSecureWebSocketUrl(
+        'ws://user:pw@example.com/socket?token=s3cret#frag',
+        'test',
+      ),
+      throwsA(
+        isA<UtcpSecurityException>().having(
+          (e) => e.message,
+          'message',
+          allOf(
+            contains('ws://example.com/socket'),
+            isNot(contains('s3cret')),
+            isNot(contains('pw')),
+            isNot(contains('frag')),
+          ),
+        ),
+      ),
+    );
+  });
+
   group('a manual discovered from a remote origin', () {
     final remote = Uri.parse('wss://tools.example.com/ws');
 
@@ -92,7 +113,7 @@ void main() {
     ]) {
       test('may not point $label at loopback', () {
         expect(
-          () => rejectRemoteLoopbackWebSocketTools(
+          () => rejectRemoteLoopbackToolUrls(
             remote,
             manual(template),
             'manual discovery',
@@ -103,7 +124,7 @@ void main() {
     }
 
     test('may point tools at remote hosts', () {
-      rejectRemoteLoopbackWebSocketTools(
+      rejectRemoteLoopbackToolUrls(
         remote,
         manual({
           'call_template_type': 'websocket',
@@ -114,7 +135,7 @@ void main() {
     });
 
     test('from loopback may point tools at loopback', () {
-      rejectRemoteLoopbackWebSocketTools(
+      rejectRemoteLoopbackToolUrls(
         Uri.parse('ws://localhost:8080/ws'),
         manual({
           'call_template_type': 'websocket',
