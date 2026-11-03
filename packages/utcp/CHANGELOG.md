@@ -1,5 +1,9 @@
 ## Unreleased
 
+- A tool call that supplies `body_field` to a GET `http` or `streamable_http` template fails with a clear error instead of sending a GET with a body, as in the TypeScript SDK.
+- The OAuth2 token request omits `scope` when it is unset or empty instead of sending `scope=`.
+- `streamable_http` reads `chunk_size: 0` and `timeout: 0` as the defaults, as the reference SDKs do, and `timeout` and `sse` `retry_timeout` accept fractional milliseconds.
+- Only the first 64 KiB of an HTTP error body is read (`HttpStreamedResult.maxErrorBodyBytes`), as in the Python SDK.
 - `streamable_http` binary responses are regrouped into `chunk_size`-byte chunks, the last one possibly shorter, as the spec describes. Before, chunks were at most `chunk_size` and followed the network's reads.
 - Docs: tag search follows the TypeScript SDK's scoring and `limit` (0 returns every tool), and `oauth2_user` auth is TypeScript-only.
 - HTTP tool results are parsed as JSON only for `application/json` and `+json` content types, matched case-insensitively; other types (such as `application/x-ndjson`) and invalid JSON are returned as text instead of throwing, as the spec requires.
