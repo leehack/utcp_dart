@@ -83,6 +83,12 @@ void main() {
       expect(decodeResponse(bytes, 'utf_8'), 'héllo');
       expect(decodeResponse(Uint8List.fromList([0xe9]), 'latin1'), 'é');
       expect(decodeResponse(Uint8List.fromList([104, 105]), 'ascii'), 'hi');
+      expect(decodeResponse(Uint8List.fromList([0xe9]), 'latin-1'), 'é');
+      expect(decodeResponse(Uint8List.fromList([0x80]), 'cp1252'), '€');
+      expect(
+        decodeResponse(Uint8List.fromList([0xff, 0xfe, 0x61, 0]), 'utf-16'),
+        'a',
+      );
     });
 
     test('returns raw bytes when unset or undecodable', () {
@@ -95,7 +101,13 @@ void main() {
     test('rejects unknown encodings', () {
       expect(
         () => decodeResponse(bytes, 'klingon'),
-        throwsA(isA<UtcpException>()),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains('Supported: utf-8'),
+          ),
+        ),
       );
     });
   });

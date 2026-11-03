@@ -1,3 +1,8 @@
+## Unreleased
+
+- `response_byte_format` accepts Python's encoding names, including `latin-1`, `utf-16` (`-le`, `-be`) and `cp1252`, and an unsupported one fails when the template is parsed instead of after the request is sent.
+- `max_response_size` applies only to `stream` framing, as in the Python SDK. Length-prefix, delimiter and fixed-length responses are capped by the new `TcpCommunicationProtocol(maxFrameBytes: ...)`, 10 MiB by default.
+
 ## 0.1.1
 
 - Docs: package cross-links, badges and platform notes.

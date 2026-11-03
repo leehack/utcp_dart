@@ -96,6 +96,29 @@ void main() {
     expect(result, [1, 2, 3, 4]);
   });
 
+  test('a delimited response over max_response_size is read whole, up to '
+      'maxFrameBytes', () async {
+    final body = 'x' * 100000;
+    final server = await serve(
+      (socket, request) async => socket.add(utf8.encode('$body\n')),
+    );
+    final template = at(server, framing: TcpFramingStrategy.delimiter);
+    expect(template.maxResponseSize, 65536);
+    expect(await protocol.callTool(client, 'svc.t', const {}, template), body);
+
+    final small = TcpCommunicationProtocol(maxFrameBytes: 1000);
+    await expectLater(
+      small.callTool(client, 'svc.t', const {}, template),
+      throwsA(
+        isA<UtcpException>().having(
+          (e) => e.message,
+          'message',
+          contains('1000-byte frame limit'),
+        ),
+      ),
+    );
+  });
+
   test('stream framing reads until the server closes', () async {
     final server = await serve((socket, _) async {
       socket.add(utf8.encode('all '));

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:utcp/utcp.dart';
 
+import 'encodings.dart';
 import 'socket_call_template.dart';
 
 /// The request payload for a tool call, per
@@ -27,13 +28,14 @@ String formatRequest(ToolArguments arguments, SocketCallTemplate template) {
 /// [encoding] is null or the bytes are not valid in it.
 Object decodeResponse(Uint8List bytes, String? encoding) {
   if (encoding == null) return bytes;
-  // Python spells UTF-8 several ways that Encoding.getByName does not know.
-  final name = encoding.toLowerCase().replaceAll('_', '-');
-  final codec =
-      Encoding.getByName(name == 'utf8' ? 'utf-8' : name) ??
-      (throw UtcpException("Unsupported response_byte_format '$encoding'."));
+  final decode =
+      responseDecoder(encoding) ??
+      (throw UtcpException(
+        "Unsupported response_byte_format '$encoding'. Supported: "
+        '$supportedResponseByteFormats.',
+      ));
   try {
-    return codec.decode(bytes);
+    return decode(bytes);
   } on FormatException {
     return bytes;
   }

@@ -56,7 +56,7 @@ an empty manual.
 | --- | --- | --- |
 | `host`, `port` | required | Server address. |
 | `request_data_format` | `json` | `json` sends the arguments as one object. `text` fills `request_data_template`, replacing `UTCP_ARG_<name>_UTCP_ARG` with each argument (strings as is, other values as JSON); without a template the values are joined by spaces. |
-| `response_byte_format` | `utf-8` | Encoding of the response (`utf-8`, `ascii`, `latin1`, ...). `null` returns the raw bytes, as does a response that does not decode. |
+| `response_byte_format` | `utf-8` | Encoding of the response, with Python's names: `utf-8`, `ascii`, `latin-1`, `utf-16` (`-le`, `-be`) or `cp1252`. Another name fails when the template is parsed. `null` returns the raw bytes, as does a response that does not decode. |
 | `timeout` | `30000` | Milliseconds. |
 
 `auth` is rejected: raw sockets carry no credentials.
@@ -73,8 +73,9 @@ delimited:
 | `delimiter` | `message_delimiter` (`\x00`), `interpret_escape_sequences` (`true`) | Requests and responses end with the delimiter. Python escapes such as `\n` or `\x00` are interpreted unless disabled. |
 | `fixed_length` | `fixed_message_length` (required) | Exactly that many bytes. |
 
-`timeout` bounds the connect and each wait for data, as in the reference. Length-prefix,
-delimiter and fixed-length responses larger than `max_response_size` fail.
+`timeout` bounds the connect and each wait for data, as in the reference. `max_response_size`
+applies to `stream` only, as in the reference. Length-prefix, delimiter and fixed-length responses
+larger than `TcpCommunicationProtocol(maxFrameBytes: ...)` (10 MiB by default) fail.
 
 ### UDP
 
@@ -98,8 +99,9 @@ transport.
   JSON-escaped, as the WebSocket reference does.
 - Non-string values in `text` requests are written as JSON (Python writes `str(value)`, e.g.
   `True`), and JSON is written compactly.
-- Partial reads are reassembled for every framing, `max_response_size` limits every framing (not
-  only `stream`), and the remote-manual loopback rule above is applied.
+- Partial reads are reassembled for every framing, framed responses are capped by `maxFrameBytes`
+  (the reference has no cap), and the remote-manual loopback rule above is applied.
+- `response_byte_format` supports the encodings listed above, not every Python codec.
 - Template errors (bad `length_prefix_bytes`, missing `fixed_message_length`, malformed delimiter
   escapes, negative datagram counts) fail when the template is parsed.
 
