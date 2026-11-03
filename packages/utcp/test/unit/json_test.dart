@@ -209,6 +209,15 @@ items:
       );
     });
 
+    test('rejects nesting too deep to parse', () {
+      for (final doc in [
+        'a: ${'[' * 50000}${']' * 50000}',
+        'a:\n  ${'- ' * 50000}x',
+      ]) {
+        expect(() => decodeYaml(doc), throwsFormatException);
+      }
+    });
+
     test('accepts large documents without aliases', () {
       final doc = StringBuffer();
       for (var i = 0; i < 5000; i++) {

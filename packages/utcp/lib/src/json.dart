@@ -48,7 +48,13 @@ Object? decodeYaml(String text) {
     };
   }
 
-  return convert(loadYaml(text));
+  try {
+    return convert(loadYaml(text));
+    // package:yaml parses recursively, so deep nesting (`[[[…`, `- - - …`)
+    // exhausts the stack; that is a malformed document, not a crash.
+  } on StackOverflowError {
+    throw const FormatException('YAML document is nested too deeply.');
+  }
 }
 
 /// package:yaml deep-hashes collection keys while parsing, which expands
