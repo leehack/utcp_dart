@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "README.md",
+    "line": 456
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "math_tools",
+    "call_template_type": "text",
+    "content": "..."
+  }
+}

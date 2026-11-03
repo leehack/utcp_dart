@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/url_template.test.ts",
+    "line": 71
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP client config. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "variables": {
+      "url": "https://from-config-vars.example"
+    },
+    "load_variables_from": null
+  }
+}

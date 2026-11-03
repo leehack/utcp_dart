@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "tests/utcp_client.test.ts",
+    "line": 379
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP manual. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "utcp_version": "1.0",
+    "manual_version": "1.0",
+    "tools": []
+  }
+}

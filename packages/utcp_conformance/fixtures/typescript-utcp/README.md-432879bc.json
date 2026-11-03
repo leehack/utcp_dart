@@ -1,0 +1,14 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "README.md",
+    "line": 151
+  },
+  "kind": "variable_loader",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP variable loader.",
+  "document": {
+    "variable_loader_type": "dotenv",
+    "env_file_path": "./.env"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/http.md",
+    "line": 14
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "Schematic field reference: `http_method` lists the alternatives (`GET|POST|PUT|DELETE|PATCH`).",
+  "document": {
+    "call_template_type": "http",
+    "url": "https://api.example.com/users/{user_id}",
+    "http_method": "GET|POST|PUT|DELETE|PATCH",
+    "content_type": "application/json",
+    "headers": {
+      "X-Custom-Header": "static_value"
+    },
+    "body_field": "body",
+    "header_fields": [
+      "user_agent",
+      "request_id"
+    ],
+    "auth": {
+      "auth_type": "api_key|basic|oauth2",
+      "api_key": "${API_KEY}",
+      "var_name": "Authorization",
+      "location": "header|query|cookie"
+    }
+  }
+}

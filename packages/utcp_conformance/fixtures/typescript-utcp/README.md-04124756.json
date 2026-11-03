@@ -1,0 +1,25 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "README.md",
+    "line": 331
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "README bug: the api_key auth uses `api_key_value` and `in`, which no SDK has; every SDK requires `api_key`.",
+  "document": {
+    "name": "weather_api",
+    "call_template_type": "http",
+    "http_method": "GET",
+    "url": "https://api.weather.com/v1/forecast",
+    "headers": {
+      "X-API-Key": "${API_KEY}"
+    },
+    "auth": {
+      "auth_type": "api_key",
+      "var_name": "X-API-Key",
+      "api_key_value": "${API_KEY}",
+      "in": "header"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/plugins/communication_protocols/websocket/src/utcp_websocket/websocket_call_template.md",
+    "line": 51
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Docs bug: websocket `request_data_format` and `request_data_template` are in no SDK's websocket template.",
+  "may_drop": [
+    "request_data_format",
+    "request_data_template"
+  ],
+  "document": {
+    "name": "custom_format_ws",
+    "call_template_type": "websocket",
+    "url": "wss://api.example.com/ws",
+    "request_data_format": "text",
+    "request_data_template": "CMD:UTCP_ARG_command_UTCP_ARG;DATA:UTCP_ARG_data_UTCP_ARG",
+    "timeout": 60
+  }
+}

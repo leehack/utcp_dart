@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/http_communication_protocol.test.ts",
+    "line": 194
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP auth object. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "auth_type": "api_key",
+    "api_key": "test-key",
+    "var_name": "X-Api-Key",
+    "location": "header"
+  }
+}

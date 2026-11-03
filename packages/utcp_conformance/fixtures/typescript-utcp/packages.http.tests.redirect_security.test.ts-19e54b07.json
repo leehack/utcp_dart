@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/redirect_security.test.ts",
+    "line": 372
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "name": "lookup",
+    "call_template_type": "http",
+    "url": "<`http://127.0.0.1:${attacker.port}/tool`>",
+    "http_method": "GET"
+  }
+}

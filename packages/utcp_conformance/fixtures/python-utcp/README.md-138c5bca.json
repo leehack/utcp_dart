@@ -1,0 +1,29 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "README.md",
+    "line": 470
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "multi_step_cli_tool",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "git clone UTCP_ARG_repo_url_UTCP_END temp_repo",
+        "append_to_final_output": false
+      },
+      {
+        "command": "cd temp_repo && find . -name '*.py' | wc -l"
+      }
+    ],
+    "env_vars": {
+      "GIT_AUTHOR_NAME": "UTCP Bot",
+      "API_KEY": "${MY_API_KEY}"
+    },
+    "working_dir": "/tmp",
+    "auth": null
+  }
+}

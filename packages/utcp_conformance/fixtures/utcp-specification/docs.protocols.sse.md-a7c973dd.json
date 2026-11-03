@@ -1,0 +1,38 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/sse.md",
+    "line": 159
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "stream_stock_prices",
+    "description": "Stream real-time stock price updates",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "symbol": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "symbol"
+      ]
+    },
+    "tool_call_template": {
+      "call_template_type": "sse",
+      "url": "https://api.stocks.com/stream/{symbol}",
+      "event_type": "price_update",
+      "reconnect": true,
+      "retry_timeout": 30000,
+      "auth": {
+        "auth_type": "api_key",
+        "api_key": "${STOCK_API_KEY}",
+        "var_name": "Authorization",
+        "location": "header"
+      }
+    }
+  }
+}

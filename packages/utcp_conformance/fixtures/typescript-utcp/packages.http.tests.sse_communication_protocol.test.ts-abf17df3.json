@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/sse_communication_protocol.test.ts",
+    "line": 312
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP auth object. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "auth_type": "basic",
+    "username": "user",
+    "password": "pass"
+  }
+}

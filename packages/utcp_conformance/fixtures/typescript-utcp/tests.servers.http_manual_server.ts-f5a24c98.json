@@ -1,0 +1,35 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "tests/servers/http_manual_server.ts",
+    "line": 5
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP manual. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "utcp_version": "1.0.1",
+    "manual_version": "1.0.0",
+    "tools": [
+      {
+        "name": "get_user",
+        "description": "Gets a user by ID.",
+        "inputs": {
+          "type": "object",
+          "properties": {}
+        },
+        "outputs": {
+          "type": "object",
+          "properties": {}
+        },
+        "tags": [],
+        "tool_call_template": {
+          "name": "http_test_server",
+          "call_template_type": "http",
+          "http_method": "GET",
+          "url": "http://localhost:9998/users/123"
+        }
+      }
+    ]
+  }
+}

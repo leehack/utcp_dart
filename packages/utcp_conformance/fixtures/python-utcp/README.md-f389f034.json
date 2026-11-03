@@ -1,0 +1,28 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "README.md",
+    "line": 427
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "my_sse_stream",
+    "call_template_type": "sse",
+    "url": "https://api.example.com/events",
+    "event_type": "message",
+    "reconnect": true,
+    "retry_timeout": 30000,
+    "auth": {
+      "auth_type": "basic",
+      "username": "${USERNAME}",
+      "password": "${PASSWORD}"
+    },
+    "headers": {
+      "X-Client-ID": "12345"
+    },
+    "body_field": null,
+    "header_fields": []
+  }
+}

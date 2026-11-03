@@ -1,0 +1,18 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "README.md",
+    "line": 311
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP client config.",
+  "document": {
+    "load_variables_from": [
+      {
+        "variable_loader_type": "dotenv",
+        "env_file_path": "./.env"
+      }
+    ]
+  }
+}

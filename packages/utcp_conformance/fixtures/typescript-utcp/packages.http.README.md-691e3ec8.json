@@ -1,0 +1,20 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 502
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Field no SDK has: http `timeout`.",
+  "may_drop": [
+    "timeout"
+  ],
+  "document": {
+    "name": "slow_api",
+    "call_template_type": "http",
+    "http_method": "GET",
+    "url": "https://api.example.com/slow-endpoint",
+    "timeout": 60000
+  }
+}

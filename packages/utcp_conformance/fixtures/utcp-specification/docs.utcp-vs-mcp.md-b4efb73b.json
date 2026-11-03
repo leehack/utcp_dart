@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/utcp-vs-mcp.md",
+    "line": 193
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Field no SDK has: http `timeout`.",
+  "may_drop": [
+    "tool_call_template.timeout"
+  ],
+  "document": {
+    "name": "stream_logs",
+    "tool_call_template": {
+      "call_template_type": "sse",
+      "url": "https://api.example.com/logs/stream",
+      "timeout": 300
+    }
+  }
+}

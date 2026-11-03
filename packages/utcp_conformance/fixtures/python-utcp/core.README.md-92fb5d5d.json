@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "core/README.md",
+    "line": 503
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "Stale README: text call templates lost `file_path` in UTCP 1.1 (it moved to the `file` transport); Python requires `content` and rejects this too.",
+  "document": {
+    "name": "my_text_manual",
+    "call_template_type": "text",
+    "file_path": "./manuals/my_manual.json",
+    "auth": null,
+    "auth_tools": {
+      "auth_type": "api_key",
+      "api_key": "Bearer ${API_TOKEN}",
+      "var_name": "Authorization",
+      "location": "header"
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/cli.md",
+    "line": 167
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "get_system_info",
+    "description": "Get system information",
+    "inputs": {
+      "type": "object",
+      "properties": {}
+    },
+    "tool_call_template": {
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "uname -a",
+          "append_to_final_output": true
+        }
+      ]
+    }
+  }
+}

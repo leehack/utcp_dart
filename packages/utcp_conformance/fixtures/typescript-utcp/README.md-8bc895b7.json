@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "README.md",
+    "line": 114
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "api_manual",
+    "call_template_type": "http",
+    "http_method": "GET",
+    "url": "https://api.example.com/data",
+    "headers": {
+      "Authorization": "Bearer ${API_KEY}"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/plugins/communication_protocols/websocket/src/utcp_websocket/websocket_call_template.md",
+    "line": 25
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "name": "realtime_service",
+    "call_template_type": "websocket",
+    "url": "wss://api.example.com/ws"
+  }
+}

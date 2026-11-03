@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/http.md",
+    "line": 71
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP auth object.",
+  "document": {
+    "auth_type": "basic",
+    "username": "${USERNAME}",
+    "password": "${PASSWORD}"
+  }
+}

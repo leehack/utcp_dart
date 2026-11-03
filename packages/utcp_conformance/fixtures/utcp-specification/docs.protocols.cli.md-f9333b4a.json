@@ -1,0 +1,27 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/cli.md",
+    "line": 453
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP client config.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "test_cli",
+        "call_template_type": "cli",
+        "commands": [
+          {
+            "command": "echo UTCP_ARG_message_UTCP_END",
+            "append_to_final_output": false
+          },
+          {
+            "command": "echo \"Previous: $CMD_0_OUTPUT\""
+          }
+        ]
+      }
+    ]
+  }
+}

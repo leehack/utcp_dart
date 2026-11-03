@@ -1,0 +1,32 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/README.md",
+    "line": 84
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "multi_step_workflow",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "cd UTCP_ARG_target_dir_UTCP_END",
+        "append_to_final_output": false
+      },
+      {
+        "command": "git pull origin main",
+        "append_to_final_output": false
+      },
+      {
+        "command": "npm install",
+        "append_to_final_output": false
+      },
+      {
+        "command": "npm test",
+        "append_to_final_output": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "README.md",
+    "line": 621
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "README bug: `allowed_keys` and `max_length` are not post-processor fields in any SDK (`only_include_keys`, `exclude_keys`, `limit`), so they are dropped.",
+  "may_drop": [
+    "post_processing.*.allowed_keys",
+    "post_processing.*.max_length"
+  ],
+  "document": {
+    "post_processing": [
+      {
+        "tool_post_processor_type": "filter_dict",
+        "allowed_keys": [
+          "id",
+          "name",
+          "email"
+        ]
+      },
+      {
+        "tool_post_processor_type": "limit_strings",
+        "max_length": 1000
+      }
+    ]
+  }
+}

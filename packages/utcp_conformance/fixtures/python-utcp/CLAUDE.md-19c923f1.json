@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "CLAUDE.md",
+    "line": 92
+  },
+  "kind": "client_config",
+  "expect": "reject",
+  "reason": "Agent notes in the v0.1 config format: `providers_file_path`, and a loader keyed `type` instead of `variable_loader_type`, which Python rejects too.",
+  "document": {
+    "providers_file_path": "./providers.json",
+    "load_variables_from": [
+      {
+        "type": "dotenv",
+        "env_file_path": ".env"
+      }
+    ]
+  }
+}

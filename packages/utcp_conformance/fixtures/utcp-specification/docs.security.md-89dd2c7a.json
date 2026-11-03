@@ -1,0 +1,28 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/security.md",
+    "line": 139
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "cd /safe/sandbox",
+        "append_to_final_output": false
+      },
+      {
+        "command": "/usr/local/bin/safe-script --input UTCP_ARG_sanitized_input_UTCP_END",
+        "append_to_final_output": true
+      }
+    ],
+    "working_dir": "/safe/sandbox",
+    "env_vars": {
+      "PATH": "/usr/local/bin:/usr/bin",
+      "HOME": "/tmp/sandbox"
+    }
+  }
+}

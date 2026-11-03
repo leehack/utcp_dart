@@ -400,8 +400,8 @@ String prepBranch(Map<String, Version> versions, DateTime today) {
       '${core ?? '${today.year}-${pad(today.month)}-${pad(today.day)}'}';
 }
 
-/// The packages under `packages/` of [root], by name. Each lives in
-/// `packages/<name>`.
+/// The published packages under `packages/` of [root], by name. Each lives
+/// in `packages/<name>`; one with `publish_to: none` is not released.
 Map<String, PackageFiles> readPackages(Directory root) {
   final packages = <String, PackageFiles>{};
   final dirs =
@@ -415,6 +415,7 @@ Map<String, PackageFiles> readPackages(Directory root) {
     final pubspec = File('${root.path}/packages/$dir/pubspec.yaml');
     if (!pubspec.existsSync()) continue;
     final contents = pubspec.readAsStringSync();
+    if (pubspecField(contents, 'publish_to') == 'none') continue;
     final name = pubspecField(contents, 'name');
     if (name != dir) {
       throw ReleaseException(

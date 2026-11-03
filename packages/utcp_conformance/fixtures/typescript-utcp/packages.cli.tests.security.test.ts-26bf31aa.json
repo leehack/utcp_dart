@@ -1,0 +1,18 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/tests/security.test.ts",
+    "line": 259
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "echo hi"
+      }
+    ]
+  }
+}

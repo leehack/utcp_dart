@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "core/tests/client/test_utcp_client.py",
+    "line": 713
+  },
+  "kind": "client_config",
+  "expect": "reject",
+  "reason": "Python test of a malformed config: `manual_call_templates` is an object, not an array. Python rejects it too.",
+  "document": {
+    "manual_call_templates": {
+      "http_template": {
+        "call_template_type": "http",
+        "url": "https://api.example.com/tools",
+        "http_method": "GET"
+      }
+    }
+  }
+}

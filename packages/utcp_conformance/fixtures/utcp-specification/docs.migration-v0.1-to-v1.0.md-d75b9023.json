@@ -1,0 +1,13 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/migration-v0.1-to-v1.0.md",
+    "line": 397
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "Fragment from the migration guide that shows only the renamed key; an http template needs `url`.",
+  "document": {
+    "call_template_type": "http"
+  }
+}

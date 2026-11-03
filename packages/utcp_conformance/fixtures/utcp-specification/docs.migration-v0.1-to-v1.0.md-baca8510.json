@@ -1,0 +1,62 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/migration-v0.1-to-v1.0.md",
+    "line": 140
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "The migration guide's v1.0 manual (its `utcp_version` says 0.2.0). Fields no SDK has: manual-level `info` and tool-level `auth`.",
+  "may_drop": [
+    "info",
+    "tools.*.auth"
+  ],
+  "document": {
+    "manual_version": "1.0.0",
+    "utcp_version": "0.2.0",
+    "info": {
+      "title": "Weather API",
+      "version": "1.0.0",
+      "description": "Weather data and forecasting tools"
+    },
+    "tools": [
+      {
+        "name": "get_weather",
+        "description": "Get weather data",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "location"
+          ]
+        },
+        "outputs": {
+          "type": "object",
+          "properties": {
+            "temperature": {
+              "type": "number"
+            },
+            "conditions": {
+              "type": "string"
+            }
+          }
+        },
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.weather.com/current",
+          "http_method": "GET"
+        },
+        "auth": {
+          "auth_type": "api_key",
+          "api_key": "${API_KEY}",
+          "var_name": "appid",
+          "location": "query"
+        }
+      }
+    ]
+  }
+}

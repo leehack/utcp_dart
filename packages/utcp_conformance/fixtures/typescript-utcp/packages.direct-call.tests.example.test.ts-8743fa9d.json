@@ -1,0 +1,69 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/direct-call/tests/example.test.ts",
+    "line": 11
+  },
+  "kind": "manual",
+  "expect": "reject",
+  "reason": "`direct-call` is a TypeScript-only in-process transport with no Dart equivalent. An unregistered call_template_type must be rejected.",
+  "document": {
+    "utcp_version": "1.0.0",
+    "manual_version": "1.0.0",
+    "tools": [
+      {
+        "name": "greet",
+        "description": "Greets a person",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name to greet"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        },
+        "outputs": {
+          "type": "string",
+          "description": "Greeting message"
+        },
+        "tags": [],
+        "tool_call_template": {
+          "call_template_type": "direct-call",
+          "callable_name": "greet"
+        }
+      },
+      {
+        "name": "add",
+        "description": "Adds two numbers",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "number"
+            },
+            "b": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ]
+        },
+        "outputs": {
+          "type": "number",
+          "description": "Sum of the two numbers"
+        },
+        "tags": [],
+        "tool_call_template": {
+          "call_template_type": "direct-call",
+          "callable_name": "add"
+        }
+      }
+    ]
+  }
+}

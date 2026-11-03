@@ -1,0 +1,18 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/index.md",
+    "line": 28
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "call_template_type": "http",
+    "url": "https://api.example.com/endpoint",
+    "http_method": "POST",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

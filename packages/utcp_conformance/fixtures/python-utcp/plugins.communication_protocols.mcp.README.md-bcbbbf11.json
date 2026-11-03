@@ -1,0 +1,28 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/mcp/README.md",
+    "line": 29
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP client config.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "mcp_server",
+        "call_template_type": "mcp",
+        "config": {
+          "mcpServers": {
+            "filesystem": {
+              "command": "node",
+              "args": [
+                "mcp-server.js"
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

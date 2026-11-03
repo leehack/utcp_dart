@@ -1,0 +1,28 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/tests/cli_communication_protocol.test.ts",
+    "line": 95
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "name": "output_aggregation_test",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "echo \"First\"",
+        "append_to_final_output": true
+      },
+      {
+        "command": "echo \"Second\"",
+        "append_to_final_output": false
+      },
+      {
+        "command": "echo \"Third\"",
+        "append_to_final_output": true
+      }
+    ]
+  }
+}

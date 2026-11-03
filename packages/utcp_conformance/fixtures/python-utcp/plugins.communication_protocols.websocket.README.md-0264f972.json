@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/websocket/README.md",
+    "line": 48
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP client config.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "my_websocket",
+        "call_template_type": "websocket",
+        "url": "wss://api.example.com/ws"
+      }
+    ]
+  }
+}

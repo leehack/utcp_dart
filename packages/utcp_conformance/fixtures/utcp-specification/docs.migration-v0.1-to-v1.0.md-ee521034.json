@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/migration-v0.1-to-v1.0.md",
+    "line": 189
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "The migration guide's v0.1 \"before\" example (`provider_type`, `tool_provider`). v1 parsers reject it.",
+  "document": {
+    "provider_type": "http",
+    "url": "https://api.example.com/endpoint",
+    "method": "POST",
+    "headers": {
+      "Authorization": "Bearer ${TOKEN}"
+    },
+    "body": {
+      "data": "${input}"
+    }
+  }
+}

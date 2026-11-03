@@ -1,0 +1,14 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/file/tests/file_communication_protocol.test.ts",
+    "line": 160
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "TypeScript test of a file template without `file_path`, which TypeScript rejects too.",
+  "document": {
+    "name": "invalid_manual",
+    "call_template_type": "file"
+  }
+}

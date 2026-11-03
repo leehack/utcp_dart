@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 205
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "petstore_api",
+    "call_template_type": "http",
+    "http_method": "GET",
+    "url": "https://petstore.swagger.io/v2/swagger.json"
+  }
+}

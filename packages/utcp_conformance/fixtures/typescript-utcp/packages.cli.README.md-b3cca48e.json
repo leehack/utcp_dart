@@ -1,0 +1,24 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/README.md",
+    "line": 149
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "deploy_service",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "<'kubectl set image deployment/UTCP_ARG_service_name_UTCP_END ' + 'UTCP_ARG_service_name_UTCP_END=UTCP_ARG_image_tag_UTCP_END'>",
+        "append_to_final_output": true
+      },
+      {
+        "command": "kubectl rollout status deployment/UTCP_ARG_service_name_UTCP_END",
+        "append_to_final_output": true
+      }
+    ]
+  }
+}

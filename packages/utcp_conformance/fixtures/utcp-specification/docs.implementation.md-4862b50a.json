@@ -1,0 +1,49 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/implementation.md",
+    "line": 95
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "Field no SDK has: manual-level `info`.",
+  "may_drop": [
+    "info"
+  ],
+  "document": {
+    "manual_version": "1.0.0",
+    "utcp_version": "1.0.1",
+    "info": {
+      "title": "API Name",
+      "version": "1.0.0",
+      "description": "API description"
+    },
+    "tools": [
+      {
+        "name": "tool_name",
+        "description": "Tool description",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "param": {
+              "type": "string"
+            }
+          }
+        },
+        "outputs": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "string"
+            }
+          }
+        },
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.example.com/endpoint",
+          "http_method": "POST"
+        }
+      }
+    ]
+  }
+}

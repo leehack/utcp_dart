@@ -1,0 +1,25 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/file/tests/file_communication_protocol.test.ts",
+    "line": 32
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP manual. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "utcp_version": "1.0.1",
+    "manual_version": "1.0.0",
+    "tools": [
+      {
+        "name": "test.tool",
+        "description": "A test tool.",
+        "tool_call_template": {
+          "name": "test_manual",
+          "call_template_type": "file",
+          "file_path": "./dummy.json"
+        }
+      }
+    ]
+  }
+}

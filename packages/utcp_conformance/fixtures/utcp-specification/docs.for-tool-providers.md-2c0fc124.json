@@ -1,0 +1,43 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/for-tool-providers.md",
+    "line": 137
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "git_analysis",
+    "description": "Analyze git repository status and commit history",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "repo_path": {
+          "type": "string",
+          "description": "Path to git repository"
+        }
+      },
+      "required": [
+        "repo_path"
+      ]
+    },
+    "tool_call_template": {
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "cd UTCP_ARG_repo_path_UTCP_END",
+          "append_to_final_output": false
+        },
+        {
+          "command": "git status --porcelain",
+          "append_to_final_output": false
+        },
+        {
+          "command": "echo \"Status: $CMD_1_OUTPUT, Files changed: $(echo \"$CMD_1_OUTPUT\" | wc -l)\"",
+          "append_to_final_output": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "README.md",
+    "line": 124
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "mcp_tools",
+    "call_template_type": "mcp",
+    "config": {
+      "mcpServers": {
+        "my_mcp_server": {
+          "transport": "stdio",
+          "command": "node",
+          "args": [
+            "./mcp-server.js"
+          ],
+          "cwd": "./servers"
+        }
+      }
+    }
+  }
+}

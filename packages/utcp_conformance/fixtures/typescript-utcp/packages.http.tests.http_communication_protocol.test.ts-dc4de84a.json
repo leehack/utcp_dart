@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/http_communication_protocol.test.ts",
+    "line": 327
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "name": "path_server",
+    "call_template_type": "http",
+    "url": "<`http://localhost:${serverPort}/tool/{p}/\\${p}`>",
+    "http_method": "GET"
+  }
+}

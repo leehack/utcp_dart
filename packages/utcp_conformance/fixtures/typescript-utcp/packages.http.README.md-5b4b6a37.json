@@ -1,0 +1,17 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 435
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "cdn",
+    "call_template_type": "streamable_http",
+    "http_method": "GET",
+    "url": "https://cdn.example.com/large-file.zip",
+    "chunk_size": 16384
+  }
+}

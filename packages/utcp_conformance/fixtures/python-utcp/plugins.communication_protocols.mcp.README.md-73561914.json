@@ -1,0 +1,23 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/mcp/README.md",
+    "line": 136
+  },
+  "kind": "client_config",
+  "expect": "reject",
+  "reason": "Schematic example: the MCP server config is elided (`{...}`), so it has neither `command` nor `url`.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "legacy_mcp",
+        "call_template_type": "mcp",
+        "config": {
+          "mcpServers": {
+            "server": {}
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/README.md",
+    "line": 438
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "file_operations",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "cat UTCP_ARG_filename_UTCP_END"
+      }
+    ]
+  }
+}

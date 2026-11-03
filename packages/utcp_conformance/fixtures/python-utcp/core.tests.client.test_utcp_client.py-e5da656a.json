@@ -1,0 +1,35 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "core/tests/client/test_utcp_client.py",
+    "line": 553
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "python-utcp test input: a valid UTCP client config. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "variables": {
+      "http__template_BASE_URL": "https://api.example.com",
+      "http__template_API_KEY": "secret_key"
+    },
+    "manual_call_templates": [
+      {
+        "name": "http_template",
+        "call_template_type": "http",
+        "url": "$BASE_URL/tools",
+        "http_method": "GET",
+        "auth": {
+          "auth_type": "api_key",
+          "api_key": "$API_KEY",
+          "var_name": "Authorization"
+        }
+      }
+    ],
+    "tool_repository": {
+      "tool_repository_type": "in_memory"
+    },
+    "tool_search_strategy": {
+      "tool_search_strategy_type": "tag_and_description_word_match"
+    }
+  }
+}

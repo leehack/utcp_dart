@@ -1,0 +1,17 @@
+{
+  "spec_version": "1.1",
+  "repos": {
+    "utcp-specification": {
+      "url": "https://github.com/universal-tool-calling-protocol/utcp-specification",
+      "commit": "4a9ed936a863a1f5d13ad8ef1b2b8a9783d459d6"
+    },
+    "python-utcp": {
+      "url": "https://github.com/universal-tool-calling-protocol/python-utcp",
+      "commit": "bb8e2f6f6f78f4f773ff383a4e065523b0b1297a"
+    },
+    "typescript-utcp": {
+      "url": "https://github.com/universal-tool-calling-protocol/typescript-utcp",
+      "commit": "ea4902d3bdae3880026cc9b3391a5f8895c9b1ad"
+    }
+  }
+}

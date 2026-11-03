@@ -1,0 +1,31 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/streamable-http.md",
+    "line": 14
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "call_template_type": "streamable_http",
+    "url": "https://api.example.com/download/{file_id}",
+    "http_method": "GET",
+    "content_type": "application/octet-stream",
+    "chunk_size": 4096,
+    "timeout": 60000,
+    "headers": {
+      "Accept": "application/octet-stream"
+    },
+    "auth": {
+      "auth_type": "api_key",
+      "api_key": "${API_KEY}",
+      "var_name": "Authorization",
+      "location": "header"
+    },
+    "body_field": "request_data",
+    "header_fields": [
+      "custom_header_arg"
+    ]
+  }
+}

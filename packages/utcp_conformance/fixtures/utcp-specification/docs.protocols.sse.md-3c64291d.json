@@ -1,0 +1,45 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/sse.md",
+    "line": 188
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "monitor_logs",
+    "description": "Monitor application logs in real-time",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "service": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "service"
+      ]
+    },
+    "tool_call_template": {
+      "call_template_type": "sse",
+      "url": "https://logs.example.com/stream/{service}",
+      "event_type": "log_entry",
+      "reconnect": true,
+      "retry_timeout": 45000,
+      "body_field": "filter_config",
+      "header_fields": [
+        "level"
+      ],
+      "auth": {
+        "auth_type": "api_key",
+        "api_key": "${LOG_API_KEY}",
+        "var_name": "X-API-Key",
+        "location": "header"
+      }
+    }
+  }
+}

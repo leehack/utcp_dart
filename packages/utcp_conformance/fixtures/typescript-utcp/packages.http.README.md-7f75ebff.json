@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 413
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "github_api",
+    "call_template_type": "http",
+    "http_method": "GET",
+    "url": "https://api.github.com/repos/${owner}/${repo}/issues",
+    "headers": {
+      "Authorization": "Bearer ${TOKEN}"
+    }
+  }
+}

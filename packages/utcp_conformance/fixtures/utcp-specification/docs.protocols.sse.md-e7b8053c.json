@@ -1,0 +1,38 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/sse.md",
+    "line": 116
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "stream_notifications",
+    "description": "Stream real-time notifications",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "user_id"
+      ]
+    },
+    "tool_call_template": {
+      "call_template_type": "sse",
+      "url": "https://api.example.com/notifications/stream/{user_id}",
+      "event_type": "notification",
+      "reconnect": true,
+      "retry_timeout": 30000,
+      "auth": {
+        "auth_type": "api_key",
+        "api_key": "Bearer ${ACCESS_TOKEN}",
+        "var_name": "Authorization",
+        "location": "header"
+      }
+    }
+  }
+}

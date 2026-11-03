@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/http.md",
+    "line": 139
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP auth object.",
+  "document": {
+    "auth_type": "api_key",
+    "api_key": "Bearer ${API_KEY}",
+    "var_name": "Authorization",
+    "location": "header"
+  }
+}

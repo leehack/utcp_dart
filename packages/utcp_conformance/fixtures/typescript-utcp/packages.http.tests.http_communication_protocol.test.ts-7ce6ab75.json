@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/http_communication_protocol.test.ts",
+    "line": 311
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "name": "forbidden_sse",
+    "call_template_type": "sse",
+    "url": "<`http://localhost:${serverPort}/forbidden-discovery`>"
+  }
+}

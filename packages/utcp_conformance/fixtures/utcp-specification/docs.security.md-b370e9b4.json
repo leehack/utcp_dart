@@ -1,0 +1,24 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/security.md",
+    "line": 112
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Fields no SDK has: http `verify_ssl` and `timeout`.",
+  "may_drop": [
+    "verify_ssl",
+    "timeout"
+  ],
+  "document": {
+    "call_template_type": "http",
+    "url": "https://api.example.com/endpoint",
+    "verify_ssl": true,
+    "timeout": 30,
+    "headers": {
+      "User-Agent": "UTCP-Client/1.0",
+      "X-Request-ID": "${request_id}"
+    }
+  }
+}

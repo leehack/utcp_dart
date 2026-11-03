@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/sse.md",
+    "line": 387
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP auth object.",
+  "document": {
+    "auth_type": "api_key",
+    "api_key": "${API_TOKEN}",
+    "var_name": "access_token",
+    "location": "cookie"
+  }
+}

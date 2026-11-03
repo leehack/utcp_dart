@@ -1,0 +1,30 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/plugins/communication_protocols/mcp/src/utcp_mcp/mcp_call_template.md",
+    "line": 68
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "name": "mcp_tools",
+    "call_template_type": "mcp",
+    "config": {
+      "mcpServers": {
+        "tools": {
+          "command": "python",
+          "args": [
+            "-m",
+            "mcp_server"
+          ],
+          "cwd": "/app/mcp",
+          "env": {
+            "PYTHONPATH": "/app",
+            "LOG_LEVEL": "INFO"
+          }
+        }
+      }
+    }
+  }
+}

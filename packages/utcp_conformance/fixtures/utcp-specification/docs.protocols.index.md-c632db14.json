@@ -1,0 +1,18 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/index.md",
+    "line": 63
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "Illustrates a custom plugin type (`custom`). An unregistered call_template_type must be rejected.",
+  "document": {
+    "call_template_type": "custom",
+    "custom_field": "value",
+    "auth": {
+      "auth_type": "api_key",
+      "api_key": "${API_KEY}"
+    }
+  }
+}

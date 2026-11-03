@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 236
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "large_data_api",
+    "call_template_type": "streamable_http",
+    "http_method": "GET",
+    "url": "https://api.example.com/large-dataset",
+    "chunk_size": 8192,
+    "timeout": 120000,
+    "headers": {
+      "Accept": "application/octet-stream"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/migration-v0.1-to-v1.0.md",
+    "line": 111
+  },
+  "kind": "manual",
+  "expect": "reject",
+  "reason": "The migration guide's v0.1 \"before\" example (`provider_type`, `tool_provider`). v1 parsers reject it.",
+  "document": {
+    "utcp_version": "0.1.0",
+    "provider_info": {
+      "name": "weather_api",
+      "version": "1.0.0"
+    },
+    "tools": [
+      {
+        "name": "get_weather",
+        "description": "Get weather data",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "string"
+            }
+          }
+        },
+        "provider": {
+          "provider_type": "http",
+          "url": "https://api.weather.com/current",
+          "method": "GET"
+        }
+      }
+    ]
+  }
+}

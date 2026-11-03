@@ -1,0 +1,20 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "README.md",
+    "line": 259
+  },
+  "kind": "post_processor",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP post-processor.",
+  "document": {
+    "tool_post_processor_type": "filter_dict",
+    "only_include_keys": [
+      "name",
+      "key"
+    ],
+    "only_include_tools": [
+      "openlibrary.read_search_authors_json_search_authors_json_get"
+    ]
+  }
+}

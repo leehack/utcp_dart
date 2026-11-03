@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/gql/README.md",
+    "line": 26
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "Dart has no GraphQL transport (Python gql plugin). An unregistered call_template_type must be rejected, as every SDK does without the plugin.",
+  "document": {
+    "name": "my_graph",
+    "call_template_type": "graphql",
+    "url": "https://your.graphql/endpoint",
+    "operation_type": "query",
+    "headers": {
+      "x-client": "utcp"
+    },
+    "header_fields": [
+      "x-session-id"
+    ]
+  }
+}

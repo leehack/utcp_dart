@@ -1,0 +1,13 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "core/tests/client/test_utcp_client.py",
+    "line": 668
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "python-utcp test input: a valid UTCP client config. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "manual_call_templates": []
+  }
+}

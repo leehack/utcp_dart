@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/implementation.md",
+    "line": 260
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP client config.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "service_name",
+        "call_template_type": "http",
+        "url": "https://api.example.com/utcp"
+      }
+    ],
+    "variables": {
+      "API_KEY": "your-key"
+    }
+  }
+}

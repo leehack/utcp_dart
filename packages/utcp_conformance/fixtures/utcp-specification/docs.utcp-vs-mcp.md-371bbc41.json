@@ -1,0 +1,30 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/utcp-vs-mcp.md",
+    "line": 360
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Field no SDK has: http `body` (the SDKs build the body from `body_field`).",
+  "may_drop": [
+    "tool_call_template.body"
+  ],
+  "document": {
+    "name": "query_database",
+    "tool_call_template": {
+      "call_template_type": "http",
+      "url": "https://api.company.com/query",
+      "http_method": "POST",
+      "body": {
+        "sql": "{query}"
+      },
+      "auth": {
+        "auth_type": "api_key",
+        "api_key": "${DB_API_KEY}",
+        "var_name": "Authorization",
+        "location": "header"
+      }
+    }
+  }
+}

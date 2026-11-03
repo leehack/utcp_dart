@@ -1,0 +1,14 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "README.md",
+    "line": 245
+  },
+  "kind": "variable_loader",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP variable loader.",
+  "document": {
+    "variable_loader_type": "dotenv",
+    "env_file_path": ".env"
+  }
+}

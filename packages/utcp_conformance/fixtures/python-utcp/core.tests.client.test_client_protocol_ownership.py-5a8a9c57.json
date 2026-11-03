@@ -1,0 +1,26 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "core/tests/client/test_client_protocol_ownership.py",
+    "line": 437
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "python-utcp test input: a valid UTCP client config. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "good_manual",
+        "call_template_type": "http",
+        "url": "https://example.test/utcp",
+        "http_method": "POST"
+      },
+      {
+        "name": "bad_manual",
+        "call_template_type": "http",
+        "url": "https://example.test/${NOWHERE_TO_BE_FOUND}",
+        "http_method": "POST"
+      }
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/cli.md",
+    "line": 229
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "git_analysis",
+    "description": "Analyze git repository",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "repo_url": {
+          "type": "string"
+        },
+        "target_dir": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo_url",
+        "target_dir"
+      ]
+    },
+    "tool_call_template": {
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "git clone UTCP_ARG_repo_url_UTCP_END UTCP_ARG_target_dir_UTCP_END",
+          "append_to_final_output": false
+        },
+        {
+          "command": "cd UTCP_ARG_target_dir_UTCP_END",
+          "append_to_final_output": false
+        },
+        {
+          "command": "git log --oneline -10",
+          "append_to_final_output": true
+        },
+        {
+          "command": "find . -name '*.py' | wc -l",
+          "append_to_final_output": false
+        },
+        {
+          "command": "echo \"Repository has $CMD_3_OUTPUT Python files\"",
+          "append_to_final_output": true
+        }
+      ],
+      "env_vars": {
+        "GIT_AUTHOR_NAME": "UTCP Bot",
+        "GIT_AUTHOR_EMAIL": "bot@utcp.dev"
+      }
+    }
+  }
+}

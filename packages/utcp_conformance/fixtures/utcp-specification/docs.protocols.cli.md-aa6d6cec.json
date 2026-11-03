@@ -1,0 +1,31 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/cli.md",
+    "line": 34
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "cd UTCP_ARG_target_dir_UTCP_END",
+        "append_to_final_output": false
+      },
+      {
+        "command": "git status --porcelain",
+        "append_to_final_output": false
+      },
+      {
+        "command": "echo \"Status: $CMD_1_OUTPUT, Files: $(echo \"$CMD_1_OUTPUT\" | wc -l)\"",
+        "append_to_final_output": true
+      }
+    ],
+    "working_dir": "/tmp",
+    "env_vars": {
+      "GIT_AUTHOR_NAME": "UTCP Bot"
+    }
+  }
+}

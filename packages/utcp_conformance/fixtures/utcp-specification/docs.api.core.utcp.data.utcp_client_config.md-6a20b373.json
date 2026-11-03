@@ -1,0 +1,13 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/core/utcp/data/utcp_client_config.md",
+    "line": 62
+  },
+  "kind": "tool_search_strategy",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool search strategy.",
+  "document": {
+    "tool_search_strategy_type": "tag_and_description_word_match"
+  }
+}

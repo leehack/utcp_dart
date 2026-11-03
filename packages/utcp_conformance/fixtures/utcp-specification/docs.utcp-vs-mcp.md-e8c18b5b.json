@@ -1,0 +1,40 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/utcp-vs-mcp.md",
+    "line": 110
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP manual.",
+  "document": {
+    "tools": [
+      {
+        "name": "http_tool",
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.example.com/data"
+        }
+      },
+      {
+        "name": "websocket_tool",
+        "tool_call_template": {
+          "call_template_type": "websocket",
+          "url": "wss://api.example.com/ws"
+        }
+      },
+      {
+        "name": "cli_tool",
+        "tool_call_template": {
+          "call_template_type": "cli",
+          "commands": [
+            {
+              "command": "git status --porcelain",
+              "append_to_final_output": true
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

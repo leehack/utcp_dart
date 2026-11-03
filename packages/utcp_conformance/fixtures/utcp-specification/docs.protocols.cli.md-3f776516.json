@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/cli.md",
+    "line": 151
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "docker run --rm --read-only -v /safe/data:/data:ro alpine:latest cat /data/UTCP_ARG_filename_UTCP_END",
+        "append_to_final_output": true
+      }
+    ]
+  }
+}

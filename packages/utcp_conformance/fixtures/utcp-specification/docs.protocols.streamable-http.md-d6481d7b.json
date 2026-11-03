@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/streamable-http.md",
+    "line": 72
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP auth object.",
+  "document": {
+    "auth_type": "api_key",
+    "api_key": "Bearer ${ACCESS_TOKEN}",
+    "var_name": "Authorization",
+    "location": "header"
+  }
+}

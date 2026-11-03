@@ -1,0 +1,5 @@
+tags:
+  conformance:
+    description: Checks the committed fixture corpus against the Dart parsers.
+  integration:
+    description: Runs the harvester against local git repositories.

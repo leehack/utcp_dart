@@ -1,0 +1,31 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/for-tool-providers.md",
+    "line": 538
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "batch_process",
+    "description": "Process multiple items in batch",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "tool_call_template": {
+      "call_template_type": "http",
+      "url": "https://api.example.com/batch",
+      "http_method": "POST",
+      "body_field": "items"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/websocket/README.md",
+    "line": 66
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "formatted_ws",
+    "call_template_type": "websocket",
+    "url": "wss://api.example.com/ws",
+    "message": {
+      "type": "request",
+      "action": "UTCP_ARG_action_UTCP_ARG",
+      "params": {
+        "user_id": "UTCP_ARG_user_id_UTCP_ARG",
+        "query": "UTCP_ARG_query_UTCP_ARG"
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "core/README.md",
+    "line": 580
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "my_api",
+    "call_template_type": "http",
+    "url": "https://api.example.com/utcp",
+    "allowed_communication_protocols": [
+      "http",
+      "cli",
+      "mcp"
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/file/README.md",
+    "line": 39
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP manual.",
+  "document": {
+    "utcp_version": "1.0.0",
+    "manual_version": "1.0.0",
+    "tools": [
+      {
+        "name": "read_static_data",
+        "description": "Reads static data from a local file.",
+        "inputs": {},
+        "outputs": {
+          "type": "string",
+          "description": "The content of the file."
+        },
+        "tags": [
+          "file",
+          "static"
+        ],
+        "tool_call_template": {
+          "name": "static_file_reader",
+          "call_template_type": "file",
+          "file_path": "./config/static_data.txt"
+        }
+      },
+      {
+        "name": "describe_project",
+        "description": "Provides a description of the project from a local markdown file.",
+        "inputs": {},
+        "outputs": {
+          "type": "string"
+        },
+        "tags": [
+          "documentation"
+        ],
+        "tool_call_template": {
+          "name": "project_readme_reader",
+          "call_template_type": "file",
+          "file_path": "./README.md"
+        }
+      }
+    ]
+  }
+}

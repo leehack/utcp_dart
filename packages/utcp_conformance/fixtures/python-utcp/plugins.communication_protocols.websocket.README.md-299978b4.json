@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/websocket/README.md",
+    "line": 279
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "jsonrpc",
+    "call_template_type": "websocket",
+    "url": "wss://rpc.example.com/ws",
+    "message": {
+      "jsonrpc": "2.0",
+      "method": "UTCP_ARG_method_UTCP_ARG",
+      "params": "UTCP_ARG_params_UTCP_ARG",
+      "id": 1
+    },
+    "response_format": "json"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/text.md",
+    "line": 103
+  },
+  "kind": "tool",
+  "expect": "reject",
+  "reason": "Docs bug: text call templates lost `file_path` in UTCP 1.1 (it moved to the `file` transport). The reference SDKs require `content` and reject this too.",
+  "document": {
+    "name": "read_file",
+    "description": "Read content from a file",
+    "inputs": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "tool_call_template": {
+      "call_template_type": "text",
+      "file_path": "/path/to/data.txt"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/websocket/README.md",
+    "line": 336
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP auth object.",
+  "document": {
+    "auth_type": "basic",
+    "username": "${USERNAME}",
+    "password": "${PASSWORD}"
+  }
+}

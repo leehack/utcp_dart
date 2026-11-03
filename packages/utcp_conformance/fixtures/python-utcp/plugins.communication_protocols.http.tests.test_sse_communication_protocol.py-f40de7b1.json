@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/http/tests/test_sse_communication_protocol.py",
+    "line": 27
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Python test data gives an sse template `http_method` and `content_type`, which no SDK's sse template has. Python ignores them; Dart drops them.",
+  "may_drop": [
+    "http_method",
+    "content_type"
+  ],
+  "document": {
+    "call_template_type": "sse",
+    "name": "test-sse-call-template-executor",
+    "url": "<str(request.url.origin()) + \"/events\">",
+    "http_method": "GET",
+    "content_type": "application/json"
+  }
+}
