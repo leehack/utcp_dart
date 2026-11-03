@@ -7,8 +7,8 @@
 #
 # Installs the pinned SDKs under WORK_DIR (default: a new temporary
 # directory): a virtualenv made with $PYTHON (default python3; 3.11 to
-# 3.13, as the pinned pydantic fails on 3.14 and later; CI uses 3.12) and
-# an `npm ci` of package.json. The documents each step wrote are left in
+# 3.13, as the pinned pydantic fails on 3.14 and later) and an `npm ci` of
+# package.json. The documents each step wrote are left in
 # WORK_DIR/out.
 set -euo pipefail
 
