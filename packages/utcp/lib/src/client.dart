@@ -9,6 +9,8 @@ import 'data/tool.dart';
 import 'data/utcp_manual.dart';
 import 'exceptions.dart';
 import 'http/http_communication_protocol.dart';
+import 'http/sse_communication_protocol.dart';
+import 'http/streamable_http_communication_protocol.dart';
 import 'json.dart';
 import 'tool_repository.dart';
 import 'variables.dart';
@@ -19,6 +21,8 @@ final _log = Logger('utcp');
 /// serves the same call template type.
 final Map<String, CommunicationProtocol Function()> _coreProtocols = {
   'http': HttpCommunicationProtocol.new,
+  'sse': SseCommunicationProtocol.new,
+  'streamable_http': StreamableHttpCommunicationProtocol.new,
 };
 
 /// Discovers tools from UTCP manuals and calls them through the matching
@@ -213,28 +217,34 @@ class UtcpClient {
     return _repository.removeManual(manualName);
   }
 
-  /// Calls a registered tool by its full `manual_name.tool_name`.
+  /// Calls a registered tool by its full `manual_name.tool_name` and runs
+  /// [UtcpClientConfig.postProcessing] on the result.
   Future<Object?> callTool(
     String toolName, [
     ToolArguments arguments = const {},
   ]) async {
-    final (template, protocol) = await _prepareCall(toolName);
-    return protocol.callTool(this, toolName, arguments, template);
+    final call = await _prepareCall(toolName);
+    return call.postProcess(
+      await call.protocol.callTool(this, toolName, arguments, call.template),
+    );
   }
 
-  /// Calls a tool and yields its result chunks. Transports without native
-  /// streaming yield the whole result once.
+  /// Calls a tool and yields its result chunks, each run through
+  /// [UtcpClientConfig.postProcessing]. Transports without native streaming
+  /// yield the whole result once.
   Stream<Object?> callToolStreaming(
     String toolName, [
     ToolArguments arguments = const {},
   ]) async* {
-    final (template, protocol) = await _prepareCall(toolName);
-    yield* protocol.callToolStreaming(this, toolName, arguments, template);
+    final call = await _prepareCall(toolName);
+    // `yield*` rather than `await for`, so a cancelled listener reaches the
+    // transport at once.
+    yield* call.protocol
+        .callToolStreaming(this, toolName, arguments, call.template)
+        .map(call.postProcess);
   }
 
-  Future<(CallTemplate, CommunicationProtocol)> _prepareCall(
-    String toolName,
-  ) async {
+  Future<_PreparedCall> _prepareCall(String toolName) async {
     final manualName = toolName.split('.').first;
     final tool =
         await _repository.getTool(toolName) ??
@@ -255,7 +265,13 @@ class UtcpClient {
       manualName,
     );
     _log.fine("Calling tool '$toolName' via '$protocol'.");
-    return (template, _protocolFor(protocol));
+    return _PreparedCall(
+      this,
+      tool,
+      manualTemplate,
+      template,
+      _protocolFor(protocol),
+    );
   }
 
   Future<List<Tool>> searchTools(
@@ -313,5 +329,28 @@ class UtcpClient {
     final random = Random.secure();
     final hex = List.generate(16, (_) => random.nextInt(16).toRadixString(16));
     return 'manual_${hex.join()}';
+  }
+}
+
+final class _PreparedCall {
+  _PreparedCall(
+    this.client,
+    this.tool,
+    this.manualTemplate,
+    this.template,
+    this.protocol,
+  );
+
+  final UtcpClient client;
+  final Tool tool;
+  final CallTemplate manualTemplate;
+  final CallTemplate template;
+  final CommunicationProtocol protocol;
+
+  Object? postProcess(Object? result) {
+    for (final processor in client.config.postProcessing) {
+      result = processor.postProcess(client, tool, manualTemplate, result);
+    }
+    return result;
   }
 }

@@ -68,6 +68,16 @@ extension JsonReader on JsonMap {
     throw FormatException("Field '$key' must be an integer, got $value.");
   }
 
+  /// The non-negative integer at [key], read as milliseconds.
+  Duration? optMilliseconds(String key) {
+    final value = optInt(key);
+    if (value == null) return null;
+    if (value < 0) {
+      throw FormatException("Field '$key' must not be negative, got $value.");
+    }
+    return Duration(milliseconds: value);
+  }
+
   JsonMap object(String key) =>
       optObject(key) ??
       (throw FormatException("Missing required field '$key'."));

@@ -35,3 +35,9 @@ class UtcpHttpException extends UtcpException {
   /// The decoded response body (JSON value or text).
   final Object? body;
 }
+
+/// The server violated the Server-Sent Events wire format. Unlike a dropped
+/// connection, this is never retried.
+class SseProtocolException extends UtcpException {
+  const SseProtocolException(super.message);
+}

@@ -153,7 +153,7 @@ void rejectRemoteLoopbackToolUrls(
 
   for (final tool in manual.tools) {
     final template = tool.toolCallTemplate;
-    if (template is! HttpCallTemplate) continue;
+    if (template is! HttpRequestTemplate) continue;
     if (isLoopback(template.url)) {
       throw UtcpSecurityException(
         'Security error during $context: a manual fetched from "$discoveryUrl" declares '

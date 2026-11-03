@@ -5,10 +5,14 @@ class FakeProtocol extends CommunicationProtocol {
   FakeProtocol({
     this.manual = const UtcpManual(tools: []),
     this.errors = const [],
+    this.chunks,
   });
 
   final UtcpManual manual;
   final List<String> errors;
+
+  /// When set, streaming calls yield these instead of the [callTool] result.
+  final List<Object?>? chunks;
   final calls = <(String, ToolArguments, FakeCallTemplate)>[];
   bool closed = false;
   int deregistered = 0;
@@ -46,6 +50,22 @@ class FakeProtocol extends CommunicationProtocol {
     calls.add((toolName, arguments, template));
     return {'tool': toolName, 'token': template.token, ...arguments};
   }
+
+  @override
+  Stream<Object?> callToolStreaming(
+    UtcpClient caller,
+    String toolName,
+    ToolArguments arguments,
+    CallTemplate toolCallTemplate,
+  ) => switch (chunks) {
+    final chunks? => Stream.fromIterable(chunks),
+    null => super.callToolStreaming(
+      caller,
+      toolName,
+      arguments,
+      toolCallTemplate,
+    ),
+  };
 
   @override
   Future<void> close() async => closed = true;

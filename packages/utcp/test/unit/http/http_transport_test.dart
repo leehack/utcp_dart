@@ -353,6 +353,69 @@ void main() {
         ),
       );
     });
+
+    test('a timed-out request releases its response body', () async {
+      final cancelled = Completer<void>();
+      final body = StreamController<List<int>>(onCancel: cancelled.complete);
+      addTearDown(body.close);
+      final transport = HttpTransport(
+        client: MockClient.streaming(
+          (_, _) async => http.StreamedResponse(body.stream, 200),
+        ),
+      );
+      await expectLater(
+        transport.send(
+          get('https://a/x'),
+          context: 'slow',
+          timeout: const Duration(milliseconds: 20),
+        ),
+        throwsA(isA<UtcpException>()),
+      );
+      await cancelled.future.timeout(const Duration(seconds: 1));
+    });
+
+    test(
+      'open throws for an error status and honours the abort trigger',
+      () async {
+        final body = StreamController<List<int>>();
+        addTearDown(body.close);
+        var status = 500;
+        final transport = HttpTransport(
+          client: MockClient.streaming(
+            (_, _) async => status == 500
+                ? http.StreamedResponse(Stream.value(utf8.encode('down')), 500)
+                : http.StreamedResponse(body.stream, 200),
+          ),
+        );
+        Future<HttpStreamedResult> open([Future<void>? abort]) =>
+            transport.open(
+              get('https://a/x'),
+              context: 'ctx',
+              timeout: const Duration(seconds: 1),
+              errorContext: 'opening x',
+              abortTrigger: abort,
+            );
+        await expectLater(
+          open(),
+          throwsA(
+            isA<UtcpHttpException>().having(
+              (e) => e.message,
+              'message',
+              'HTTP 500 opening x: down',
+            ),
+          ),
+        );
+        status = 200;
+        final abort = Completer<void>();
+        final response = await open(abort.future);
+        final received = response.body.toList();
+        abort.complete();
+        await expectLater(
+          received,
+          throwsA(isA<http.RequestAbortedException>()),
+        );
+      },
+    );
   });
 
   group('HttpResult', () {

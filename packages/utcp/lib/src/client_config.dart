@@ -1,5 +1,6 @@
 import 'data/call_template.dart';
 import 'json.dart';
+import 'post_processing/tool_post_processor.dart';
 import 'tool_repository.dart';
 import 'tool_search.dart';
 import 'variables.dart';
@@ -11,6 +12,7 @@ class UtcpClientConfig {
     ToolRepository? toolRepository,
     this.toolSearchStrategy = const TagSearchStrategy(),
     this.manualCallTemplates = const [],
+    this.postProcessing = const [],
     this.environment,
   }) : toolRepository = toolRepository ?? InMemoryToolRepository();
 
@@ -19,7 +21,8 @@ class UtcpClientConfig {
   /// Call template types must be registered first; `UtcpClient.fromJson`
   /// does that for the protocols it is given. Loaders from
   /// `load_variables_from` are parsed with [VariableLoader.registry] and
-  /// consulted before [variableLoaders].
+  /// consulted before [variableLoaders]; `post_processing` entries are parsed
+  /// with [ToolPostProcessor.registry].
   factory UtcpClientConfig.fromJson(
     JsonMap json, {
     List<VariableLoader> variableLoaders = const [],
@@ -32,9 +35,6 @@ class UtcpClientConfig {
       throw FormatException(
         "Unsupported tool_repository_type '$repositoryType'.",
       );
-    }
-    if (json.optList('post_processing')?.isNotEmpty ?? false) {
-      throw const FormatException('post_processing is not supported yet.');
     }
     final search = json.optObject('tool_search_strategy');
     return UtcpClientConfig(
@@ -53,6 +53,11 @@ class UtcpClientConfig {
             in json.optObjectList('manual_call_templates') ?? const <JsonMap>[])
           CallTemplate.fromJson(template),
       ],
+      postProcessing: [
+        for (final processor
+            in json.optObjectList('post_processing') ?? const <JsonMap>[])
+          ToolPostProcessor.fromJson(processor),
+      ],
       environment: environment,
     );
   }
@@ -66,6 +71,9 @@ class UtcpClientConfig {
 
   /// Manuals registered when the client is created.
   final List<CallTemplate> manualCallTemplates;
+
+  /// Applied in order to every tool result and streamed chunk.
+  final List<ToolPostProcessor> postProcessing;
 
   /// Overrides the process environment for variable lookup.
   final Map<String, String>? environment;

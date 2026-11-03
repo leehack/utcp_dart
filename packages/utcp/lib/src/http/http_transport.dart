@@ -226,7 +226,15 @@ final class HttpResult {
 
 /// A response whose body is still streaming.
 final class HttpStreamedResult {
-  HttpStreamedResult(this._response, this.url);
+  /// [body] ends with an abort error once [abortTrigger] completes.
+  HttpStreamedResult(
+    http.StreamedResponse response,
+    this.url, [
+    Future<void>? abortTrigger,
+  ]) : _response = response,
+       body = abortTrigger == null
+           ? response.stream
+           : _abortable(response.stream, abortTrigger, url);
 
   final http.StreamedResponse _response;
 
@@ -239,7 +247,54 @@ final class HttpStreamedResult {
 
   String get contentType => headers['content-type'] ?? '';
 
-  Stream<List<int>> get body => _response.stream;
+  /// The response body, single-subscription. When the request's abort
+  /// trigger completes, the body ends with an [http.RequestAbortedException]
+  /// and the connection is released.
+  final Stream<List<int>> body;
+
+  /// Releases the connection without reading the rest of the body. Call it
+  /// only when [body] has not been listened to.
+  Future<void> discard() => body.listen(null).cancel();
+
+  // Enforced here rather than left to the http.Client so that clients
+  // without abort support (MockClient, custom clients) release the
+  // connection too.
+  static Stream<List<int>> _abortable(
+    Stream<List<int>> source,
+    Future<void> abortTrigger,
+    Uri url,
+  ) {
+    StreamSubscription<List<int>>? subscription;
+    var listened = false;
+    final controller = StreamController<List<int>>(sync: true);
+    controller
+      ..onListen = () {
+        listened = true;
+        subscription = source.listen(
+          controller.add,
+          onError: controller.addError,
+          onDone: () {
+            subscription = null;
+            unawaited(controller.close());
+          },
+        );
+      }
+      ..onPause = (() => subscription?.pause())
+      ..onResume = (() => subscription?.resume())
+      ..onCancel = (() => subscription?.cancel());
+    unawaited(
+      abortTrigger.then((_) {
+        if (!listened) {
+          listened = true;
+          unawaited(source.listen(null).cancel());
+        }
+        if (controller.isClosed) return;
+        controller.addError(http.RequestAbortedException(url));
+        unawaited(controller.close());
+      }),
+    );
+    return controller.stream;
+  }
 
   /// Reads the body of an error response and throws, or returns for a
   /// success status without consuming the body.
@@ -252,9 +307,38 @@ final class HttpStreamedResult {
     statusCode,
     _response.reasonPhrase,
     headers,
-    await _response.stream.toBytes(),
+    await http.ByteStream(body).toBytes(),
     url,
   );
+}
+
+/// Returns the stream [build] creates, completing the abort trigger it is
+/// given as soon as the listener cancels.
+///
+/// An `async*` body notices a cancelled listener only at its next `yield`, so
+/// one waiting on a pending request or a quiet response body would keep the
+/// connection open. Pass the trigger to [HttpTransport.open] instead.
+Stream<T> abortOnCancel<T>(
+  Stream<T> Function(Future<void> abortTrigger) build,
+) {
+  final abort = Completer<void>();
+  StreamSubscription<T>? subscription;
+  final controller = StreamController<T>(sync: true);
+  controller
+    ..onListen = () {
+      subscription = build(abort.future).listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: () => unawaited(controller.close()),
+      );
+    }
+    ..onPause = (() => subscription?.pause())
+    ..onResume = (() => subscription?.resume())
+    ..onCancel = () {
+      if (!abort.isCompleted) abort.complete();
+      return subscription?.cancel();
+    };
+  return controller.stream;
 }
 
 /// Sends HTTP requests under the UTCP security rules, shared by every
@@ -283,18 +367,33 @@ final class HttpTransport {
     required String context,
     required Duration timeout,
   }) => _withTimeout(
-    () async => (await _follow(request, context)).read(),
+    (abort) async => (await _follow(request, context, abort)).read(),
     timeout,
     context,
   );
 
-  /// Sends [request] and returns once the headers arrive within [timeout];
-  /// the body is left to the caller.
+  /// Sends [request] and returns once the headers of a successful response
+  /// arrive within [timeout]; the body is left to the caller.
+  ///
+  /// An error status is read within the same [timeout] and thrown as a
+  /// [UtcpHttpException] naming [errorContext]. Completing [abortTrigger]
+  /// cancels the request, or ends the body of a response already returned.
   Future<HttpStreamedResult> open(
     HttpRequestSpec request, {
     required String context,
     required Duration timeout,
-  }) => _withTimeout(() => _follow(request, context), timeout, context);
+    required String errorContext,
+    Future<void>? abortTrigger,
+  }) => _withTimeout(
+    (abort) async {
+      final response = await _follow(request, context, abort);
+      await response.ensureSuccess(errorContext);
+      return response;
+    },
+    timeout,
+    context,
+    abortTrigger,
+  );
 
   /// Adds the headers or query parameters [auth] requires.
   Future<void> authorize(
@@ -441,20 +540,36 @@ final class HttpTransport {
     );
   }
 
+  /// Runs [action] with an abort signal that fires on timeout or when
+  /// [abortTrigger] completes, so a request that outlives its caller is
+  /// cancelled instead of holding its connection open.
   Future<T> _withTimeout<T>(
-    Future<T> Function() action,
+    Future<T> Function(Completer<void> abort) action,
     Duration limit,
-    String context,
-  ) => action().timeout(
-    limit,
-    onTimeout: () => throw UtcpException(
-      'Timed out after ${limit.inMilliseconds} ms during $context.',
-    ),
-  );
+    String context, [
+    Future<void>? abortTrigger,
+  ]) {
+    final abort = Completer<void>();
+    void fire() {
+      if (!abort.isCompleted) abort.complete();
+    }
+
+    abortTrigger?.whenComplete(fire).ignore();
+    return action(abort).timeout(
+      limit,
+      onTimeout: () {
+        fire();
+        throw UtcpException(
+          'Timed out after ${limit.inMilliseconds} ms during $context.',
+        );
+      },
+    );
+  }
 
   Future<HttpStreamedResult> _follow(
     HttpRequestSpec request,
     String context,
+    Completer<void> abort,
   ) async {
     var method = request.method;
     var uri = request.uri;
@@ -467,16 +582,26 @@ final class HttpTransport {
         assertNoCrlf(key, 'Header name');
         assertNoCrlf(value, "Header '$key'");
       }
-      final outgoing = http.Request(method.wireName, uri)
-        ..followRedirects = false
-        ..headers.addAll(headers);
+      final outgoing =
+          http.AbortableRequest(
+              method.wireName,
+              uri,
+              abortTrigger: abort.future,
+            )
+            ..followRedirects = false
+            ..headers.addAll(headers);
       if (body != null) outgoing.bodyBytes = utf8.encode(body);
 
       final response = await _client.send(outgoing);
+      if (abort.isCompleted) {
+        // The client ignored the abort trigger; release the late response.
+        await response.stream.listen(null).cancel();
+        throw http.RequestAbortedException(uri);
+      }
       final location = response.headers['location'];
       if (!_redirectStatuses.contains(response.statusCode) ||
           location == null) {
-        return HttpStreamedResult(response, uri);
+        return HttpStreamedResult(response, uri, abort.future);
       }
       await response.stream.drain<void>();
       if (hop >= maxRedirects) {

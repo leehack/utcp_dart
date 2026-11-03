@@ -7,6 +7,12 @@
 - `HttpTransport` and `buildToolRequest` are public for transports built on HTTP.
 - Fixed concurrent registrations of the same manual name both succeeding.
 - Fixed loopback detection of decimal IPv4 addresses on the web.
+- Added the `sse` transport: event-type filtering, `Last-Event-ID` reconnects, and streaming as events arrive.
+- Added the `streamable_http` transport for NDJSON, JSON and chunked binary responses.
+- Added `filter_dict` and `limit_strings` result post-processors, configured with `post_processing`.
+- A timed-out or cancelled HTTP request now releases its connection.
+- A remotely discovered manual may not point `sse` or `streamable_http` tools at loopback either.
+- Requires `http` 1.6.0 or later.
 
 ## 0.1.0
 
