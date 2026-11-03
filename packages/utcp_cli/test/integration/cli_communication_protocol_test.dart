@@ -180,29 +180,106 @@ void main() {
       );
     });
 
-    test('output over maxOutputBytes fails the call', () async {
-      final small = CliCommunicationProtocol(maxOutputBytes: 1000);
-      addTearDown(small.close);
-      Future<Object?> printBytes(int bytes) => small.callTool(
-        client,
-        'test.tool',
-        const {},
-        CliCallTemplate(
-          commands: [CommandStep("head -c $bytes /dev/zero | tr '\\0' a")],
-        ),
-      );
-      expect(await printBytes(900), 'a' * 900);
-      await expectLater(
-        printBytes(5000),
-        throwsA(
-          isA<UtcpException>().having(
-            (e) => e.message,
-            'message',
-            contains('more than 1000 bytes'),
-          ),
-        ),
-      );
+    group('a script that stops between commands', () {
+      test('set -e does not end it on an exempt failure', () async {
+        expect(
+          await call([
+            const CommandStep('set -e'),
+            const CommandStep(
+              'echo B; [ -f /nonexistent ] && echo yes',
+              appendToFinalOutput: true,
+            ),
+            const CommandStep('echo last'),
+          ]),
+          'B\nlast',
+        );
+      });
+
+      test(r'set -e still sees $? of an exempt failure', () async {
+        expect(
+          await call([
+            const CommandStep('set -e'),
+            const CommandStep('false && true', appendToFinalOutput: false),
+            const CommandStep(r'echo "status $?"'),
+          ]),
+          'status 1',
+        );
+      });
+
+      test('set -e does not leak an unselected output', () async {
+        expect(
+          await call([
+            const CommandStep('set -e'),
+            const CommandStep(
+              'echo HIDDEN; false && true',
+              appendToFinalOutput: false,
+            ),
+            const CommandStep('echo last'),
+          ]),
+          'last',
+        );
+      });
+
+      test('set -C does not stop later commands', () async {
+        expect(
+          await call([
+            const CommandStep('set -C'),
+            const CommandStep('echo last'),
+          ]),
+          'last',
+        );
+      });
+
+      test('a syntax error returns the shell error once', () async {
+        final result = await call([
+          const CommandStep('echo A', appendToFinalOutput: true),
+          const CommandStep('if then fi'),
+        ]);
+        expect(result, startsWith('A\n'));
+        expect(result, contains('syntax error'));
+        expect('A'.allMatches('$result'), hasLength(1));
+      });
+
+      test('a syntax error does not leak an unselected output', () async {
+        final result = await call([
+          const CommandStep('echo SECRET', appendToFinalOutput: false),
+          const CommandStep('if then fi'),
+        ]);
+        expect(result, contains('syntax error'));
+        expect(result, isNot(contains('SECRET')));
+      });
     });
+
+    for (final (label, ending) in [
+      ('a finished script', ''),
+      ('a script that a command ended', '; exit 1'),
+    ]) {
+      test('output over maxOutputBytes fails $label', () async {
+        final small = CliCommunicationProtocol(maxOutputBytes: 1000);
+        addTearDown(small.close);
+        Future<Object?> printBytes(int bytes) => small.callTool(
+          client,
+          'test.tool',
+          const {},
+          CliCallTemplate(
+            commands: [
+              CommandStep("head -c $bytes /dev/zero | tr '\\0' a$ending"),
+            ],
+          ),
+        );
+        expect(await printBytes(900), 'a' * 900);
+        await expectLater(
+          printBytes(5000),
+          throwsA(
+            isA<UtcpException>().having(
+              (e) => e.message,
+              'message',
+              contains('more than 1000 bytes'),
+            ),
+          ),
+        );
+      });
+    }
 
     test('a NUL character in an argument fails the call', () async {
       await expectLater(

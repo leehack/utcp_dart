@@ -152,13 +152,18 @@ ShellScript buildShellScript(
     switch (shell) {
       case Shell.bash:
         lines.addAll([
+          // `>|` because a command may have turned on `set -C`.
           '{ $command',
-          '} >"\$$capture" 2>&1',
+          '} >|"\$$capture" 2>&1',
           r'__utcp_status=$?',
           '$output=\$(<"\$$capture")',
+          // Emptied once read, so a script that stops before the next
+          // command never returns this output again.
+          ': >|"\$$capture"',
           if (selected) "printf '%s\\n' \"\${$output}\"",
-          // Restores `$?` for the next command.
-          r'(exit $__utcp_status)',
+          // Restores `$?` for the next command; `&& :` keeps `set -e` from
+          // ending the script on a failure bash had exempted from it.
+          r'(exit $__utcp_status) && :',
         ]);
       case Shell.powershell:
         lines.add('\$$output = $command 2>&1 | Out-String');
