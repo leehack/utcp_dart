@@ -48,6 +48,52 @@ void main() {
     expect(result.errors.single, contains('WebSocket URL'));
   });
 
+  group('a variable that resolves to plain ws to a remote host', () {
+    late UtcpClient substituting;
+
+    setUp(() async {
+      substituting = await UtcpClient.create(
+        config: UtcpClientConfig(
+          variables: const {'m_WS_URL': 'ws://evil.example/ws'},
+          environment: const {},
+        ),
+        protocols: [protocol],
+      );
+    });
+    tearDown(() => substituting.close());
+
+    test('fails discovery with a result', () async {
+      final result = await substituting.registerManual(
+        const WebSocketCallTemplate(name: 'm', url: r'${WS_URL}'),
+      );
+      expect(result.success, isFalse);
+      expect(result.errors.single, contains('WebSocket URL'));
+      expect(await substituting.config.toolRepository.getManual('m'), isNull);
+    });
+
+    test('fails a call with a security error', () async {
+      await substituting.config.toolRepository.saveManual(
+        const WebSocketCallTemplate(name: 'm', url: 'wss://tools.example/ws'),
+        const UtcpManual(
+          tools: [
+            Tool(
+              name: 'm.t',
+              toolCallTemplate: WebSocketCallTemplate(url: r'${WS_URL}'),
+            ),
+          ],
+        ),
+      );
+      await expectLater(
+        substituting.callTool('m.t'),
+        throwsA(isA<UtcpSecurityException>()),
+      );
+      await expectLater(
+        substituting.callToolStreaming('m.t').toList(),
+        throwsA(isA<UtcpSecurityException>()),
+      );
+    });
+  });
+
   test('an insecure OAuth2 token URL is refused before any request', () async {
     const template = WebSocketCallTemplate(
       url: 'wss://tools.example.com/ws',

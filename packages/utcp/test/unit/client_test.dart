@@ -80,6 +80,22 @@ void main() {
   });
 
   test(
+    'a template made invalid by a substituted variable fails discovery',
+    () async {
+      final (client, _) = await clientWith(
+        const UtcpManual(tools: []),
+        variables: {'m_TOKEN': FakeCallTemplate.malformedToken},
+      );
+      final result = await client.registerManual(
+        const FakeCallTemplate(name: 'm', token: r'${TOKEN}'),
+      );
+      expect(result.success, isFalse);
+      expect(result.errors, ["Field 'token' is malformed."]);
+      expect(await client.config.toolRepository.getManual('m'), isNull);
+    },
+  );
+
+  test(
     'tools using a protocol the manual does not allow are dropped',
     () async {
       final (client, _) = await clientWith(

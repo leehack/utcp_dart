@@ -1,5 +1,6 @@
 ## Unreleased
 
+- `registerManual` returns an unsuccessful result instead of throwing when a substituted variable makes the manual call template invalid, such as a URL variable a transport refuses.
 - A tool's `inputs` and `outputs` schemas drop keywords whose value is null, which the Python SDK writes for every unset keyword and the TypeScript SDK rejects. `const` and `default` keep a null value. Added `JsonSchema.fromJson`.
 - **Breaking:** `ToolRepository` adds `removeTool` and `toJson`, and `ToolSearchStrategy` adds `toJson`; custom implementations must add them. `InMemoryToolRepository.removeTool` also drops the tool from its manual.
 - `UtcpClientConfig.toJson` writes the shared configuration format and round-trips through `fromJson`; loaders are written when their new `VariableLoader.toJson` is not null.
