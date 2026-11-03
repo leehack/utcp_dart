@@ -23,13 +23,12 @@ enum HttpMethod {
 /// Tool arguments are mapped onto the request in this order: [headerFields]
 /// become headers, [bodyField] becomes the body, `{name}` placeholders in
 /// [url] become path segments, and the rest become query parameters.
-abstract interface class HttpRequestTemplate {
+abstract interface class HttpRequestTemplate implements CallTemplate {
   /// Endpoint URL. Supports `{param}` path placeholders, or exactly `{url}`
   /// to take the whole URL from the `url` argument.
   String get url;
   HttpMethod get httpMethod;
   String get contentType;
-  Auth? get auth;
 
   /// Static headers sent with every request.
   Map<String, String> get headers;

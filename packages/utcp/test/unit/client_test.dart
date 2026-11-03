@@ -199,4 +199,118 @@ void main() {
       throwsFormatException,
     );
   });
+
+  group('post_processing', () {
+    final config = {
+      'manual_call_templates': [
+        {'name': 'm', 'call_template_type': 'fake'},
+      ],
+      'post_processing': [
+        {
+          'tool_post_processor_type': 'filter_dict',
+          'exclude_keys': ['secret'],
+        },
+        {'tool_post_processor_type': 'limit_strings', 'limit': 2},
+      ],
+    };
+
+    test('is parsed from the config in order', () {
+      final parsed = UtcpClientConfig.fromJson({
+        'post_processing': config['post_processing'],
+      });
+      expect(parsed.postProcessing.map((p) => p.toolPostProcessorType), [
+        'filter_dict',
+        'limit_strings',
+      ]);
+      expect(
+        () => UtcpClientConfig.fromJson({
+          'post_processing': [
+            {'tool_post_processor_type': 'nope'},
+          ],
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('runs in order on callTool results', () async {
+      final client = await UtcpClient.fromJson(
+        config,
+        protocols: [
+          FakeProtocol(manual: UtcpManual(tools: [fakeTool('echo')])),
+        ],
+        environment: const {},
+      );
+      addTearDown(client.close);
+      expect(await client.callTool('m.echo', {'secret': 'x', 'word': 'abc'}), {
+        'tool': 'm.',
+        'token': null,
+        'word': 'ab',
+      });
+    });
+
+    test('runs on every streamed chunk', () async {
+      final client = await UtcpClient.fromJson(
+        config,
+        protocols: [
+          FakeProtocol(
+            manual: UtcpManual(tools: [fakeTool('echo')]),
+            chunks: [
+              {'secret': 1, 'a': 'xyz'},
+              'long',
+              [
+                {'secret': 2},
+              ],
+            ],
+          ),
+        ],
+        environment: const {},
+      );
+      addTearDown(client.close);
+      expect(await client.callToolStreaming('m.echo').toList(), [
+        {'a': 'xy'},
+        'lo',
+        <Object?>[],
+      ]);
+    });
+
+    test('receives the tool and its manual call template', () async {
+      final seen = <(String, String?)>[];
+      final client = await UtcpClient.create(
+        config: UtcpClientConfig(
+          environment: const {},
+          manualCallTemplates: [const FakeCallTemplate(name: 'm')],
+          postProcessing: [_Recorder(seen)],
+        ),
+        protocols: [
+          FakeProtocol(manual: UtcpManual(tools: [fakeTool('echo')])),
+        ],
+      );
+      addTearDown(client.close);
+      await client.callTool('m.echo');
+      expect(seen, [('m.echo', 'm')]);
+    });
+  });
+}
+
+class _Recorder extends ToolPostProcessor {
+  _Recorder(this.seen);
+
+  final List<(String, String?)> seen;
+
+  @override
+  String get toolPostProcessorType => 'recorder';
+
+  @override
+  Object? postProcess(
+    UtcpClient caller,
+    Tool tool,
+    CallTemplate manualCallTemplate,
+    Object? result,
+  ) {
+    seen.add((tool.name, manualCallTemplate.name));
+    return result;
+  }
+
+  @override
+  JsonMap fieldsToJson() => const {};
 }

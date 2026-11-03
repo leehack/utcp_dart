@@ -1,4 +1,6 @@
 import '../http/http_call_template.dart';
+import '../http/sse_call_template.dart';
+import '../http/streamable_http_call_template.dart';
 import '../json.dart';
 import '../registry.dart';
 import 'auth.dart';
@@ -17,6 +19,8 @@ abstract class CallTemplate {
 
   static final registry = TypeRegistry<CallTemplate>('call_template_type', {
     HttpCallTemplate.type: HttpCallTemplate.fromJson,
+    SseCallTemplate.type: SseCallTemplate.fromJson,
+    StreamableHttpCallTemplate.type: StreamableHttpCallTemplate.fromJson,
   });
 
   static CallTemplate fromJson(JsonMap json) => registry.parse(json);

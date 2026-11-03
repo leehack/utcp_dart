@@ -55,6 +55,38 @@ Tool arguments are mapped onto the request in this order:
 Supported auth types are `api_key` (header, query, or cookie), `basic`, `oauth2` (client
 credentials, with token caching), and `oauth2_user` (a pre-provisioned bearer token).
 
+## Streaming transports
+
+`sse` and `streamable_http` map arguments and auth the same way. Use `callToolStreaming` to get
+results as they arrive; `callTool` collects them. Cancelling the stream subscription closes the
+HTTP response.
+
+- `sse` yields the `data` of each Server-Sent Event, JSON-decoded when it parses. `event_type`
+  keeps only events of that type (an event without `event:` is `message`). A dropped stream is
+  reopened with `Last-Event-ID`, waiting `retry_timeout` or the server's `retry:` (capped at 60 s),
+  up to 5 times per call; calls that send a body are never re-issued. HTTP errors and responses
+  that are not `text/event-stream` fail at once.
+- `streamable_http` decodes the response by Content-Type: `application/x-ndjson` yields one value
+  per line, `application/json` one value for the whole body, anything else `Uint8List` chunks of
+  at most `chunk_size` bytes. `timeout` bounds the whole call, including reading the stream.
+
+## Post-processing
+
+`UtcpClientConfig.postProcessing` (`post_processing` in JSON) runs in order on every tool result
+and every streamed chunk:
+
+```json
+"post_processing": [
+  {"tool_post_processor_type": "filter_dict", "exclude_keys": ["internal_id"]},
+  {"tool_post_processor_type": "limit_strings", "limit": 2000, "only_include_manuals": ["docs"]}
+]
+```
+
+`filter_dict` removes keys (`exclude_keys`) or keeps only some (`only_include_keys`) at any depth.
+`limit_strings` truncates every string to `limit` code points (default 10000). Both take
+`exclude_tools`, `only_include_tools`, `exclude_manuals` and `only_include_manuals`. Custom
+processors register with `ToolPostProcessor.registry.register`.
+
 ## Security
 
 - Remote URLs must use HTTPS. Plain HTTP is allowed only to `localhost`, `127.0.0.1`, or `::1`.
@@ -77,12 +109,11 @@ Custom auth types register with `Auth.registry.register`.
 
 ## Status
 
-0.1.0 implements the core client and the HTTP transport. The following are not implemented yet:
+This package implements the core client, result post-processors, and the `http`, `sse` and
+`streamable_http` transports. The following are not implemented yet:
 
 - OpenAPI-to-manual conversion
-- SSE and streamable HTTP transports
 - MCP, CLI, and text/file transports
-- Result post-processors
 
 ## License
 
