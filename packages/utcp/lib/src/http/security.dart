@@ -1,7 +1,6 @@
 import '../data/auth.dart';
 import '../data/utcp_manual.dart';
 import '../exceptions.dart';
-import 'http_call_template.dart';
 
 final _absoluteOrigin = RegExp(r'^\s*([A-Za-z][A-Za-z0-9+.\-]*)://([^/?#]*)');
 
@@ -153,18 +152,21 @@ void rejectRemoteLoopbackToolUrls(
 
   for (final tool in manual.tools) {
     final template = tool.toolCallTemplate;
-    if (template is! HttpRequestTemplate) continue;
-    if (isLoopback(template.url)) {
-      throw UtcpSecurityException(
-        'Security error during $context: a manual fetched from "$discoveryUrl" declares '
-        'a loopback tool URL ("${template.url}") for tool "${tool.name}".',
-      );
+    for (final endpoint in template.endpoints) {
+      if (isLoopback(endpoint)) {
+        throw UtcpSecurityException(
+          'Security error during $context: a manual fetched from '
+          '"${discoveryUrl.scheme}://${discoveryUrl.host}" declares a loopback endpoint '
+          '("$endpoint") for tool "${tool.name}".',
+        );
+      }
     }
     final auth = template.auth;
     if (auth is OAuth2Auth && isLoopback(auth.tokenUrl)) {
       throw UtcpSecurityException(
-        'Security error during $context: a manual fetched from "$discoveryUrl" declares '
-        'a loopback OAuth2 token URL ("${auth.tokenUrl}") for tool "${tool.name}".',
+        'Security error during $context: a manual fetched from '
+        '"${discoveryUrl.scheme}://${discoveryUrl.host}" declares a loopback OAuth2 token URL '
+        '("${auth.tokenUrl}") for tool "${tool.name}".',
       );
     }
   }

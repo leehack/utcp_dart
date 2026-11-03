@@ -15,14 +15,31 @@ JsonMap asJsonMap(Object? value, String what) {
   );
 }
 
-/// Converts parsed YAML nodes into plain JSON values.
-Object? yamlToJson(Object? node) => switch (node) {
-  YamlMap() => <String, Object?>{
-    for (final e in node.entries) e.key.toString(): yamlToJson(e.value),
-  },
-  YamlList() => <Object?>[for (final e in node) yamlToJson(e)],
-  _ => node,
-};
+/// Parses a YAML document into plain JSON values.
+///
+/// YAML aliases are expanded, so a few hundred bytes of nested aliases can
+/// describe billions of nodes. Expansion stops with a [FormatException] once
+/// it produces more than ten nodes per input character, far beyond any
+/// document written without such aliases.
+Object? decodeYaml(String text) {
+  var budget = text.length * 10 + 10000;
+  Object? convert(Object? node) {
+    if (--budget < 0) {
+      throw const FormatException(
+        'YAML document expands to too many nodes (alias expansion).',
+      );
+    }
+    return switch (node) {
+      YamlMap() => <String, Object?>{
+        for (final e in node.entries) e.key.toString(): convert(e.value),
+      },
+      YamlList() => <Object?>[for (final e in node) convert(e)],
+      _ => node,
+    };
+  }
+
+  return convert(loadYaml(text));
+}
 
 String _typeName(Object? value) => switch (value) {
   null => 'null',

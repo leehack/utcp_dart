@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:yaml/yaml.dart';
 
 import '../data/auth.dart';
 import '../data/tool.dart';
@@ -20,10 +19,6 @@ final class HttpRequestSpec {
   Uri uri;
   final Map<String, String> headers;
   String? body;
-
-  /// Whether [body] carries credentials (for example an OAuth2 client
-  /// secret). A redirect that would resend it to another origin is refused.
-  bool sensitiveBody = false;
   final Set<String> _sensitive = {};
 
   String? header(String name) => headers[_headerKey(name)];
@@ -65,6 +60,40 @@ final class HttpRequestSpec {
     _ => '$value',
   };
 }
+
+/// Whether a header named [name] looks like it carries a credential, using
+/// the Python SDK's list and pattern. Such headers, including static
+/// template headers, are dropped when a redirect leaves the origin.
+bool isCredentialHeader(String name) {
+  final lower = name.toLowerCase();
+  return _credentialHeaders.contains(lower) ||
+      _credentialHeaderPattern.hasMatch(lower);
+}
+
+const _credentialHeaders = {
+  'authorization',
+  'proxy-authorization',
+  'cookie',
+  'www-authenticate',
+  'x-api-key',
+  'api-key',
+  'x-auth-token',
+  'x-access-token',
+  'x-csrf-token',
+  'x-xsrf-token',
+  'x-amz-security-token',
+  'x-goog-api-key',
+};
+
+final _credentialHeaderPattern = RegExp(
+  r'(?:(?:^|[-_])'
+  r'(?:auth|authn|authz|token|key|secret|bearer|session|sid|'
+  r'api[-_]?key|jwt|csrf|xsrf)'
+  r'(?:[-_]|$))'
+  '|'
+  r'(?:apikey|authtoken|accesstoken|bearertoken|sessionid|'
+  r'csrftoken|xsrftoken|xapikey|xauthtoken|xaccesstoken|xapitoken)',
+);
 
 /// Builds the request for a tool call: header fields, body field, path
 /// parameters, then query parameters, as described in the HTTP protocol
@@ -170,7 +199,7 @@ final class HttpResult {
     if (contentType.contains('yaml') ||
         path.endsWith('.yaml') ||
         path.endsWith('.yml')) {
-      return yamlToJson(loadYaml(text));
+      return decodeYaml(text);
     }
     if (text.isEmpty) return text;
     if (contentType.contains('json')) return jsonDecode(text);
@@ -500,9 +529,7 @@ final class HttpTransport {
           if (credentialsInBody) 'client_secret': auth.clientSecret,
           'scope': auth.scope ?? '',
         });
-      request
-        ..body = form.uri.query
-        ..sensitiveBody = credentialsInBody;
+      request.body = form.uri.query;
       if (!credentialsInBody) {
         request.setHeader(
           'Authorization',
@@ -620,14 +647,9 @@ final class HttpTransport {
       if (isLoopbackHost(next.host) && !isLoopbackHost(uri.host)) {
         throw UtcpSecurityException(
           'Security error during $context: refusing to follow a redirect from '
-          '"$uri" to the loopback address "$next".',
+          '"${uri.origin}${uri.path}" to the loopback address '
+          '"${next.origin}${next.path}".',
         );
-      }
-      if (next.origin != uri.origin) {
-        headers.removeWhere((name, _) {
-          final lower = name.toLowerCase();
-          return request._sensitive.contains(lower) || lower == 'cookie';
-        });
       }
       final status = response.statusCode;
       if (status == 303 ||
@@ -636,10 +658,20 @@ final class HttpTransport {
         body = null;
         headers.removeWhere((name, _) => name.toLowerCase() == 'content-type');
       }
-      if (body != null && request.sensitiveBody && next.origin != uri.origin) {
-        throw UtcpSecurityException(
-          'Security error during $context: refusing to resend a request body '
-          'that carries credentials to "${next.origin}".',
+      if (next.origin != uri.origin) {
+        // A body may carry credentials (an OAuth2 client secret, say). With
+        // no user to ask, a cross-origin 307/308 that would resend it is
+        // refused, as the Python SDK does.
+        if (body != null) {
+          throw UtcpSecurityException(
+            'Security error during $context: refusing to resend a request '
+            'body to another origin (${next.origin}) on redirect.',
+          );
+        }
+        headers.removeWhere(
+          (name, _) =>
+              request._sensitive.contains(name.toLowerCase()) ||
+              isCredentialHeader(name),
         );
       }
       uri = next;

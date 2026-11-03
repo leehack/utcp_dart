@@ -62,9 +62,16 @@ dart analyze --fatal-infos
 - Every HTTP-based transport applies the HTTP spec's security rules through
   `HttpTransport`: HTTPS or loopback only, every redirect re-validated, no
   redirect from a remote origin into loopback, credentials dropped across
-  origins, and no loopback tool URLs in a remotely discovered manual. Never
-  call `http.Client` directly. A tool argument must not be able to choose the
-  host of a request.
+  origins (any header that looks like a credential, static template headers
+  included), no request body resent to another origin, and no loopback
+  endpoint in a remotely discovered manual. Never call `http.Client`
+  directly. A tool argument must never move a request onto loopback; only an
+  explicit `{url}` template or a placeholder in the host lets it choose a
+  remote host.
+- A transport that reaches a network address overrides
+  `CallTemplate.endpoints`, so the remote-loopback rule covers it without a
+  check of its own.
+- Parse YAML only with `decodeYaml`, which bounds alias expansion.
 - Errors: throw the `UtcpException` hierarchy for protocol and runtime
   failures, `FormatException` for malformed documents, and `ArgumentError`
   for programming errors. Catch specific types; never `catch (e)` without an

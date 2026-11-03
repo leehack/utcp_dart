@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:utcp/utcp.dart';
-import 'package:yaml/yaml.dart';
 
 import 'file_call_template.dart';
 
@@ -42,7 +41,7 @@ class FileCommunicationProtocol extends CommunicationProtocol {
       if (!await file.exists()) return failure('Manual file not found: $path');
       final content = await file.readAsString();
       final json = asJsonMap(switch (p.extension(path).toLowerCase()) {
-        '.yaml' || '.yml' => yamlToJson(loadYaml(content)),
+        '.yaml' || '.yml' => decodeYaml(content),
         _ => jsonDecode(content),
       }, 'Manual file');
       return RegisterManualResult(

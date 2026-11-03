@@ -128,6 +128,24 @@ void main() {
     final (client, _) = await clientWith(UtcpManual(tools: [fakeTool('echo')]));
     await client.registerManual(const FakeCallTemplate(name: 'm'));
     expect(client.callTool('m.nope'), throwsA(isA<UtcpException>()));
+
+    // A repository holding a tool the manual does not allow, for example
+    // one shared with another client, is still refused at call time.
+    await client.config.toolRepository.saveManual(
+      const FakeCallTemplate(name: 'shared'),
+      const UtcpManual(
+        tools: [
+          Tool(
+            name: 'shared.web',
+            toolCallTemplate: HttpCallTemplate(url: 'https://a.example'),
+          ),
+        ],
+      ),
+    );
+    await expectLater(
+      client.callTool('shared.web'),
+      throwsA(isA<UtcpSecurityException>()),
+    );
   });
 
   test('deregistering removes tools and notifies the protocol', () async {

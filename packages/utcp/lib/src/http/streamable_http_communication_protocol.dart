@@ -173,26 +173,30 @@ class StreamableHttpCommunicationProtocol extends CommunicationProtocol {
   }
 
   Stream<Object?> _ndjson(Stream<List<int>> body) async* {
-    var pending = '';
+    // A buffer rather than string concatenation keeps a long line split
+    // across many chunks linear to assemble.
+    final partial = StringBuffer();
     await for (final text in body.transform(
       const Utf8Decoder(allowMalformed: true),
     )) {
-      pending += text;
       var start = 0;
       for (
-        var newline = pending.indexOf('\n');
+        var newline = text.indexOf('\n');
         newline >= 0;
-        newline = pending.indexOf('\n', start)
+        newline = text.indexOf('\n', start)
       ) {
-        final line = pending.substring(start, newline);
+        partial.write(text.substring(start, newline));
         start = newline + 1;
+        final line = partial.toString();
+        partial.clear();
         _checkLine(line.length);
         if (line.trim().isNotEmpty) yield _decodeLine(line);
       }
-      pending = pending.substring(start);
-      _checkLine(pending.length);
+      partial.write(text.substring(start));
+      _checkLine(partial.length);
     }
-    if (pending.trim().isNotEmpty) yield _decodeLine(pending);
+    final rest = partial.toString();
+    if (rest.trim().isNotEmpty) yield _decodeLine(rest);
   }
 
   void _checkLine(int length) {

@@ -180,24 +180,21 @@ void main() {
           : http.StreamedResponse(Stream.value(utf8.encode('{}')), 200);
     }
 
-    test('drops credentials when a redirect leaves the origin', () async {
+    test('never resends a request to another origin', () async {
       redirectTo('https://other.example.com/mcp');
-      await post(
-        client(
-          server: const McpHttpServer(
-            url: 'https://mcp.example.com/mcp',
-            headers: {'X-Team': 'tools'},
-            authToken: 'secret',
+      await expectLater(
+        post(
+          client(
+            server: const McpHttpServer(
+              url: 'https://mcp.example.com/mcp',
+              headers: {'X-Team': 'tools'},
+              authToken: 'secret',
+            ),
           ),
         ),
+        throwsA(isA<UtcpSecurityException>()),
       );
-      final redirected = sent.last;
-      expect(redirected.url.host, 'other.example.com');
-      expect(redirected.body, '{"jsonrpc":"2.0"}');
-      expect(
-        redirected.headers.keys.map((k) => k.toLowerCase()),
-        isNot(anyOf(contains('authorization'), contains('x-team'))),
-      );
+      expect(sent.map((r) => r.url.host), everyElement('mcp.example.com'));
     });
 
     test('refuses a redirect to plain HTTP or into loopback', () async {

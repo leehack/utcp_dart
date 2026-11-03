@@ -37,6 +37,12 @@ abstract class CallTemplate {
 
   String get callTemplateType;
 
+  /// The URLs or `scheme://host:port` addresses this template sends
+  /// requests to, as written (placeholders included). A manual discovered
+  /// from a remote origin may not declare loopback endpoints; transports
+  /// that reach a network address override this so the rule covers them.
+  List<String> get endpoints => const [];
+
   /// Serializes the transport-specific fields. [toJson] adds the shared ones.
   JsonMap fieldsToJson();
 

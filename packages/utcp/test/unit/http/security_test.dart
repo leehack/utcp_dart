@@ -106,4 +106,51 @@ void main() {
       't',
     );
   });
+
+  test('the remote-loopback rule covers every transport through endpoints', () {
+    final manual = const UtcpManual(
+      tools: [
+        Tool(
+          name: 'socket',
+          toolCallTemplate: _Endpoint('tcp://127.0.0.1:6379'),
+        ),
+      ],
+    );
+    expect(
+      () => rejectRemoteLoopbackToolUrls(
+        Uri.parse('https://tools.example.com/utcp'),
+        manual,
+        't',
+      ),
+      throwsA(isA<UtcpSecurityException>()),
+    );
+    rejectRemoteLoopbackToolUrls(
+      Uri.parse('http://localhost/utcp'),
+      manual,
+      't',
+    );
+    expect(
+      () => rejectRemoteLoopbackToolUrls(
+        Uri.parse('text://content'),
+        manual,
+        't',
+      ),
+      throwsA(isA<UtcpSecurityException>()),
+    );
+  });
+}
+
+class _Endpoint extends CallTemplate {
+  const _Endpoint(this.endpoint);
+
+  final String endpoint;
+
+  @override
+  String get callTemplateType => 'endpoint';
+
+  @override
+  List<String> get endpoints => [endpoint];
+
+  @override
+  JsonMap fieldsToJson() => {};
 }

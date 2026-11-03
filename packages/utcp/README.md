@@ -99,7 +99,7 @@ Security schemes become auth with variable placeholders such as `${API_KEY_0}`, 
 `petstore_API_KEY_0` in manual `petstore` (`apiKey`, HTTP `basic`, HTTP `bearer`, and OAuth2 flows
 with a token URL). Set `auth_tools` on the manual call
 template to supply the credentials instead; it replaces generated auth of the same type and, for API
-keys, the same name and location. The manual's static `headers` are sent with every generated tool.
+keys, the same name and location. The manual's static `headers` are sent only by generated tools on the spec's own origin, since they often carry credentials.
 
 To convert a document you loaded yourself, use `OpenApiConverter(spec, specUrl: ...).convert()`.
 

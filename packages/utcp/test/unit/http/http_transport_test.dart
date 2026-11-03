@@ -345,22 +345,100 @@ void main() {
                 : jsonResponse({'access_token': 'stolen'});
           }),
         );
-        await transport.authorize(
-          get('https://a/x'),
-          const OAuth2Auth(
-            tokenUrl: 'https://auth.example/token',
-            clientId: 'id',
-            clientSecret: 'secret',
+        await expectLater(
+          transport.authorize(
+            get('https://a/x'),
+            const OAuth2Auth(
+              tokenUrl: 'https://auth.example/token',
+              clientId: 'id',
+              clientSecret: 'secret',
+            ),
+            timeout: const Duration(seconds: 1),
           ),
-          timeout: const Duration(seconds: 1),
+          throwsA(isA<UtcpException>()),
         );
-        final redirected = hosts.where((h) => h.startsWith('evil.example'));
-        // Only the Basic-header attempt follows, and without credentials.
-        expect(redirected, hasLength(1));
-        expect(redirected.single, isNot(contains('secret')));
-        expect(redirected.single, isNot(contains('Basic')));
+        expect(hosts, everyElement(startsWith('auth.example')));
       },
     );
+
+    test('static credential headers are dropped across origins', () async {
+      final seen = <String, Map<String, String>>{};
+      final transport = HttpTransport(
+        client: MockClient((request) async {
+          seen[request.url.host] = request.headers;
+          return request.url.host == 'api.example.com'
+              ? http.Response(
+                  '',
+                  302,
+                  headers: {'location': 'https://evil.example.net/x'},
+                )
+              : http.Response('ok', 200);
+        }),
+      );
+      final request = buildToolRequest(
+        const HttpCallTemplate(
+          url: 'https://api.example.com/x',
+          headers: {
+            'Authorization': 'Bearer SECRET',
+            'X-MyApp-Token': 'SECRET2',
+            'Cookie': 'sid=1',
+            'Accept': 'application/json',
+          },
+        ),
+        {},
+      );
+      await transport.send(
+        request,
+        context: 't',
+        timeout: const Duration(seconds: 1),
+      );
+      expect(seen['api.example.com']!['Authorization'], 'Bearer SECRET');
+      expect(seen['evil.example.net'], {'Accept': 'application/json'});
+    });
+
+    test('a request body is never resent to another origin', () async {
+      final transport = HttpTransport(
+        client: MockClient(
+          (request) async => request.url.host == 'a.example'
+              ? http.Response(
+                  '',
+                  307,
+                  headers: {'location': 'https://b.example/x'},
+                )
+              : http.Response('ok', 200),
+        ),
+      );
+      final request = HttpRequestSpec(
+        HttpMethod.post,
+        Uri.parse('https://a.example/x'),
+      )..body = '{"secret":1}';
+      await expectLater(
+        transport.send(
+          request,
+          context: 't',
+          timeout: const Duration(seconds: 1),
+        ),
+        throwsA(isA<UtcpSecurityException>()),
+      );
+    });
+
+    test('isCredentialHeader follows the Python SDK list and pattern', () {
+      for (final name in [
+        'Authorization',
+        'Proxy-Authorization',
+        'X-Api-Key',
+        'X_API_KEY',
+        'XApiKey',
+        'X-MyApp-Token',
+        'Session',
+        'X-Secret',
+      ]) {
+        expect(isCredentialHeader(name), isTrue, reason: name);
+      }
+      for (final name in ['Accept', 'Content-Type', 'X-Request-Id', 'Monkey']) {
+        expect(isCredentialHeader(name), isFalse, reason: name);
+      }
+    });
 
     test('the timeout covers reading the body', () async {
       final transport = HttpTransport(

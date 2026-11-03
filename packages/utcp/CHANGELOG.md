@@ -7,7 +7,10 @@
 - `HttpTransport` and `buildToolRequest` are public for transports built on HTTP.
 - `http` manuals may be OpenAPI 2.0 or 3.x documents, converted to tools; `OpenApiConverter` converts documents loaded elsewhere.
 - Added the `text` transport for UTCP manuals and OpenAPI documents supplied inline.
-- Fixed an OAuth2 client secret sent in the token request body being resent to another origin on a 307/308 redirect.
+- Redirects to another origin drop every credential-like header, static template headers included, and a request body is never resent to another origin.
+- The remote-loopback rule covers every transport through `CallTemplate.endpoints`.
+- YAML alias expansion is bounded (`decodeYaml`), so a small hostile document cannot exhaust memory.
+- OpenAPI-generated tools send the manual's static headers only to the spec's own origin.
 - Fixed concurrent registrations of the same manual name both succeeding.
 - Fixed loopback detection of decimal IPv4 addresses on the web.
 - Added the `sse` transport: event-type filtering, `Last-Event-ID` reconnects, and streaming as events arrive.

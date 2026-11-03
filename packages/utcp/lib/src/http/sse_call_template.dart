@@ -71,6 +71,9 @@ class SseCallTemplate extends CallTemplate implements HttpRequestTemplate {
   String get callTemplateType => type;
 
   @override
+  List<String> get endpoints => [url];
+
+  @override
   JsonMap fieldsToJson() => {
     'url': url,
     'event_type': ?eventType,

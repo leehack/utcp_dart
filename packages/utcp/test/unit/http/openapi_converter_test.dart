@@ -1,6 +1,5 @@
 import 'package:test/test.dart';
 import 'package:utcp/utcp.dart';
-import 'package:yaml/yaml.dart';
 
 import '../../support/openapi_fixtures.dart';
 
@@ -292,7 +291,7 @@ void main() {
 
   group('OpenAPI 2', () {
     JsonMap swagger({String? host}) =>
-        asJsonMap(yamlToJson(loadYaml(petstoreSwaggerYaml(host: host))), 's');
+        asJsonMap(decodeYaml(petstoreSwaggerYaml(host: host)), 's');
 
     test('body and typed parameters map onto inputs', () {
       final tools = toolsOf(
@@ -571,10 +570,17 @@ void main() {
     });
   });
 
-  test('static headers are sent by every tool', () {
-    final manual = convert(petstoreOpenApi3(), headers: {'X-Client': 'utcp'});
-    for (final tool in manual.tools) {
-      expect(templateOf(tool).headers, {'X-Client': 'utcp'});
+  test('static headers are sent only to the spec origin', () {
+    const headers = {'Authorization': 'token secret'};
+    final same = convert(petstoreOpenApi3(), from: specUrl, headers: headers);
+    for (final tool in same.tools) {
+      expect(templateOf(tool).headers, headers);
+    }
+    for (final from in [null, Uri.parse('https://specs.example.com/a.json')]) {
+      final other = convert(petstoreOpenApi3(), from: from, headers: headers);
+      for (final tool in other.tools) {
+        expect(templateOf(tool).headers, isEmpty, reason: '$from');
+      }
     }
   });
 

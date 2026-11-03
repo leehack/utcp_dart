@@ -55,6 +55,27 @@ void main() {
     });
   });
 
+  group('decodeYaml', () {
+    test('parses documents into plain JSON values', () {
+      expect(decodeYaml('a: [1, {b: x}]'), {
+        'a': [
+          1,
+          {'b': 'x'},
+        ],
+      });
+    });
+
+    test('stops alias expansion bombs', () {
+      final bomb = StringBuffer('a: &a [x, x, x, x, x, x, x, x, x, x]\n');
+      for (var i = 1; i < 8; i++) {
+        final prev = String.fromCharCode(96 + i);
+        final next = String.fromCharCode(97 + i);
+        bomb.writeln('$next: &$next [${List.filled(10, '*$prev').join(', ')}]');
+      }
+      expect(() => decodeYaml('$bomb'), throwsFormatException);
+    });
+  });
+
   group('JsonSchema', () {
     test('exposes typed keywords and stays a plain map', () {
       const schema = JsonSchema({

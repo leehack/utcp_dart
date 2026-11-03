@@ -88,6 +88,9 @@ class StreamableHttpCallTemplate extends CallTemplate
   String get callTemplateType => type;
 
   @override
+  List<String> get endpoints => [url];
+
+  @override
   JsonMap fieldsToJson() => {
     'url': url,
     'http_method': httpMethod.wireName,

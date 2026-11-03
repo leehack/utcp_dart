@@ -65,7 +65,7 @@ class TextCommunicationProtocol extends CommunicationProtocol {
       return jsonDecode(content);
     } on FormatException catch (jsonError) {
       try {
-        return yamlToJson(loadYaml(content));
+        return decodeYaml(content);
       } on YamlException {
         throw FormatException(
           'Failed to parse content as JSON or YAML: ${jsonError.message}',

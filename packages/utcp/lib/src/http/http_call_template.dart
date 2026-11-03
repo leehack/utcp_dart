@@ -92,6 +92,9 @@ class HttpCallTemplate extends CallTemplate implements HttpRequestTemplate {
   String get callTemplateType => type;
 
   @override
+  List<String> get endpoints => [url];
+
+  @override
   JsonMap fieldsToJson() => {
     'http_method': httpMethod.wireName,
     'url': url,

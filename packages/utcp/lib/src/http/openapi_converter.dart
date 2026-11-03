@@ -52,7 +52,8 @@ class OpenApiConverter {
   /// server and token URLs resolve against it, and a spec from a
   /// non-loopback origin may not point tools or token URLs at loopback.
   /// [baseUrl] overrides the spec's servers and lifts that loopback rule.
-  /// [headers] are sent with every generated tool's request.
+  /// [headers] are sent with the requests of generated tools on the spec's
+  /// own origin.
   OpenApiConverter(
     this.spec, {
     this.specUrl,
@@ -119,6 +120,19 @@ class OpenApiConverter {
       rejectRemoteLoopbackToolUrls(source, manual, 'OpenAPI conversion');
     }
     return manual;
+  }
+
+  /// Whether [url] is on the origin the spec was fetched from. The manual's
+  /// static headers often carry credentials, so they are only sent to that
+  /// origin, never to another host the spec names.
+  bool _isSpecOrigin(String url) {
+    final source = _httpSpecUrl;
+    final target = Uri.tryParse(url);
+    return source != null &&
+        target != null &&
+        target.scheme == source.scheme &&
+        target.host == source.host &&
+        target.port == source.port;
   }
 
   bool get _hasBaseUrlOverride => baseUrl?.isNotEmpty ?? false;
@@ -208,6 +222,7 @@ class OpenApiConverter {
     final inputs = _inputs(pathItem, operation);
     final outputs = _outputs(operation);
     final base = baseUrl.replaceFirst(RegExp(r'/+$'), '');
+    final url = '$base/${path.replaceFirst(RegExp('^/+'), '')}';
     return Tool(
       name: operationId,
       description: summary != null && summary.isNotEmpty
@@ -218,10 +233,10 @@ class OpenApiConverter {
       tags: operation.optStringList('tags') ?? const [],
       toolCallTemplate: HttpCallTemplate(
         name: callTemplateName,
-        url: '$base/${path.replaceFirst(RegExp('^/+'), '')}',
+        url: url,
         httpMethod: httpMethod,
         contentType: inputs.contentType,
-        headers: headers,
+        headers: _isSpecOrigin(url) ? headers : const {},
         bodyField: inputs.bodyField,
         headerFields: inputs.headerFields,
         auth: _auth(operation),
