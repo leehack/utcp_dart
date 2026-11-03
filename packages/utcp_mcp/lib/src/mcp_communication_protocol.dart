@@ -235,12 +235,11 @@ class McpCommunicationProtocol extends CommunicationProtocol {
   ) async {
     final template = requireCallTemplate<McpCallTemplate>(toolCallTemplate);
     final (serverName, server, name) = _route(template, toolName);
-    // A name discovery did not give a resource, including every name of a
-    // manual this protocol never registered, is called as a tool.
-    if (_resourceUris[_resourceKey(template, serverName, server)]?[name]
-        case final uri?) {
-      return _readResource(template, serverName, server, uri);
-    }
+    // A name discovery did not give a resource is called as a tool.
+    final uri = template.registerResourcesAsTools
+        ? (_resourceUris[_resourceKey(template, serverName, server)]?[name])
+        : null;
+    if (uri != null) return _readResource(template, serverName, server, uri);
     final result = await _withSession(
       serverName,
       server,
