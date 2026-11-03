@@ -193,6 +193,35 @@ void main() {
         r'\declare -i n=UTCP_ARG_v_UTCP_END',
         'command let n=UTCP_ARG_v_UTCP_END',
         'time let n=UTCP_ARG_v_UTCP_END',
+        // Wrapper options and quoting on the command name are skipped.
+        'command -p let n=UTCP_ARG_v_UTCP_END',
+        'time -p let n=UTCP_ARG_v_UTCP_END',
+        "'let' n=UTCP_ARG_v_UTCP_END",
+        '"let" n=UTCP_ARG_v_UTCP_END',
+        r'l\et n=UTCP_ARG_v_UTCP_END',
+        r"$'let' n=UTCP_ARG_v_UTCP_END",
+        // A compound array assignment's `[...]=` is a subscript.
+        'arr=([UTCP_ARG_v_UTCP_END]=x)',
+        'arr+=( [0]=a [UTCP_ARG_v_UTCP_END]=b )',
+        // `-v` evaluates the subscript of the variable name it tests.
+        '[[ -v UTCP_ARG_v_UTCP_END ]]',
+        '[ -v UTCP_ARG_v_UTCP_END ]',
+        'test -v "UTCP_ARG_v_UTCP_END"',
+        // An assignment to a variable declared integer anywhere in the text.
+        'declare -i n; n=UTCP_ARG_v_UTCP_END',
+        'f() { n=UTCP_ARG_v_UTCP_END; }; declare -i n; f',
+        'declare -i n=0; n+=UTCP_ARG_v_UTCP_END',
+        'declare -i n; export n=UTCP_ARG_v_UTCP_END',
+        'declare -ai arr; arr=(UTCP_ARG_v_UTCP_END)',
+        // A group closed by `}` ends the command before a following keyword.
+        'if { true; } then let n=UTCP_ARG_v_UTCP_END; fi',
+        'while { false; } do let n=UTCP_ARG_v_UTCP_END; done',
+        // The pattern list ends at the `)` that balances extglob groups, and
+        // a leading `(` is not one.
+        'case x in @(a|b)) let n=UTCP_ARG_v_UTCP_END;; esac',
+        'case x in (a) let n=UTCP_ARG_v_UTCP_END;; esac',
+        // Code after `esac` is read as code again.
+        'case x in x) :;; esac; (( UTCP_ARG_v_UTCP_END > 1 ))',
       ]) {
         test(command, () {
           expect(
@@ -225,6 +254,11 @@ void main() {
         'case UTCP_ARG_v_UTCP_END in a) :;; esac',
         '{ echo UTCP_ARG_v_UTCP_END; }',
         'cat <<EOF\nUTCP_ARG_v_UTCP_END\nEOF',
+        'echo {a,b} let n=UTCP_ARG_v_UTCP_END',
+        'arr=(UTCP_ARG_v_UTCP_END "UTCP_ARG_v_UTCP_END")',
+        'arr=([0]=UTCP_ARG_v_UTCP_END)',
+        'declare -i m; n=UTCP_ARG_v_UTCP_END',
+        '[ -n UTCP_ARG_v_UTCP_END ]',
       ]) {
         expect(substitute(command, {'v': '1'}).$2, {v: '1'}, reason: command);
       }
@@ -274,7 +308,104 @@ void main() {
           }).$1,
           '\tcat <<-EOF\n\t\${$v}\n\tEOF',
         );
+        expect(
+          substitute('cat <<-EOF\n\thi\n\tEOF\nprintf %s UTCP_ARG_v_UTCP_END', {
+            'v': 'x',
+          }).$1,
+          endsWith('printf %s "\$$v"'),
+        );
       });
+
+      test('`<<` does not strip tabs from the terminator', () {
+        expect(
+          substitute(
+            'cat <<EOF\n\tEOF\nUTCP_ARG_v_UTCP_END\nEOF\nprintf %s '
+            'UTCP_ARG_v_UTCP_END',
+            {'v': 'x'},
+          ).$1,
+          'cat <<EOF\n\tEOF\n\${$v}\nEOF\nprintf %s "\$$v"',
+        );
+      });
+
+      test('`<<` inside arithmetic is a shift, not a heredoc', () {
+        for (final shift in [
+          r'x=$((1<<2))',
+          '(( y = 1 << 3 ))',
+          'x=1; (( x <<= 2 ))',
+          r'echo $[1<<2]',
+          'a[1<<2]=1',
+          r'echo ${x:1<<1}',
+        ]) {
+          expect(
+            substitute("$shift\nprintf '%s' UTCP_ARG_v_UTCP_END", {
+              'v': 'x',
+            }).$1,
+            endsWith("printf '%s' \"\$$v\""),
+            reason: shift,
+          );
+        }
+      });
+
+      test('a heredoc in a command substitution with an unclear end rejects '
+          'later placeholders', () {
+        for (final command in [
+          // Bash 3.2 and 5.2 end the heredoc at `EOF)`; the scanner does not
+          // model it.
+          'x=\$(cat <<EOF\nhi\nEOF)\nprintf "<%s>" UTCP_ARG_v_UTCP_END',
+          'x=\$(cat <<EOF\nhi\nEOF )\nprintf "<%s>" UTCP_ARG_v_UTCP_END',
+          'x=`cat <<EOF\nhi\nEOF`\nprintf "<%s>" UTCP_ARG_v_UTCP_END',
+          // Bash 3.2 ends the substitution at a `)` in the body.
+          'x=\$(cat <<EOF\na)b\nEOF\n)\nprintf "<%s>" UTCP_ARG_v_UTCP_END',
+          // The versions disagree on a body that starts after the `)`.
+          'x=\$(cat <<EOF); printf "<%s>" UTCP_ARG_v_UTCP_END\nhi\nEOF',
+        ]) {
+          expect(
+            () => substitute(command, {'v': 'x'}),
+            throwsA(
+              isA<UtcpException>().having(
+                (e) => e.message,
+                'message',
+                allOf(contains('UTCP_ARG_v_UTCP_END'), contains('heredoc')),
+              ),
+            ),
+            reason: command,
+          );
+        }
+      });
+
+      test('a plain heredoc in a command substitution still works', () {
+        expect(
+          substitute(
+            'x=\$(cat <<EOF\nUTCP_ARG_v_UTCP_END\nEOF\n)\necho UTCP_ARG_v_UTCP_END',
+            {'v': 'x'},
+          ).$1,
+          'x=\$(cat <<EOF\n\${$v}\nEOF\n)\necho "\$$v"',
+        );
+      });
+    });
+
+    test('case separators hand back to the pattern list', () {
+      for (final separator in [';;', ';&', ';;&']) {
+        expect(
+          substitute(
+            "case x in a) :$separator'b') echo UTCP_ARG_v_UTCP_END;; esac",
+            {'v': 'x'},
+          ).$1,
+          "case x in a) :$separator'b') echo \"\$$v\";; esac",
+          reason: separator,
+        );
+      }
+    });
+
+    test('an escaped blank before `#` does not start a comment', () {
+      expect(
+        substitute(r'echo x\ #" UTCP_ARG_v_UTCP_END "', {'v': 'x'}).$1,
+        'echo x\\ #" \${$v} "',
+      );
+      expect(
+        substitute(r'echo a\;#b UTCP_ARG_v_UTCP_END', {'v': 'x'}).$1,
+        'echo a\\;#b "\$$v"',
+      );
     });
 
     test('a case statement in a command substitution is rejected', () {
@@ -311,6 +442,64 @@ void main() {
             reason: value,
           );
         }
+      });
+
+      test('a substitution in a subscript is rejected in any form', () {
+        for (final value in [
+          r'y[1]+z[$(id)]',
+          r'y[$X]',
+          r'y[${X}]',
+          r'y[a[b]$(id)]',
+          // Bash 5.2 skips a quoted or escaped `]` when it reads a subscript.
+          r'y[\]$(id)]',
+          r"y[']'$(id)]",
+        ]) {
+          expect(
+            () => substitute('echo UTCP_ARG_v_UTCP_END', {'v': value}),
+            throwsA(isA<UtcpException>()),
+            reason: value,
+          );
+        }
+      });
+
+      test('text with brackets and a substitution outside them passes', () {
+        for (final value in [
+          'See [docs](https://x) and run `make`',
+          r'$(date) [x]',
+          r'[x] costs $5',
+          '["a","b"]',
+        ]) {
+          expect(substitute('echo UTCP_ARG_v_UTCP_END', {'v': value}).$2, {
+            v: value,
+          }, reason: value);
+        }
+      });
+
+      test('values that build a subscript together are rejected', () {
+        for (final command in [
+          'printf %s UTCP_ARG_a_UTCP_ENDUTCP_ARG_b_UTCP_END',
+          'n=UTCP_ARG_a_UTCP_ENDUTCP_ARG_b_UTCP_END',
+          'f "UTCP_ARG_a_UTCP_END/UTCP_ARG_b_UTCP_END"',
+        ]) {
+          expect(
+            () => substitute(command, {'a': 'y[', 'b': r'$(id)]'}),
+            throwsA(
+              isA<UtcpException>().having(
+                (e) => e.message,
+                'message',
+                allOf(contains("'a', 'b'"), contains('subscript')),
+              ),
+            ),
+            reason: command,
+          );
+        }
+        expect(
+          substitute('echo UTCP_ARG_a_UTCP_END; echo UTCP_ARG_b_UTCP_END', {
+            'a': 'y[',
+            'b': r'$(id)]',
+          }).$2,
+          hasLength(2),
+        );
       });
 
       test('a JSON array value still passes', () {
