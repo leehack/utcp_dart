@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:utcp/utcp.dart';
 
 import 'encodings.dart';
+import 'python_str.dart';
 import 'socket_call_template.dart';
 
 /// The request payload for a tool call, per
@@ -17,10 +18,7 @@ String formatRequest(ToolArguments arguments, SocketCallTemplate template) {
       if (text != null && text.isNotEmpty) {
         return substituteArgumentPlaceholders(text, arguments);
       }
-      return [
-        for (final value in arguments.values)
-          value is String ? value : jsonEncode(value),
-      ].join(' ');
+      return arguments.values.map(pythonStr).join(' ');
   }
 }
 

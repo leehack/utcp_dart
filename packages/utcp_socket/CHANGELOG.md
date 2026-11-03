@@ -1,5 +1,7 @@
 ## Unreleased
 
+- A `text` request without a template writes non-string arguments as Python's `str()` does (`True`, `None`, `['a', 1]`) instead of as JSON, matching the Python SDK.
+- Delimiters accept `\N{name}` escapes for the names and aliases of Basic Latin, Latin-1 Supplement, General Punctuation and U+FEFF (such as `\N{NUL}` or `\N{RECORD SEPARATOR}`); other names fail when the template is parsed.
 - `response_byte_format` accepts Python's encoding names, including `latin-1`, `utf-16` (`-le`, `-be`) and `cp1252`, and an unsupported one fails when the template is parsed instead of after the request is sent.
 - `max_response_size` applies only to `stream` framing, as in the Python SDK. Length-prefix, delimiter and fixed-length responses are capped by the new `TcpCommunicationProtocol(maxFrameBytes: ...)`, 10 MiB by default.
 

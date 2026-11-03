@@ -154,6 +154,7 @@ class CliCommunicationProtocol extends CommunicationProtocol {
     Duration timeout,
   ) async {
     if (_closed) throw const UtcpException('CLI protocol is closed.');
+    _checkRunnable(template);
     _runs.add(run);
     final shell = Shell.host;
     Directory? captureDir;
@@ -179,6 +180,21 @@ class CliCommunicationProtocol extends CommunicationProtocol {
       await captureDir?.delete(recursive: true);
       _runs.remove(run);
       run.complete();
+    }
+  }
+
+  static void _checkRunnable(CliCallTemplate template) {
+    final name = template.name;
+    if (template.commands.isEmpty) {
+      throw UtcpException("CLI call template '$name' has no commands.");
+    }
+    if (template.commands.any((step) => step.command.trim().isEmpty)) {
+      throw UtcpException("CLI call template '$name' has a blank command.");
+    }
+    if (template.workingDir case '') {
+      throw UtcpException(
+        "CLI call template '$name' has an empty working_dir.",
+      );
     }
   }
 

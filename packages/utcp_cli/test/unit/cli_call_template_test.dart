@@ -59,7 +59,6 @@ void main() {
   group('malformed templates are rejected', () {
     for (final (what, override) in [
       ('missing commands', <String, Object?>{'commands': null}),
-      ('empty commands', <String, Object?>{'commands': <Object?>[]}),
       (
         'a command without text',
         <String, Object?>{
@@ -96,14 +95,6 @@ void main() {
       ),
       ('a non-string working_dir', <String, Object?>{'working_dir': 1}),
       (
-        'a blank command',
-        <String, Object?>{
-          'commands': [
-            {'command': ' \n'},
-          ],
-        },
-      ),
-      (
         'auth',
         <String, Object?>{
           'auth': {'auth_type': 'basic', 'username': 'u', 'password': 'p'},
@@ -119,12 +110,23 @@ void main() {
     }
   });
 
-  test('an empty command list or a blank command is a programming error', () {
-    expect(() => CliCallTemplate(commands: const []), throwsArgumentError);
-    expect(
-      () =>
-          CliCallTemplate(commands: const [CommandStep('ls'), CommandStep('')]),
-      throwsArgumentError,
-    );
+  group('templates that fail only when run still parse and round-trip', () {
+    for (final (what, override) in [
+      ('empty commands', <String, Object?>{'commands': <Object?>[]}),
+      (
+        'a blank command',
+        <String, Object?>{
+          'commands': [
+            {'command': ' \n'},
+          ],
+        },
+      ),
+      ('an empty working_dir', <String, Object?>{'working_dir': ''}),
+    ]) {
+      test(what, () {
+        final document = {...json, ...override};
+        expect(CliCallTemplate.fromJson(document).toJson(), document);
+      });
+    }
   });
 }

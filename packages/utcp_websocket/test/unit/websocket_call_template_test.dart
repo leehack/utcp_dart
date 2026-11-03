@@ -60,9 +60,50 @@ void main() {
     }
   });
 
-  test('URLs are checked when connecting, so variables can fill them', () {
-    final t = WebSocketCallTemplate.fromJson({'url': r'wss://${HOST}/ws'});
-    expect(t.url, r'wss://${HOST}/ws');
+  group('url security is checked when parsing', () {
+    for (final url in [
+      'wss://api.example.com/ws',
+      'WSS://api.example.com/ws',
+      'ws://localhost:8080/ws',
+      'ws://127.0.0.1/ws',
+      'ws://[::1]:9000/ws',
+      // Variables are filled in later; the connection checks the result.
+      r'wss://${HOST}/ws',
+      r'ws://localhost:${PORT}/ws',
+      r'ws://localhost:$PORT/ws',
+      // No literal scheme yet: only the connection can check it.
+      r'${WS_URL}',
+      r'${WS_URL}/path',
+    ]) {
+      test('accepts $url', () {
+        expect(WebSocketCallTemplate.fromJson({'url': url}).url, url);
+      });
+    }
+
+    for (final url in [
+      'ws://api.example.com/ws',
+      'ws://localhost.evil.com/ws',
+      'ws://127.0.0.1.attacker.example/ws',
+      'http://localhost/ws',
+      'https://api.example.com/ws',
+      'wss:///ws',
+      'not a url',
+      '',
+      r'ws://${HOST}/ws',
+    ]) {
+      test('rejects $url', () {
+        expect(
+          () => WebSocketCallTemplate.fromJson({'url': url}),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains("Field 'url'"),
+            ),
+          ),
+        );
+      });
+    }
   });
 
   for (final (field, value) in [

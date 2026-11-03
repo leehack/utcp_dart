@@ -55,14 +55,15 @@ With `UtcpClient.fromJson`, pass `protocols: [CliCommunicationProtocol()]` and u
 
 - All `commands` run in order in one shell process: `/bin/bash -c` on macOS and Linux,
   `powershell.exe -NoProfile -Command` on Windows. `cd` and variables set by one command carry
-  over to the next. A command must not be blank.
+  over to the next. A template with no commands or a blank command parses, but discovery and
+  calls with it fail.
 - `UTCP_ARG_<name>_UTCP_END` takes the tool argument `<name>`. Strings are passed as is, other
   values as JSON. A missing argument, or one containing a NUL character, fails the call.
 - `$CMD_<i>_OUTPUT` holds the output (stdout and stderr) of command `i`.
 - Only the last command's output is returned, unless commands set `append_to_final_output`.
   Output that starts with `{` or `[` and parses as JSON is returned decoded; anything else is
   returned as trimmed text. A failing command returns its error text rather than throwing.
-- `working_dir` defaults to the current directory.
+- `working_dir` defaults to the current directory; an empty `working_dir` fails the call.
 - Calls time out after 120 seconds and discovery after 60, and a script may write at most 10 MiB
   of output (`callTimeout`, `discoveryTimeout` and `maxOutputBytes` on
   `CliCommunicationProtocol`). A script over the limit is killed and the call fails.

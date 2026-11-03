@@ -23,6 +23,17 @@ void main() {
     expect(interpretEscapes('a\\\nb'), 'ab');
   });
 
+  test(r'\N{...} resolves names and aliases case-insensitively', () {
+    expect(interpretEscapes(r'\N{NULL}'), '\x00');
+    expect(interpretEscapes(r'\N{NUL}'), '\x00');
+    expect(interpretEscapes(r'\N{line feed}'), '\n');
+    expect(interpretEscapes(r'\N{CR}\N{LF}'), '\r\n');
+    expect(interpretEscapes(r'\N{RECORD SEPARATOR}|\N{rs}'), '\x1e|\x1e');
+    expect(interpretEscapes(r'\N{LATIN SMALL LETTER E WITH ACUTE}'), 'é');
+    expect(interpretEscapes(r'\N{NEL}\N{LINE SEPARATOR}'), '\x85\u2028');
+    expect(interpretEscapes(r'\N{BULLET}\N{BOM}'), '\u2022\ufeff');
+  });
+
   test('keeps plain text and unknown escapes as written', () {
     expect(interpretEscapes('END'), 'END');
     expect(interpretEscapes('é|'), 'é|');
@@ -44,6 +55,22 @@ void main() {
         reason: input,
       );
     }
-    expect(() => interpretEscapes(r'\N{BULLET}'), throwsFormatException);
+    for (final input in [
+      r'\N',
+      r'\N{NULL',
+      r'\NNULL}',
+      r'\N{}',
+      r'\N{NOT A CHARACTER NAME}',
+      r'\N{ NULL}',
+      // Real names outside the supported subset.
+      r'\N{SNOWMAN}',
+      r'\N{GRINNING FACE}',
+    ]) {
+      expect(
+        () => interpretEscapes(input),
+        throwsFormatException,
+        reason: input,
+      );
+    }
   });
 }

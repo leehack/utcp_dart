@@ -7,18 +7,12 @@ class CommandStep {
 
   /// Reads a step from its JSON form (`command`, `append_to_final_output`).
   ///
-  /// Throws a [FormatException] when a field has the wrong type or the
-  /// command is blank.
-  factory CommandStep.fromJson(JsonMap json) {
-    final command = json.string('command');
-    if (command.trim().isEmpty) {
-      throw const FormatException("Field 'command' must not be blank.");
-    }
-    return CommandStep(
-      command,
-      appendToFinalOutput: json.optBool('append_to_final_output'),
-    );
-  }
+  /// Throws a [FormatException] when a field has the wrong type. A blank
+  /// command parses, as in the reference SDKs, and fails when it runs.
+  factory CommandStep.fromJson(JsonMap json) => CommandStep(
+    json.string('command'),
+    appendToFinalOutput: json.optBool('append_to_final_output'),
+  );
 
   /// Shell command text. `UTCP_ARG_<name>_UTCP_END` placeholders take the
   /// tool argument `<name>`; `$CMD_<i>_OUTPUT` holds the output of command
@@ -47,8 +41,9 @@ class CommandStep {
 class CliCallTemplate extends CallTemplate {
   /// A template running [commands] in order.
   ///
-  /// Throws an [ArgumentError] when [commands] is empty or a command is
-  /// blank.
+  /// An empty [commands] list, a blank command or an empty [workingDir] is
+  /// accepted here, as in the reference SDKs, and fails discovery or the
+  /// call.
   CliCallTemplate({
     super.name,
     required this.commands,
@@ -56,23 +51,11 @@ class CliCallTemplate extends CallTemplate {
     this.inheritEnvVars,
     this.workingDir,
     super.allowedCommunicationProtocols,
-  }) {
-    if (commands.isEmpty) {
-      throw ArgumentError.value(commands, 'commands', 'Must not be empty');
-    }
-    if (commands.any((step) => step.command.trim().isEmpty)) {
-      throw ArgumentError.value(
-        commands,
-        'commands',
-        'Must not contain a blank command',
-      );
-    }
-  }
+  });
 
   /// Reads a template from its JSON form.
   ///
-  /// Throws a [FormatException] when a field is malformed, `commands` is
-  /// empty or a command is blank, or `auth` is set.
+  /// Throws a [FormatException] when a field is malformed or `auth` is set.
   factory CliCallTemplate.fromJson(JsonMap json) {
     if (json['auth'] != null) {
       throw const FormatException('cli call templates do not support auth.');
@@ -81,9 +64,6 @@ class CliCallTemplate extends CallTemplate {
       for (final step in json.objectList('commands'))
         CommandStep.fromJson(step),
     ];
-    if (commands.isEmpty) {
-      throw const FormatException("Field 'commands' must not be empty.");
-    }
     return CliCallTemplate(
       name: json.optString('name'),
       commands: commands,
@@ -97,7 +77,8 @@ class CliCallTemplate extends CallTemplate {
   /// The `call_template_type` of CLI templates.
   static const type = 'cli';
 
-  /// Commands run in order in one shell; never empty.
+  /// Commands run in order in one shell. Running an empty list or a blank
+  /// command fails.
   final List<CommandStep> commands;
 
   /// Variables set for the commands, on top of the inherited ones.
@@ -109,6 +90,7 @@ class CliCallTemplate extends CallTemplate {
   final List<String>? inheritEnvVars;
 
   /// Directory the commands start in; the current directory when null.
+  /// Running with an empty directory fails.
   final String? workingDir;
 
   @override

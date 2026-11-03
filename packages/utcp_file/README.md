@@ -47,9 +47,13 @@ to `UtcpClientConfig` directly.
 - Discovery reads the file as a UTCP manual or an OpenAPI 2.0/3.x document: `.yaml` and `.yml`
   files as YAML, everything else as JSON. OpenAPI documents are converted with `utcp`'s
   `OpenApiConverter`, applying `auth_tools`.
-- As in the Python SDK, a file counts as a remote origin, so neither a UTCP manual nor an OpenAPI
-  document in it may point tools or OAuth2 token URLs at loopback addresses; such a manual fails
-  to register.
+- A file counts as a remote origin, so neither a UTCP manual nor an OpenAPI document in it may
+  point tools or OAuth2 token URLs at loopback addresses; such a manual fails to register. The
+  Python SDK applies this to OpenAPI documents only.
+- `FileCommunicationProtocol(allowLoopbackTools: true)` lifts that rule, for manual files you
+  wrote that call local services. It is a security trade-off: a manual file that someone else can
+  edit then reaches every service on the agent's machine, including ones that trust local callers
+  without authentication. Leave it off unless every manual file the protocol reads is trusted.
 - Relative paths resolve against `FileCommunicationProtocol(rootDir: ...)`, else the client's
   `rootDir` (`UtcpClient.create(rootDir: ...)`, like `root_dir` in Python and TypeScript), else
   the current directory. `..` segments are left to the OS, so `link/..` is the parent of the symlink's target.

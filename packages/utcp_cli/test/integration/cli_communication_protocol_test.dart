@@ -632,6 +632,49 @@ void main() {
     });
   });
 
+  group('a template that cannot run fails before starting a shell', () {
+    for (final (what, commands, workingDir, message) in [
+      ('no commands', const <CommandStep>[], null, 'has no commands'),
+      (
+        'a blank command',
+        const [CommandStep('echo hi'), CommandStep('  ')],
+        null,
+        'has a blank command',
+      ),
+      (
+        'an empty working_dir',
+        const [CommandStep('pwd')],
+        '',
+        'has an empty working_dir',
+      ),
+    ]) {
+      final template = CliCallTemplate(
+        name: 'm',
+        commands: commands,
+        workingDir: workingDir,
+      );
+
+      test('call: $what', () async {
+        await expectLater(
+          protocol.callTool(client, 'test.tool', const {}, template),
+          throwsA(
+            isA<UtcpException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      });
+
+      test('discovery: $what', () async {
+        final result = await protocol.registerManual(client, template);
+        expect(result.success, isFalse);
+        expect(result.errors, [contains(message)]);
+      });
+    }
+  });
+
   group('discovery', () {
     Future<RegisterManualResult> register(List<CommandStep> commands) =>
         protocol.registerManual(

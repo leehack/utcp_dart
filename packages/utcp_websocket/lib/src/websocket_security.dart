@@ -24,9 +24,32 @@ bool isSecureWebSocketUrl(String url) {
 void ensureSecureWebSocketUrl(String url, String context) {
   if (isSecureWebSocketUrl(url)) return;
   throw UtcpSecurityException(
-    'Security error during $context: WebSocket URL must use WSS or be a '
-    'literal loopback address (ws://localhost / ws://127.0.0.1 / '
-    'ws://[::1]). Got: "${describeUrlString(url)}". Plain WS to any other host is rejected to '
-    'prevent MITM attacks and SSRF into internal services.',
+    'Security error during $context: ${_insecureUrlMessage(url)}',
   );
 }
+
+final _variablePlaceholder = RegExp(r'\$\{\w+\}|\$\w+');
+
+final _literalScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://');
+
+/// Throws a [FormatException] when [url], as written in a call template,
+/// can never pass [ensureSecureWebSocketUrl].
+///
+/// Variables are substituted only when the template is used, so each
+/// `${VAR}` is checked as a value that is not loopback: `wss://${HOST}` and
+/// `ws://localhost:${PORT}` pass, `ws://${HOST}` does not. A URL without a
+/// literal scheme, such as `${WS_URL}`, cannot be judged yet and passes. The
+/// connection checks the substituted URL again.
+void checkWebSocketUrlTemplate(String url) {
+  if (!_literalScheme.hasMatch(url) && _variablePlaceholder.hasMatch(url)) {
+    return;
+  }
+  if (isSecureWebSocketUrl(url.replaceAll(_variablePlaceholder, '1'))) return;
+  throw FormatException("Field 'url': ${_insecureUrlMessage(url)}");
+}
+
+String _insecureUrlMessage(String url) =>
+    'WebSocket URL must use WSS or be a literal loopback address '
+    '(ws://localhost / ws://127.0.0.1 / ws://[::1]). '
+    'Got: "${describeUrlString(url)}". Plain WS to any other host is '
+    'rejected to prevent MITM attacks and SSRF into internal services.';
