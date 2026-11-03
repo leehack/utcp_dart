@@ -6,6 +6,8 @@ environment:
 
 workspace:
   - packages/utcp
+  - packages/utcp_socket
+  - packages/utcp_websocket
 
 dev_dependencies:
   lints: ^6.0.0

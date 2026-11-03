@@ -1,0 +1,28 @@
+name: utcp_websocket
+description: >-
+  WebSocket transport for the Universal Tool Calling Protocol (UTCP) Dart
+  client. Discover and call tools over ws:// and wss:// connections.
+version: 0.1.0
+repository: https://github.com/leehack/utcp_dart/tree/main/packages/utcp_websocket
+issue_tracker: https://github.com/leehack/utcp_dart/issues
+topics:
+  - utcp
+  - ai
+  - agents
+  - websocket
+
+environment:
+  sdk: ^3.8.0
+
+resolution: workspace
+
+dependencies:
+  crypto: ^3.0.6
+  logging: ^1.2.0
+  utcp: ^0.2.0
+  web_socket_channel: ^3.0.3
+
+dev_dependencies:
+  http: ^1.2.0
+  lints: ^6.0.0
+  test: ^1.26.0
