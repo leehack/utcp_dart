@@ -1,7 +1,6 @@
 ## Unreleased
 
 - **Breaking:** `WebSocketCallTemplate.fromJson` rejects a `url` that is neither `wss://` nor `ws://` to a loopback address, as the Python reference does, so a document with one fails when the client is created. A host placeholder counts as remote: `ws://${HOST}:8765/ws` fails even with `HOST=localhost`; use `wss://`, a literal loopback host, or a whole-URL variable such as `${WS_URL}`.
-- A URL variable that resolves to an insecure address, such as `${WS_URL}` set to `ws://evil.example/ws`, fails discovery with an unsuccessful `RegisterManualResult` and a call with a `UtcpSecurityException`. The rejection is both a `FormatException` and a `UtcpSecurityException`.
 
 ## 0.1.1
 

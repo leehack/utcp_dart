@@ -33,8 +33,7 @@ void main() {
     }
   });
 
-  test('every name Encoding.getByName knows, which 0.1.1 used, resolves', () {
-    final bytes = Uint8List.fromList([0x61, 0xC3, 0xA9]);
+  test('accepts every name Encoding.getByName knows', () {
     for (final name in [
       'iso_8859-1:1987', 'iso-ir-100', 'iso_8859-1', 'iso-8859-1', //
       'latin1', 'l1', 'ibm819', 'cp819', 'csisolatin1', 'iso-ir-6',
@@ -42,19 +41,11 @@ void main() {
       'us-ascii', 'us', 'ibm367', 'cp367', 'csascii', 'ascii', 'csutf8',
       'utf-8',
     ]) {
-      expect(responseDecoder(name), isNotNull, reason: name);
-      final String expected;
-      try {
-        expected = Encoding.getByName(name.toUpperCase())!.decode(bytes);
-      } on FormatException {
-        expect(
-          () => responseDecoder(name)!(bytes),
-          throwsFormatException,
-          reason: name,
-        );
-        continue;
-      }
-      expect(responseDecoder(name)!(bytes), expected, reason: name);
+      expect(
+        responseDecoder(name),
+        Encoding.getByName(name)!.decode,
+        reason: name,
+      );
     }
   });
 
