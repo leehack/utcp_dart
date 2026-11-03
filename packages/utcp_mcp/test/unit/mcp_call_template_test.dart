@@ -172,6 +172,47 @@ void main() {
     expect(server.notificationStreamMaxRetries, 2);
   });
 
+  test('reads a string auth as the bearer token, written as auth_token', () {
+    final server =
+        McpServerConfig.fromJson({'url': 'https://x.example/mcp', 'auth': 't'})
+            as McpHttpServer;
+    expect(server.authToken, 't');
+    expect(server.toJson(), containsPair('auth_token', 't'));
+    expect(server.toJson(), isNot(contains('auth')));
+    final same =
+        McpServerConfig.fromJson({
+              'url': 'https://x.example/mcp',
+              'auth': 't',
+              'auth_token': 't',
+            })
+            as McpHttpServer;
+    expect(same.authToken, 't');
+  });
+
+  test('reads command given as an array, prepended to args', () {
+    final server =
+        McpServerConfig.fromJson({
+              'transport': 'stdio',
+              'command': ['python', '-m', 'my_mcp_server'],
+              'args': ['--verbose'],
+            })
+            as McpStdioServer;
+    expect(server.command, 'python');
+    expect(server.args, ['-m', 'my_mcp_server', '--verbose']);
+    final again = McpServerConfig.fromJson(server.toJson()) as McpStdioServer;
+    expect(again.toJson(), server.toJson());
+    expect(again.command, 'python');
+    expect(again.args, ['-m', 'my_mcp_server', '--verbose']);
+
+    final single =
+        McpServerConfig.fromJson({
+              'command': ['node'],
+            })
+            as McpStdioServer;
+    expect(single.command, 'node');
+    expect(single.args, isEmpty);
+  });
+
   group('rejects', () {
     void rejects(Object? config, String message) => expect(
       () => McpCallTemplate.fromJson({
@@ -231,6 +272,49 @@ void main() {
           },
         },
       }, "'env.A'");
+    });
+    test('an auth object on a server', () {
+      rejects({
+        'mcpServers': {
+          's': {
+            'url': 'https://x',
+            'auth': {'client_id': 'id'},
+          },
+        },
+      }, "Field 'auth' of MCP server 's' must be a bearer token string");
+    });
+    test('auth and auth_token that differ', () {
+      rejects({
+        'mcpServers': {
+          's': {'url': 'https://x', 'auth': 'a', 'auth_token': 'b'},
+        },
+      }, "MCP server 's' has both 'auth' and 'auth_token'");
+    });
+    test('auth on a stdio server', () {
+      rejects({
+        'mcpServers': {
+          's': {'command': 'node', 'auth': 't'},
+        },
+      }, "MCP server 's' is a stdio server and cannot take 'auth'");
+    });
+    test('a command array that is empty or holds a non-string', () {
+      rejects({
+        'mcpServers': {
+          's': {'transport': 'stdio', 'command': <Object?>[]},
+        },
+      }, "Field 'command' of MCP server 's' must not be an empty array");
+      rejects({
+        'mcpServers': {
+          's': {
+            'command': ['node', 1],
+          },
+        },
+      }, "'command[1]'");
+      rejects({
+        'mcpServers': {
+          's': {'command': 1},
+        },
+      }, "'command'");
     });
     test('a non-positive timeout', () {
       rejects({

@@ -1,7 +1,15 @@
 import 'dart:async';
 
 import 'package:logging/logging.dart';
-import 'package:mcp_dart/mcp_dart.dart' show IOStreamTransport, silenceMcpLogs;
+import 'package:mcp_dart/mcp_dart.dart'
+    show
+        CallToolResult,
+        IOStreamTransport,
+        McpError,
+        ReadResourceResult,
+        TextResourceContents,
+        silenceMcpLogs;
+import 'package:mcp_dart/mcp_dart.dart' as mcp show JsonSchema;
 import 'package:test/test.dart';
 import 'package:utcp/utcp.dart';
 import 'package:utcp_mcp/utcp_mcp.dart';
@@ -203,10 +211,10 @@ void main() {
       await expectLater(
         call('manual.alpha.resource_missing'),
         throwsA(
-          isA<UtcpException>().having(
+          isA<McpRpcException>().having(
             (e) => e.message,
             'message',
-            contains("Resource 'missing' not found"),
+            contains('resource_missing'),
           ),
         ),
       );
@@ -222,6 +230,96 @@ void main() {
             'message',
             allOf(contains("MCP server 'alpha'"), contains('-32602')),
           ),
+        ),
+      );
+    });
+
+    test('gives resources that share a name or a tool name their own '
+        'tools', () async {
+      servers.configure = (server) {
+        server.registerTool(
+          'resource_notes',
+          description: 'A tool whose name looks like a resource tool',
+          inputSchema: mcp.JsonSchema.object(),
+          callback: (args, extra) =>
+              CallToolResult.fromStructuredContent({'from': 'tool'}),
+        );
+        for (final uri in ['file:///b.txt', 'file:///a.txt']) {
+          server.registerResource(
+            'notes',
+            uri,
+            null,
+            (uri, extra) => ReadResourceResult(
+              contents: [TextResourceContents(uri: '$uri', text: '$uri')],
+            ),
+          );
+        }
+      };
+      final manual = inMemoryManual(['alpha'], resources: true);
+      final result = await protocol.registerManual(caller, manual);
+      expect(
+        result.manual.tools.map((t) => t.name).where((n) => n.contains('note')),
+        unorderedEquals([
+          'manual.alpha.resource_notes',
+          'manual.alpha.resource_notes_1',
+          'manual.alpha.resource_notes_2',
+        ]),
+      );
+      expect(await call('manual.alpha.resource_notes'), {'from': 'tool'});
+      Future<Object?> text(String tool) async => switch (await call(tool)) {
+        {'contents': [{'text': final Object? text}]} => text,
+        final other => other,
+      };
+      expect(await text('manual.alpha.resource_notes_1'), 'file:///a.txt');
+      expect(await text('manual.alpha.resource_notes_2'), 'file:///b.txt');
+    });
+
+    test('calls a tool named resource_<name> on a server that cannot list '
+        'resources', () async {
+      servers.configure = (server) {
+        server.registerTool(
+          'resource_notes',
+          inputSchema: mcp.JsonSchema.object(),
+          callback: (args, extra) =>
+              CallToolResult.fromStructuredContent({'from': 'tool'}),
+        );
+        server.server.removeRequestHandler('resources/list');
+      };
+      expect(await call('manual.alpha.resource_notes'), {'from': 'tool'});
+    });
+
+    test('exposes the JSON-RPC error code of a failed call', () async {
+      await expectLater(
+        call('manual.alpha.quota'),
+        throwsA(isA<McpRpcException>().having((e) => e.code, 'code', -32000)),
+      );
+      await expectLater(
+        call('manual.alpha.nope'),
+        throwsA(isA<McpRpcException>().having((e) => e.code, 'code', -32602)),
+      );
+    });
+
+    test('masks secrets in a JSON-RPC error and keeps its code', () async {
+      servers.configure = (server) => server.registerTool(
+        'leak',
+        inputSchema: mcp.JsonSchema.object(),
+        callback: (args, extra) =>
+            throw McpError(-32050, 'Bad key SECRET-ARG', {'k': 'SECRET-ARG'}),
+      );
+      const manual = McpCallTemplate(
+        name: 'manual',
+        config: McpConfig(
+          mcpServers: {
+            'alpha': McpStdioServer(command: 'alpha', args: ['SECRET-ARG']),
+          },
+        ),
+      );
+      await expectLater(
+        protocol.callTool(caller, 'manual.alpha.leak', const {}, manual),
+        throwsA(
+          isA<McpRpcException>()
+              .having((e) => e.code, 'code', -32050)
+              .having((e) => '$e', 'text', isNot(contains('SECRET'))),
         ),
       );
     });

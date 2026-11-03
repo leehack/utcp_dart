@@ -11,15 +11,168 @@ Tool toolFromMcp(JsonMap mcpTool, String serverName, CallTemplate template) =>
     Tool(
       name: _toolName(template, serverName, mcpTool.string('name')),
       description: mcpTool.optString('description') ?? '',
-      inputs: JsonSchema(mcpTool.optObject('inputSchema') ?? const {}),
-      outputs: JsonSchema(mcpTool.optObject('outputSchema') ?? const {}),
+      inputs: JsonSchema(inlineSchemaRefs(mcpTool.optObject('inputSchema'))),
+      outputs: JsonSchema(inlineSchemaRefs(mcpTool.optObject('outputSchema'))),
       toolCallTemplate: template,
     );
 
-/// A UTCP tool that reads the MCP resource [resource] (`resources/list`
-/// JSON) of [serverName].
+/// Bounds the nodes produced while inlining one schema, so references that
+/// fan out cannot expand it exponentially.
+const _maxInlinedNodes = 10000;
+
+/// Keywords whose values are data, not schemas, so a `$ref` key in them is
+/// left alone.
+const _dataKeywords = {'const', 'default', 'enum', 'example', 'examples'};
+
+/// [schema] with its local `$ref`s inlined, as the TypeScript SDK does, since
+/// many clients ignore the `$defs` that FastMCP and Pydantic emit. Keywords
+/// next to a `$ref` are merged over its target. A cyclic, remote or
+/// unresolvable reference stays in place, and then so do the root `$defs`
+/// and `definitions`, as written; otherwise they are dropped once inlined. A
+/// schema that would grow past [_maxInlinedNodes] nodes is returned as is.
+JsonMap inlineSchemaRefs(JsonMap? schema) {
+  if (schema == null) return const {};
+  final inliner = _RefInliner(schema);
+  final Object? inlined;
+  try {
+    inlined = inliner.inline(schema, const {'#'});
+  } on _TooLarge {
+    return schema;
+  }
+  final result = asJsonMap(inlined, 'Tool schema');
+  for (final key in const [r'$defs', 'definitions']) {
+    if (!schema.containsKey(key) || !inliner.inlined) continue;
+    if (inliner.leftInPlace) {
+      result[key] = schema[key];
+    } else {
+      result.remove(key);
+    }
+  }
+  return result;
+}
+
+final class _TooLarge implements Exception {}
+
+final class _RefInliner {
+  _RefInliner(this.root);
+
+  final JsonMap root;
+  int _nodes = 0;
+
+  /// Whether any reference was inlined.
+  bool inlined = false;
+
+  /// Whether any reference was left in place.
+  bool leftInPlace = false;
+
+  /// A copy of [node] with local references inlined. [resolving] holds the
+  /// references being expanded above [node]; meeting one again is a cycle.
+  Object? inline(Object? node, Set<String> resolving) {
+    if (node is! Map<Object?, Object?> && node is! List<Object?>) return node;
+    if (++_nodes > _maxInlinedNodes) throw _TooLarge();
+    if (node is List<Object?>) {
+      return [for (final item in node) inline(item, resolving)];
+    }
+    final map = asJsonMap(node, 'Tool schema');
+    final ref = map[r'$ref'];
+    final siblings = <String, Object?>{
+      for (final MapEntry(:key, :value) in map.entries)
+        if (key != r'$ref' || ref is! String)
+          key: _dataKeywords.contains(key) ? value : inline(value, resolving),
+    };
+    if (ref is! String) return siblings;
+    final target = resolving.contains(ref) ? null : _pointer(ref);
+    if (target is! Map<Object?, Object?>) {
+      leftInPlace = true;
+      return {r'$ref': ref, ...siblings};
+    }
+    inlined = true;
+    return {
+      ...asJsonMap(inline(target, {...resolving, ref}), 'Tool schema'),
+      ...siblings,
+    };
+  }
+
+  /// The value at the local JSON pointer [ref] (`#` or `#/...`), or null.
+  Object? _pointer(String ref) {
+    if (ref != '#' && !ref.startsWith('#/')) return null;
+    Object? node = root;
+    for (final raw
+        in ref.length == 1 ? const <String>[] : ref.substring(2).split('/')) {
+      final String part;
+      try {
+        part = Uri.decodeComponent(
+          raw,
+        ).replaceAll('~1', '/').replaceAll('~0', '~');
+      } on ArgumentError {
+        return null;
+      }
+      node = switch (node) {
+        Map<Object?, Object?>() => node[part],
+        List<Object?>() => switch (int.tryParse(part)) {
+          final i? when i >= 0 && i < node.length => node[i],
+          _ => null,
+        },
+        _ => null,
+      };
+      if (node == null) return null;
+    }
+    return node;
+  }
+}
+
+/// The resource tools of one server: each resource (`resources/list` JSON)
+/// by its tool name, without the manual and server prefix.
+///
+/// A resource's tool is `resource_<name>` when no other resource or tool of
+/// [toolNames] has that name. Otherwise every resource sharing it becomes
+/// `resource_<name>_<n>`, numbered from 1 in URI order, skipping taken
+/// names, so tools keep their names and each name reads one URI. A URI
+/// listed twice counts once.
+Map<String, JsonMap> resourceTools(
+  List<JsonMap> resources,
+  Set<String> toolNames,
+) {
+  final byUri = <String, JsonMap>{};
+  for (final resource in resources) {
+    byUri.putIfAbsent(resource.string('uri'), () => resource);
+  }
+  final groups = <String, List<JsonMap>>{};
+  for (final uri in byUri.keys.toList()..sort()) {
+    final resource = byUri[uri]!;
+    (groups['$resourceToolPrefix${resource.string('name')}'] ??= []).add(
+      resource,
+    );
+  }
+  final bases = groups.keys.toList()..sort();
+  final named = <String, JsonMap>{};
+  final taken = {...toolNames};
+  final suffixed = <String>[];
+  for (final base in bases) {
+    final group = groups[base]!;
+    if (group.length == 1 && taken.add(base)) {
+      named[base] = group.single;
+    } else {
+      suffixed.add(base);
+    }
+  }
+  for (final base in suffixed) {
+    var n = 1;
+    for (final resource in groups[base]!) {
+      while (!taken.add('${base}_$n')) {
+        n++;
+      }
+      named['${base}_$n'] = resource;
+    }
+  }
+  return named;
+}
+
+/// A UTCP tool named [toolName] (see [resourceTools]) that reads the MCP
+/// resource [resource] (`resources/list` JSON) of [serverName].
 Tool toolFromMcpResource(
   JsonMap resource,
+  String toolName,
   String serverName,
   CallTemplate template,
 ) {
@@ -30,7 +183,7 @@ Tool toolFromMcpResource(
     final text => text,
   };
   return Tool(
-    name: _toolName(template, serverName, '$resourceToolPrefix$name'),
+    name: _toolName(template, serverName, toolName),
     description: 'Read resource: $description. URI: $uri',
     inputs: const JsonSchema({
       'type': 'object',
