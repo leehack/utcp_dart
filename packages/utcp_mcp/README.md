@@ -4,9 +4,9 @@
 [![CI](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/leehack/utcp_dart/actions/workflows/ci.yml)
 
 The `mcp` transport for the [Dart UTCP client](https://pub.dev/packages/utcp): discover and call
-the tools of [Model Context Protocol](https://modelcontextprotocol.io) servers, over stdio or
-streamable HTTP, through the same `UtcpClient` API as every other UTCP tool. Built on
-[`mcp_dart`](https://pub.dev/packages/mcp_dart).
+the tools of [Model Context Protocol](https://modelcontextprotocol.io) servers, over stdio,
+streamable HTTP or legacy HTTP+SSE, through the same `UtcpClient` API as every other UTCP tool.
+Built on [`mcp_dart`](https://pub.dev/packages/mcp_dart).
 
 ## Usage
 
@@ -54,8 +54,9 @@ hosts spell it, makes the choice explicit: `stdio`; `http` (also `streamable-htt
 
 An `http` server is tried with streamable HTTP first. If it answers that first request with 404 or
 405, the legacy HTTP+SSE transport is used instead, as the MCP specification's backwards
-compatibility section describes. A `ws://` or `wss://` URL is rejected when the config is parsed:
-WebSocket MCP servers are not supported.
+compatibility section describes. If that fails too, the error gives both attempts' statuses. A
+`ws://` or `wss://` URL is rejected when the config is parsed: WebSocket MCP servers are not
+supported.
 
 | Field | Servers | Default | Meaning |
 | --- | --- | --- | --- |
@@ -78,6 +79,9 @@ With `register_resources_as_tools: true`, each MCP resource is also registered a
 `resource_<name>` that returns the resource's `contents`. When resources share a name, or a tool
 of the server already has that name, each of those resources is named `resource_<name>_<n>`
 instead, numbered from 1 in URI order, so every name reads one resource and tools keep theirs.
+Names are fixed when the manual is registered: a resource tool reads the URI it was registered
+with, even after the server adds or removes resources. Register the manual again to pick up new
+resources.
 
 ## Behavior
 
@@ -110,8 +114,9 @@ instead, numbered from 1 in URI order, so every name reads one resource and tool
 ## Platforms
 
 Streamable HTTP servers work on every platform, browsers included (Flutter web, `dart compile js`
-and `dart compile wasm`). stdio servers start a child process, so they need `dart:io`: the Dart VM,
-or Flutter on desktop or mobile.
+and `dart compile wasm`). Legacy HTTP+SSE servers go through the same `package:http` client, so
+they build for every platform too, but are tested only on the VM. stdio servers start a child
+process, so they need `dart:io`: the Dart VM, or Flutter on desktop or mobile.
 
 On the web:
 
@@ -143,9 +148,11 @@ re-validated (in browsers, refused; see [Platforms](#platforms)), no redirect fr
 into loopback, and credentials dropped when a redirect leaves the origin. OAuth2 token requests
 follow no redirects at all, and the token must be a non-empty string of visible ASCII.
 
-`mcp_dart`'s HTTP transport creates its own `http.Client` and takes none as a parameter.
-`utcp_mcp` constructs it inside `http.runWithClient`, so that client is a wrapper that sends every
-request through `HttpTransport`. Known gaps:
+`mcp_dart`'s streamable HTTP transport creates its own `http.Client` and takes none as a
+parameter. Its SSE transport takes one (`SseClientTransportOptions.httpClient`), but then leaves
+closing it to the caller. `utcp_mcp` constructs both transports inside `http.runWithClient`, so the
+client each creates, and closes with the transport, is a wrapper that sends every request through
+`HttpTransport`. Known gaps:
 
 - The routing depends on `mcp_dart` creating its client through `http.Client()` when the transport
   is constructed, as `mcp_dart` 2.4 does.
@@ -164,7 +171,7 @@ point an `mcp` tool at a loopback server.
 | Package | Transports |
 | --- | --- |
 | [`utcp`](https://pub.dev/packages/utcp) | Core client, `http` (with OpenAPI conversion), `sse`, `streamable_http`, `text` |
-| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio and streamable HTTP) |
+| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio, streamable HTTP and HTTP+SSE) |
 | [`utcp_cli`](https://pub.dev/packages/utcp_cli) | `cli` |
 | [`utcp_file`](https://pub.dev/packages/utcp_file) | `file`, `.env` variable loader |
 | [`utcp_socket`](https://pub.dev/packages/utcp_socket) | `tcp`, `udp` |

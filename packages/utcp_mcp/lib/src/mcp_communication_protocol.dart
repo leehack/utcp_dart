@@ -62,6 +62,11 @@ class McpCommunicationProtocol extends CommunicationProtocol {
 
   /// How many registered (or registering) manuals use each session.
   final _references = <String, int>{};
+
+  /// The URI each resource tool read when its manual was discovered, by
+  /// [_resourceKey], so a server that adds or removes resources later cannot
+  /// move a tool name onto another resource.
+  final _resourceUris = <String, Map<String, String>>{};
   bool _closed = false;
 
   @override
@@ -105,6 +110,7 @@ class McpCommunicationProtocol extends CommunicationProtocol {
         );
       }
       keep = errors.isEmpty;
+      if (!keep) _forgetResources(template);
       return RegisterManualResult(
         manualCallTemplate: template,
         manual: UtcpManual(tools: [for (final tools in perServer) ...tools]),
@@ -125,16 +131,18 @@ class McpCommunicationProtocol extends CommunicationProtocol {
       for (final tool in tools) toolFromMcp(tool, serverName, template),
     ];
     if (template.registerResourcesAsTools) {
+      final uris = _resourceUris[_resourceKey(template, serverName, server)] =
+          {};
       try {
         final resources = await _listResources(serverName, server, template);
         final names = {for (final tool in tools) tool.string('name')};
-        result.addAll([
-          for (final MapEntry(key: name, value: resource) in resourceTools(
-            resources,
-            names,
-          ).entries)
-            toolFromMcpResource(resource, name, serverName, template),
-        ]);
+        for (final MapEntry(key: name, value: resource) in resourceTools(
+          resources,
+          names,
+        ).entries) {
+          uris[name] = resource.string('uri');
+          result.add(toolFromMcpResource(resource, name, serverName, template));
+        }
       } on UtcpException catch (e) {
         // Resources are optional; their absence must not fail discovery.
         // _withSession has already redacted the message.
@@ -205,10 +213,17 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     CallTemplate manualCallTemplate,
   ) async {
     final template = requireCallTemplate<McpCallTemplate>(manualCallTemplate);
+    _forgetResources(template);
     await Future.wait([
       for (final MapEntry(:key, :value) in template.config.mcpServers.entries)
         _release(_sessionKey(key, value, template.auth)),
     ]);
+  }
+
+  void _forgetResources(McpCallTemplate template) {
+    for (final MapEntry(:key, :value) in template.config.mcpServers.entries) {
+      _resourceUris.remove(_resourceKey(template, key, value));
+    }
   }
 
   @override
@@ -220,12 +235,11 @@ class McpCommunicationProtocol extends CommunicationProtocol {
   ) async {
     final template = requireCallTemplate<McpCallTemplate>(toolCallTemplate);
     final (serverName, server, name) = _route(template, toolName);
-    if (template.registerResourcesAsTools &&
-        name.startsWith(resourceToolPrefix)) {
-      if (await _resourceUri(template, serverName, server, name)
-          case final uri?) {
-        return _readResource(template, serverName, server, uri);
-      }
+    // A name discovery did not give a resource, including every name of a
+    // manual this protocol never registered, is called as a tool.
+    if (_resourceUris[_resourceKey(template, serverName, server)]?[name]
+        case final uri?) {
+      return _readResource(template, serverName, server, uri);
     }
     final result = await _withSession(
       serverName,
@@ -238,26 +252,6 @@ class McpCommunicationProtocol extends CommunicationProtocol {
       idempotent: false,
     );
     return toolResultValue(result.toJson());
-  }
-
-  /// The URI of the resource that the tool [name] reads, or null when [name]
-  /// is not a resource tool, named as discovery names them.
-  Future<String?> _resourceUri(
-    McpCallTemplate template,
-    String serverName,
-    McpServerConfig server,
-    String name,
-  ) async {
-    final List<JsonMap> resources;
-    try {
-      resources = await _listResources(serverName, server, template);
-    } on McpRpcException {
-      // As in discovery, a server without resources has no resource tools.
-      return null;
-    }
-    final tools = await _listTools(serverName, server, template);
-    final names = {for (final tool in tools) tool.string('name')};
-    return resourceTools(resources, names)[name]?.string('uri');
   }
 
   Future<JsonMap> _readResource(
@@ -385,11 +379,14 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     return created;
   }
 
+  /// [rejectedStatus] is the status that made a streamable HTTP attempt
+  /// fall back to [server], which then speaks HTTP+SSE.
   Future<_Session> _connect(
     String serverName,
     McpServerConfig server,
-    Auth? auth,
-  ) async {
+    Auth? auth, {
+    int? rejectedStatus,
+  }) async {
     _log.info("Connecting to MCP server '$serverName'.");
     final transport = await _transportFactory(serverName, server, auth);
     final client = mcp.McpClient(
@@ -397,29 +394,35 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     );
     final session = _Session(client, transport, server);
     var connected = false;
-    McpHttpServer? legacyFallback;
+    int? rejection;
     try {
       await client.connect(transport).timeout(server.timeout);
       connected = true;
     } on Object catch (e) {
       final failure = _Failure.of(e);
       if (failure == null) rethrow;
-      if (server is McpHttpServer &&
-          server.protocol == McpHttpProtocol.streamableHttp &&
-          (_httpClients[transport]?.rejectedFirstPost ?? false)) {
-        legacyFallback = server.withProtocol(McpHttpProtocol.sse);
-      } else {
-        throw _connectFailure(serverName, server, failure);
+      rejection =
+          server is McpHttpServer &&
+              server.protocol == McpHttpProtocol.streamableHttp
+          ? _httpClients[transport]?.firstPostRejection
+          : null;
+      if (rejection == null) {
+        throw _connectFailure(serverName, server, failure, rejectedStatus);
       }
     } finally {
       if (!connected) await session.close();
     }
-    if (legacyFallback != null) {
+    if (rejection != null && server is McpHttpServer) {
       _log.info(
-        "MCP server '$serverName' rejected streamable HTTP; trying the "
-        'legacy HTTP+SSE transport.',
+        "MCP server '$serverName' answered streamable HTTP with $rejection; "
+        'trying the legacy HTTP+SSE transport.',
       );
-      return _connect(serverName, legacyFallback, auth);
+      return _connect(
+        serverName,
+        server.withProtocol(McpHttpProtocol.sse),
+        auth,
+        rejectedStatus: rejection,
+      );
     }
     if (_closed) {
       await session.close();
@@ -432,14 +435,19 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     String serverName,
     McpServerConfig server,
     _Failure failure,
+    int? rejectedStatus,
   ) {
     final command = switch (server) {
       McpStdioServer(:final command) => " (command '$command')",
       McpHttpServer() => '',
     };
+    final fallback = rejectedStatus == null
+        ? ''
+        : 'streamable HTTP answered $rejectedStatus, and the legacy HTTP+SSE '
+              'transport failed: ';
     return UtcpException(
       "Could not connect to MCP server '$serverName'$command: "
-      '${_redact(failure.message, server)}',
+      '$fallback${_redact(failure.message, server)}',
     );
   }
 
@@ -525,6 +533,16 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     McpServerConfig server,
     Auth? auth,
   ) => jsonEncode([serverName, server.toJson(), auth?.toJson()]);
+
+  /// Identifies one server of one manual, as [_sessionKey] does.
+  static String _resourceKey(
+    McpCallTemplate template,
+    String serverName,
+    McpServerConfig server,
+  ) => jsonEncode([
+    template.name,
+    _sessionKey(serverName, server, template.auth),
+  ]);
 
   /// Values shorter than this are left in messages: they cannot hide a
   /// usable secret, and replacing them would garble the text.
@@ -690,7 +708,9 @@ final class _Failure {
     TimeoutException() => _Failure('$error'),
     mcp.StreamableHttpError(:final message) => _Failure(message),
     // ignore: deprecated_member_use
-    mcp.SseClientError(:final message) => _Failure(message),
+    mcp.SseClientError(:final message, :final code) => _Failure(
+      code == null ? message : '$message (HTTP $code)',
+    ),
     mcp.UnauthorizedError() || mcp.StaleSessionError() => _Failure('$error'),
     FormatException(:final message) => _Failure(message, keepSession: true),
     _ => null,

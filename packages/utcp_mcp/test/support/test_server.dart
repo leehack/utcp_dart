@@ -10,8 +10,12 @@ McpServer buildTestServer({
   String name = 'test_server',
   required Future<CallToolResult> Function() onCrash,
   Map<String, Object?> Function()? whoami,
+  McpServerOptions? options,
 }) {
-  final server = McpServer(Implementation(name: name, version: '1.0.0'));
+  final server = McpServer(
+    Implementation(name: name, version: '1.0.0'),
+    options: options,
+  );
   server
     ..registerTool(
       'echo',

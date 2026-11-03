@@ -6,6 +6,7 @@ import 'package:mcp_dart/mcp_dart.dart'
         CallToolResult,
         IOStreamTransport,
         McpError,
+        McpServer,
         ReadResourceResult,
         TextResourceContents,
         silenceMcpLogs;
@@ -194,7 +195,16 @@ void main() {
       expect(result, containsPair('server', 'a.b'));
     });
 
+    Future<void> register() async {
+      final result = await protocol.registerManual(
+        caller,
+        inMemoryManual(['alpha', 'beta'], resources: true),
+      );
+      expect(result.success, isTrue, reason: '${result.errors}');
+    }
+
     test('reads a resource through its resource tool', () async {
+      await register();
       final result = await call('manual.alpha.resource_test_document');
       expect(result, {
         'contents': [
@@ -274,19 +284,99 @@ void main() {
       expect(await text('manual.alpha.resource_notes_2'), 'file:///b.txt');
     });
 
-    test('calls a tool named resource_<name> on a server that cannot list '
-        'resources', () async {
+    test('reads the resource discovery advertised after the server adds '
+        'resources, without listing them again', () async {
+      final live = <McpServer>[];
+      void notes(McpServer server, String name, String uri) =>
+          server.registerResource(
+            name,
+            uri,
+            null,
+            (uri, extra) => ReadResourceResult(
+              contents: [TextResourceContents(uri: '$uri', text: '$uri')],
+            ),
+          );
       servers.configure = (server) {
-        server.registerTool(
-          'resource_notes',
-          inputSchema: mcp.JsonSchema.object(),
-          callback: (args, extra) =>
-              CallToolResult.fromStructuredContent({'from': 'tool'}),
-        );
-        server.server.removeRequestHandler('resources/list');
+        live.add(server);
+        notes(server, 'notes', 'file:///a.txt');
+        notes(server, 'notes', 'file:///c.txt');
+        notes(server, 'memo', 'file:///memo.txt');
       };
-      expect(await call('manual.alpha.resource_notes'), {'from': 'tool'});
+      await register();
+      for (final server in live) {
+        notes(server, 'notes', 'file:///b.txt');
+        notes(server, 'memo', 'file:///memo2.txt');
+      }
+      Future<Object?> text(String tool) async => switch (await call(tool)) {
+        {'contents': [{'text': final Object? text}]} => text,
+        final other => other,
+      };
+      Future<void> expectAdvertised() async {
+        expect(await text('manual.alpha.resource_notes_2'), 'file:///c.txt');
+        expect(await text('manual.alpha.resource_memo'), 'file:///memo.txt');
+      }
+
+      await expectAdvertised();
+      servers.failSending['resources/list'] = const UtcpException('listed');
+      servers.failSending['tools/list'] = const UtcpException('listed');
+      await expectAdvertised();
     });
+
+    test('calls resource tools of a manual it never registered as tools, '
+        'so the server rejects them', () async {
+      await expectLater(
+        call('manual.alpha.resource_test_document'),
+        throwsA(
+          isA<McpRpcException>().having(
+            (e) => e.message,
+            'message',
+            contains('resource_test_document'),
+          ),
+        ),
+      );
+    });
+
+    test('forgets the resource tools of a deregistered manual', () async {
+      await register();
+      await protocol.deregisterManual(
+        caller,
+        inMemoryManual(['alpha', 'beta'], resources: true),
+      );
+      await expectLater(
+        call('manual.alpha.resource_test_document'),
+        throwsA(isA<McpRpcException>()),
+      );
+    });
+
+    for (final (reason, configure) in [
+      (
+        'answers resources/list with a JSON-RPC error',
+        (McpServer server, InMemoryServers servers) =>
+            server.server.removeRequestHandler('resources/list'),
+      ),
+      (
+        'fails to send resources/list',
+        (McpServer server, InMemoryServers servers) =>
+            servers.failSending['resources/list'] = const UtcpException('down'),
+      ),
+    ]) {
+      test(
+        'calls a tool named resource_<name> on a server that $reason',
+        () async {
+          servers.configure = (server) {
+            server.registerTool(
+              'resource_notes',
+              inputSchema: mcp.JsonSchema.object(),
+              callback: (args, extra) =>
+                  CallToolResult.fromStructuredContent({'from': 'tool'}),
+            );
+            configure(server, servers);
+          };
+          await register();
+          expect(await call('manual.alpha.resource_notes'), {'from': 'tool'});
+        },
+      );
+    }
 
     test('exposes the JSON-RPC error code of a failed call', () async {
       await expectLater(
