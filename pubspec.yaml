@@ -9,6 +9,8 @@ workspace:
   - packages/utcp_mcp
   - packages/utcp_cli
   - packages/utcp_file
+  - packages/utcp_socket
+  - packages/utcp_websocket
 
 dev_dependencies:
   lints: ^6.0.0
