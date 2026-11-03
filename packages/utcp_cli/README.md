@@ -79,26 +79,33 @@ only, so treat Windows support as experimental.
   subscript in that expression runs command substitutions: with `n='a[$(rm -rf ~)]'`,
   `[[ "$n" -gt 3 ]]` runs `rm`. A placeholder is therefore rejected (the call fails) inside
   `$(( ))`, `(( ))` (including `for ((...))`), `$[ ]`, any `${...}`, an array subscript
-  `name[...]`, a `[[ ]]` that uses `-eq`, `-ne`, `-lt`, `-le`, `-gt` or `-ge`, a `let` command,
-  and a `declare`/`typeset`/`local` with `-i`. The `let`/`-i` check also fires inside a `{ }`
-  group or a function body and through the wrapper words `builtin`, `command`, `time`, `exec`,
-  `nohup` and `env` and a leading `\`. Compare numbers with `[ ]` or `test`, which accept
-  only integer literals, or pass the value to a program such as `expr`. The reference SDKs do not
+  (`name[...]`, or `[...]=` in `name=(...)`), a `[[ ]]` that uses `-eq`, `-ne`, `-lt`, `-le`,
+  `-gt`, `-ge` or `-v`, a `test -v`/`[ -v ]`, a `let` command, a `declare`/`typeset`/`local` with
+  `-i`, and an assignment to a variable declared with `-i` anywhere in the command. The command
+  checks also fire inside a `{ }` group or a function body, through the wrapper words `builtin`,
+  `command`, `time`, `exec`, `nohup` and `env` and their options, and with a quoted or escaped
+  command name (`'let'`, `\let`). Compare numbers with `[ ]` or `test`, which accept only
+  integer literals, or pass the value to a program such as `expr`. The reference SDKs do not
   reject these contexts.
-- The scanner models heredocs (`<<` and `<<-`, quoted and unquoted delimiters) and `case`
-  statements, so their bodies no longer desync the quoting of later placeholders. A placeholder
-  in a quoted-delimiter heredoc body (`<<'EOF'`), where bash would not expand it, is rejected, as
-  is a placeholder in a `case` statement inside a `$(...)` or backtick command substitution, which
-  bash 3.2 cannot parse reliably.
-- As defense in depth, independent of the scanner, an argument value that contains `[` together
-  with `$(` or a backtick is rejected, naming the argument: a command substitution inside an array
-  subscript is the one shape bash runs code from when a value is evaluated as a number. JSON
-  arrays such as `[1,2]` carry no substitution and still pass.
+- The scanner models heredocs (`<<` and `<<-`, quoted and unquoted delimiters; `<<` in
+  arithmetic is a shift) and `case` statements, so their bodies no longer desync the quoting of
+  later placeholders. A placeholder in a quoted-delimiter heredoc body (`<<'EOF'`), where bash
+  would not expand it, is rejected, as is a placeholder in a `case` statement inside a `$(...)` or
+  backtick command substitution, which bash 3.2 cannot parse reliably. Bash 3.2 and 5.x also
+  disagree on where a heredoc inside a command substitution ends (`EOF)`, a `)` or quote in the
+  body), so a placeholder after such a heredoc is rejected.
+- As defense in depth, independent of the scanner, an argument value with a substitution (`$(`,
+  `${`, `$name` or a backtick) inside `[...]` is rejected, naming the argument: an array subscript
+  is the one shape bash runs code from when it evaluates a value as a number. The values of one
+  command are also checked joined, since two placeholders in one word can build the subscript
+  together. The scanner cannot tell whether a value reaches arithmetic later (through a variable,
+  a function or another program), so this check applies in every context. Text with a
+  substitution outside brackets, such as ``See [docs](https://x) and run `make` ``, and JSON
+  arrays such as `[1,2]` pass.
 - These checks only see placeholders. A template must not carry a value into those contexts
   some other way: through a shell variable or command output (`n=UTCP_ARG_n_UTCP_END; (( n ))`,
-  `$(( $(cat file) ))`), a variable declared integer earlier, or a builtin that takes the value as
-  a variable name (`read`, `unset`, `printf -v`, `[[ -v ]]`). `eval`, `source`, `bash -c` and the
-  like run the value as code.
+  `$(( $(cat file) ))`), or a builtin that takes the value as a variable name (`read`, `unset`,
+  `printf -v`). `eval`, `source`, `bash -c` and the like run the value as code.
 - The commands themselves are trusted: never build a template from untrusted input.
 - The host environment is not inherited. By default only `PATH`, `HOME`, `LANG`, `LC_ALL`,
   `LC_CTYPE`, `USER`, `LOGNAME`, `SHELL`, `TZ` and `TERM` (a Windows equivalent there) pass

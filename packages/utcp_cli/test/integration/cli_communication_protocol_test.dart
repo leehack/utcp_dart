@@ -425,6 +425,105 @@ void main() {
       },
     );
 
+    test('a shift in arithmetic does not start a heredoc', () async {
+      await File('${temp.path}/secret.txt').writeAsString('SECRET');
+      for (final shift in [r'x=$((1<<2))', '(( y = 1 << 3 ))']) {
+        expect(
+          await call(
+            [CommandStep("$shift\nprintf '<%s>' UTCP_ARG_v_UTCP_END")],
+            arguments: {'v': 'a  b *'},
+            workingDir: temp.path,
+          ),
+          '<a  b *>',
+          reason: shift,
+        );
+      }
+    });
+
+    test('a heredoc in a command substitution', () async {
+      expect(
+        await call(
+          [
+            const CommandStep(
+              'x=\$(cat <<EOF\nUTCP_ARG_v_UTCP_END\nEOF\n)\n'
+              "printf '<%s>' \"\$x\" UTCP_ARG_v_UTCP_END",
+            ),
+          ],
+          arguments: {'v': 'a  b *'},
+          workingDir: temp.path,
+        ),
+        '<a  b *><a  b *>',
+      );
+      await expectLater(
+        call(
+          [
+            const CommandStep(
+              "x=\$(cat <<EOF\nhi\nEOF)\nprintf '<%s>' UTCP_ARG_v_UTCP_END",
+            ),
+          ],
+          arguments: {'v': 'a  b *'},
+        ),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains('heredoc'),
+          ),
+        ),
+      );
+    });
+
+    test('values split across placeholders are rejected', () async {
+      final canaryFile = canary();
+      for (final command in [
+        'arr=([AB]=x)',
+        '[[ -v AB ]]',
+        "'let' x=AB",
+        'command -p let x=AB',
+        'time -p let x=AB',
+        'declare -i n; n=AB',
+      ]) {
+        await expectLater(
+          call(
+            [
+              CommandStep(
+                command.replaceFirst(
+                  'AB',
+                  'UTCP_ARG_a_UTCP_ENDUTCP_ARG_b_UTCP_END',
+                ),
+              ),
+            ],
+            arguments: {'a': 'y[', 'b': r'$(touch "$CANARY")]'},
+            envVars: {'CANARY': canaryFile.path},
+          ),
+          throwsA(isA<UtcpException>()),
+          reason: command,
+        );
+      }
+      expect(canaryFile.existsSync(), isFalse);
+    });
+
+    test('text with brackets and backticks passes', () async {
+      const value = 'See [docs](https://x) and run `make`';
+      expect(
+        await call(
+          [const CommandStep("printf '<%s>' UTCP_ARG_v_UTCP_END")],
+          arguments: {'v': value},
+        ),
+        '<$value>',
+      );
+    });
+
+    test('an escaped blank before `#` does not start a comment', () async {
+      expect(
+        await call(
+          [const CommandStep(r'''printf '<%s>' x\ #" UTCP_ARG_v_UTCP_END "''')],
+          arguments: {'v': 'a  b'},
+        ),
+        '<x # a  b >',
+      );
+    });
+
     test('a value with `[` and a command substitution is rejected', () async {
       final canaryFile = canary();
       await expectLater(

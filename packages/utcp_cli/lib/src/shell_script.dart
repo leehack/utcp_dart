@@ -194,8 +194,9 @@ final _placeholderPattern = RegExp('UTCP_ARG_([a-zA-Z0-9_]+?)_UTCP_END');
 /// Bash evaluates the value of a variable used as a number as an arithmetic
 /// expression, and an array subscript in it runs command substitutions. So
 /// a bash placeholder is rejected inside `$(( ))`, `(( ))`, `$[ ]`, `${...}`,
-/// an array subscript, a `[[ ]]` with an arithmetic comparison, a `let`
-/// command and a `declare -i`-style declaration.
+/// an array subscript, a `[[ ]]` with an arithmetic comparison or `-v`, a
+/// `test -v`, a `let` command, a `declare -i`-style declaration and an
+/// assignment to a variable declared integer.
 ///
 /// Throws a [UtcpException] when an argument is missing, holds a NUL
 /// character, or sits where it cannot be passed safely.
@@ -222,17 +223,12 @@ String substitutePlaceholders(
         'to a command.',
       );
     }
-    // Defense in depth, independent of the placeholder scanner: bash runs
-    // code from a value only through a command substitution inside an array
-    // subscript evaluated as arithmetic. No safe value needs `[` next to a
-    // substitution, so refuse it; JSON arrays like `[1,2]` have no `$(` or
-    // backtick and still pass.
-    if (value.contains('[') && (value.contains(r'$(') || value.contains('`'))) {
+    // Defense in depth, independent of the placeholder scanner.
+    if (_expandsInSubscript(value)) {
       throw UtcpException(
-        "Argument '$name' contains '[' together with a command substitution "
-        r'(`$(...)` or backticks). Bash runs a command substitution inside an '
-        'array subscript when the value is evaluated as a number, so this '
-        'value is refused.',
+        "Argument '$name' contains a substitution (`\$...` or backticks) "
+        'inside `[...]`. Bash runs it as an array subscript when the value is '
+        'evaluated as a number, so this value is refused.',
       );
     }
     final variable = '__UTCP_ARG_${nonce}_$name';
@@ -241,9 +237,43 @@ String substitutePlaceholders(
   }
 
   return switch (shell) {
-    Shell.bash => _BashSubstitution(command, bind).run(),
+    Shell.bash => _BashSubstitution(
+      command,
+      bind,
+      (variable) => environment[variable]!,
+    ).run(),
     Shell.powershell => _substitutePowerShell(command, bind),
   };
+}
+
+final _expansionStart = RegExp(r'[A-Za-z_({[]');
+
+/// Whether [value] holds a substitution inside an array subscript, the one
+/// shape from which bash runs code when it evaluates a value as a number:
+/// `a[$(cmd)]`, or `a[$X]` where `X` holds such a value.
+///
+/// Bash 5.2 honours quotes and `\` when it looks for a subscript's `]` and
+/// bash 3.2 does not, so after one of them inside `[...]` no `]` is trusted
+/// to close it.
+bool _expandsInSubscript(String value) {
+  var depth = 0;
+  var unsure = false;
+  for (var i = 0; i < value.length; i++) {
+    final char = value[i];
+    final expands =
+        char == '`' ||
+        (char == r'$' &&
+            i + 1 < value.length &&
+            _expansionStart.hasMatch(value[i + 1]));
+    if (expands && (depth > 0 || unsure)) return true;
+    if (char == '[') {
+      depth++;
+    } else if (depth > 0) {
+      if (char == ']' && !unsure) depth--;
+      if ('\\\'"\$'.contains(char)) unsure = true;
+    }
+  }
+  return false;
 }
 
 String _substitutePowerShell(String command, String Function(String) bind) {
@@ -288,17 +318,24 @@ String _substitutePowerShell(String command, String Function(String) bind) {
 
 const _arithmetic = 'an arithmetic expression';
 const _caseInCommandSub = 'a `case` statement inside a command substitution';
+const _heredocInCommandSub = 'or after a heredoc inside a command substitution';
 final _wordBreak = RegExp(r'[\s;&|()<>`]');
 final _name = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
-final _arithmeticTest = RegExp(r'(^|\s)-(eq|ne|lt|le|gt|ge)(?=\s|$)');
+final _arithmeticTest = RegExp(r'(^|\s)-(eq|ne|lt|le|gt|ge|v)(?=\s|$)');
 final _integerOption = RegExp(r'^-[A-Za-z]*i');
-final _assignment = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=');
+final _assignment = RegExp(r'^([A-Za-z_][A-Za-z0-9_]*)(\[[^\]]*\])?\+?=');
+final _quoting = RegExp(r'''\$(?=['"])|['"\\]''');
+
+/// Characters in a heredoc body that bash 3.2, or a backtick substitution in
+/// any version, reads as code while looking for the substitution's end.
+final _codeInCommandSubHeredoc = RegExp('[\'"()`]');
 final _blanks = RegExp(r'\s+');
 const _keywords = {'if', 'then', 'else', 'elif', 'do', 'while', 'until', '!'};
 const _declarations = {'declare', 'typeset', 'local', 'readonly', 'export'};
 
-/// Words that run the command that follows them, so the real command word is
-/// the next one when deciding whether a value is evaluated as arithmetic.
+/// Words that run the command that follows them, after their options, so the
+/// real command word comes later when deciding whether a value is evaluated
+/// as arithmetic.
 const _wrappers = {'builtin', 'command', 'time', 'exec', 'nohup', 'env'};
 
 enum _CasePhase { head, pattern, body }
@@ -331,21 +368,44 @@ final class _Heredoc {
 /// enclosing context, if any, where a placeholder is rejected: it is passed
 /// down, so a value printed by `$(...)` inside `$(( ))` is rejected too.
 final class _BashSubstitution {
-  _BashSubstitution(this.source, this.bind);
+  _BashSubstitution(this.source, this.bind, this.valueOf);
 
   final String source;
   final String Function(String name) bind;
+
+  /// The value a variable returned by [bind] holds.
+  final String Function(String variable) valueOf;
   final _out = StringBuffer();
 
-  /// Names of the placeholders read so far, in order.
+  /// Names and values of the placeholders read so far, in order.
   final _bound = <String>[];
+  final _values = <String>[];
 
   /// Heredocs seen on the current line whose bodies start at the next line.
   final _pendingHeredocs = <_Heredoc>[];
+
+  /// Set once the scanner can no longer be sure how bash reads the rest of
+  /// the text; every later placeholder is rejected in this context.
+  String? _unsure;
+
+  /// Variables declared integer (`declare -i`), and the first placeholder
+  /// in an assignment to each variable, checked against each other once the
+  /// whole text is read because a function may run before its definition.
+  final _integerNames = <String>{};
+  final _assigned = <String, String>{};
+
+  /// The cursor position just after the last `\` escape in code, where the
+  /// escaped character cannot end a word.
+  var _escapeEnd = -1;
   var _i = 0;
 
   String run() {
     _code(null, null);
+    for (final MapEntry(key: variable, value: name) in _assigned.entries) {
+      if (_integerNames.contains(variable)) {
+        _reject(name, 'an assignment to an integer variable');
+      }
+    }
     return _out.toString();
   }
 
@@ -363,17 +423,21 @@ final class _BashSubstitution {
     final match = _placeholderPattern.matchAsPrefix(source, _i);
     if (match == null) return false;
     final name = match.group(1)!;
-    if (forbidden != null) _reject(name, forbidden);
+    if (forbidden ?? _unsure case final context?) _reject(name, context);
+    final variable = bind(name);
     _bound.add(name);
-    _out.write(reference(bind(name)));
+    _values.add(valueOf(variable));
+    _out.write(reference(variable));
     _i = match.end;
     return true;
   }
 
   Never _reject(String name, String context) {
-    final detail = context == _caseInCommandSub
-        ? 'bash 3.2 cannot parse it reliably and may split or glob the value. '
-              'Move the `case` out of the command substitution.'
+    final detail =
+        context == _caseInCommandSub || context == _heredocInCommandSub
+        ? 'the scanner cannot tell how bash parses the text, and bash could '
+              'split or glob the value. Move the `case` or heredoc out of the '
+              'command substitution.'
         : 'bash would run code embedded in the value. Compare numbers with '
               '`[ ]` or `test`, or pass the value to a program such as `expr`.';
     throw UtcpException(
@@ -381,7 +445,8 @@ final class _BashSubstitution {
     );
   }
 
-  bool get _atWordStart => _i == 0 || _wordBreak.hasMatch(source[_i - 1]);
+  bool get _atWordStart =>
+      _i == 0 || (_i != _escapeEnd && _wordBreak.hasMatch(source[_i - 1]));
 
   bool _wordBreakAt(int index) =>
       index >= source.length || _wordBreak.hasMatch(source[index]);
@@ -412,6 +477,17 @@ final class _BashSubstitution {
     return start < _i && _name.hasMatch(source.substring(start, _i));
   }
 
+  /// Whether the word before the cursor is `name=` or `name+=`, so a `(`
+  /// here opens a compound array assignment.
+  bool get _afterAssignment {
+    var start = _i;
+    while (start > 0 && !_wordBreak.hasMatch(source[start - 1])) {
+      start--;
+    }
+    final word = source.substring(start, _i);
+    return _assignment.matchAsPrefix(word)?.end == word.length;
+  }
+
   /// Reads shell code up to [end] (outside any nested parentheses), or to
   /// the end of the text when [end] is null. Tracks `case` statements, `{ }`
   /// groups and pending heredocs so quoting and command boundaries stay in
@@ -419,8 +495,17 @@ final class _BashSubstitution {
   ///
   /// [inCommandSub] is set inside `$(...)` and backticks, where bash 3.2
   /// cannot parse a `case` statement; a placeholder in such a `case` is
-  /// rejected because its quoting cannot be guaranteed there.
-  void _code(String? end, String? forbidden, {bool inCommandSub = false}) {
+  /// rejected because its quoting cannot be guaranteed there. [heredocs] is
+  /// false where `<<` is a shift operator (arithmetic) or literal (`${...}`).
+  /// [compound] is set inside `name=(...)`, where `[...]=` is a subscript.
+  void _code(
+    String? end,
+    String? forbidden, {
+    bool inCommandSub = false,
+    bool heredocs = true,
+    bool compound = false,
+  }) {
+    final pendingAtStart = _pendingHeredocs.length;
     final caseStack = <_CaseState>[];
     var depth = 0;
     var commandStart = _i;
@@ -486,12 +571,17 @@ final class _BashSubstitution {
       if (end != null && depth == 0 && caseStack.isEmpty && _at(end)) {
         endCommand();
         _copy(end.length);
+        // Bash 3.2 and 5.x disagree on where such a heredoc's body is.
+        if (_pendingHeredocs.length > pendingAtStart) {
+          _unsure ??= _heredocInCommandSub;
+        }
         return;
       }
       if (_placeholder(forbidden, (v) => '"\$$v"')) continue;
       switch (source[_i]) {
         case r'\':
           _copy(2);
+          _escapeEnd = _i;
         case "'":
           _single(forbidden, ansi: false);
         case '"':
@@ -504,8 +594,8 @@ final class _BashSubstitution {
         case '#' when _atWordStart:
           final newline = source.indexOf('\n', _i);
           _copy((newline < 0 ? source.length : newline) - _i);
-        case '<' when _at('<<<'):
-          _copy(3);
+        case '<' when _at('<<<') || (!heredocs && _at('<<')):
+          _copy(_at('<<<') ? 3 : 2);
         case '<' when _at('<<'):
           final stripTabs = _at('<<-');
           _copy(stripTabs ? 3 : 2);
@@ -517,7 +607,20 @@ final class _BashSubstitution {
           if (heredoc != null) _pendingHeredocs.add(heredoc);
         case '(' when _at('(('):
           _copy(2);
-          _code('))', forbidden ?? _arithmetic, inCommandSub: inCommandSub);
+          _code(
+            '))',
+            forbidden ?? _arithmetic,
+            inCommandSub: inCommandSub,
+            heredocs: false,
+          );
+        case '[' when (compound && _atWordStart) || _afterName:
+          _copy(1);
+          _code(
+            ']',
+            forbidden ?? 'an array subscript',
+            inCommandSub: inCommandSub,
+            heredocs: false,
+          );
         case '[' when _at('[[') && _atWordStart:
           _copy(2);
           final start = _i;
@@ -525,15 +628,11 @@ final class _BashSubstitution {
           _code(']]', forbidden, inCommandSub: inCommandSub);
           if (_bound.length > bound &&
               _arithmeticTest.hasMatch(source.substring(start, _i))) {
-            _reject(_bound[bound], 'a `[[ ]]` arithmetic comparison');
+            _reject(_bound[bound], 'a `[[ ]]` arithmetic comparison or `-v`');
           }
-        case '[' when _afterName:
+        case '(' when _afterAssignment:
           _copy(1);
-          _code(
-            ']',
-            forbidden ?? 'an array subscript',
-            inCommandSub: inCommandSub,
-          );
+          _code(')', forbidden, inCommandSub: inCommandSub, compound: true);
         case 'c' when _reservedWordAt('case') && _atCommandStart(commandStart):
           caseStack.add(_CaseState());
           if (inCommandSub) forbidden ??= _caseInCommandSub;
@@ -571,30 +670,66 @@ final class _BashSubstitution {
   }
 
   /// Rejects placeholders read since [boundAtStart] when [command] is a
-  /// simple command that evaluates its arguments as arithmetic. Leading
-  /// reserved words, variable assignments, wrapper words (`command`, `env`,
-  /// …) and a `\` escape on the command name are skipped first.
+  /// simple command that evaluates its arguments as arithmetic or as a
+  /// variable name. Leading reserved words, variable assignments, wrapper
+  /// words (`command`, `env`, …) with their options, and quoting on the
+  /// command name (`'let'`, `\let`) are skipped first. Also records integer
+  /// declarations and assignments for the check in [run].
   void _checkCommand(String command, int boundAtStart) {
+    final words = command.trim().split(_blanks).where((w) => w.isNotEmpty);
+    final assigned = <String>[];
+    var afterWrapper = false;
+    String? first;
+    final arguments = <String>[];
+    for (final word in words) {
+      if (first != null) {
+        arguments.add(word);
+        continue;
+      }
+      final unquoted = word.replaceAll(_quoting, '');
+      if (_assignment.matchAsPrefix(word) case final match?) {
+        assigned.add(match.group(1)!);
+      } else if (_wrappers.contains(unquoted)) {
+        afterWrapper = true;
+      } else if (!_keywords.contains(unquoted) &&
+          !(afterWrapper && unquoted.startsWith('-'))) {
+        first = unquoted;
+      }
+    }
+    if (_declarations.contains(first)) {
+      final names = [
+        for (final word in arguments)
+          if (_assignment.matchAsPrefix(word) case final match?)
+            match.group(1)!
+          else if (_name.hasMatch(word))
+            word,
+      ];
+      if (arguments.any(_integerOption.hasMatch)) _integerNames.addAll(names);
+      assigned.addAll(names);
+    }
     if (_bound.length == boundAtStart) return;
-    String unescape(String word) =>
-        word.startsWith(r'\') ? word.substring(1) : word;
-    final words = command
-        .trim()
-        .split(_blanks)
-        .where((w) => w.isNotEmpty)
-        .skipWhile(
-          (w) =>
-              _keywords.contains(unescape(w)) ||
-              _assignment.hasMatch(w) ||
-              _wrappers.contains(unescape(w)),
-        )
-        .toList();
-    if (words.isEmpty) return;
-    final first = unescape(words.first);
-    if (first == 'let') _reject(_bound[boundAtStart], 'a `let` command');
+    final placeholder = _bound[boundAtStart];
+    for (final name in assigned) {
+      _assigned.putIfAbsent(name, () => placeholder);
+    }
+    if (first == 'let') _reject(placeholder, 'a `let` command');
+    if ((first == 'test' || first == '[') && arguments.contains('-v')) {
+      _reject(placeholder, 'a `test -v` check');
+    }
     if (_declarations.contains(first) &&
-        words.skip(1).any(_integerOption.hasMatch)) {
-      _reject(_bound[boundAtStart], 'an integer (`-i`) declaration');
+        arguments.any(_integerOption.hasMatch)) {
+      _reject(placeholder, 'an integer (`-i`) declaration');
+    }
+    // Two values in one word can build a subscript that neither holds alone
+    // (`y[` and `$(cmd)]`).
+    if (_bound.length - boundAtStart > 1 &&
+        _expandsInSubscript(_values.sublist(boundAtStart).join())) {
+      throw UtcpException(
+        'Arguments ${_bound.sublist(boundAtStart).toSet().map((n) => "'$n'").join(', ')} '
+        'together contain a substitution (`\$...` or backticks) inside '
+        '`[...]`. Bash runs it as an array subscript when the value is '
+        'evaluated as a number, so these values are refused.',
+      );
     }
   }
 
@@ -650,6 +785,9 @@ final class _BashSubstitution {
         _copy((newline < 0 ? source.length : newline + 1) - _i);
         return;
       }
+      if (inCommandSub && _unclearHeredocLine(heredoc)) {
+        _unsure ??= _heredocInCommandSub;
+      }
       while (_i < source.length && source[_i] != '\n') {
         if (!heredoc.expand) {
           if (_placeholderPattern.matchAsPrefix(source, _i) case final match?) {
@@ -683,7 +821,21 @@ final class _BashSubstitution {
     }
   }
 
-  bool _atHeredocEnd(_Heredoc heredoc) {
+  bool _atHeredocEnd(_Heredoc heredoc) =>
+      _heredocLine(heredoc) == heredoc.delimiter;
+
+  /// Whether bash versions may disagree on whether the body line at the
+  /// cursor, inside a command substitution, ends the heredoc or the
+  /// substitution: bash 5.2 ends the heredoc at `EOF)`, `EOF )` or `EOF #)`,
+  /// and bash 3.2 ends the substitution at a `)` in the body.
+  bool _unclearHeredocLine(_Heredoc heredoc) {
+    final line = _heredocLine(heredoc);
+    return line.startsWith(heredoc.delimiter) ||
+        _codeInCommandSubHeredoc.hasMatch(line);
+  }
+
+  /// The line at the cursor, without the tabs `<<-` strips.
+  String _heredocLine(_Heredoc heredoc) {
     var start = _i;
     if (heredoc.stripTabs) {
       while (start < source.length && source[start] == '\t') {
@@ -691,8 +843,7 @@ final class _BashSubstitution {
       }
     }
     final newline = source.indexOf('\n', start);
-    final end = newline < 0 ? source.length : newline;
-    return source.substring(start, end) == heredoc.delimiter;
+    return source.substring(start, newline < 0 ? source.length : newline);
   }
 
   void _dollar(
@@ -702,7 +853,12 @@ final class _BashSubstitution {
   }) {
     if (_at(r'$((')) {
       _copy(3);
-      _code('))', forbidden ?? _arithmetic, inCommandSub: inCommandSub);
+      _code(
+        '))',
+        forbidden ?? _arithmetic,
+        inCommandSub: inCommandSub,
+        heredocs: false,
+      );
     } else if (_at(r'$(')) {
       _copy(2);
       _code(')', forbidden, inCommandSub: true);
@@ -712,10 +868,16 @@ final class _BashSubstitution {
         '}',
         forbidden ?? 'a parameter expansion `\${...}`',
         inCommandSub: inCommandSub,
+        heredocs: false,
       );
     } else if (_at(r'$[')) {
       _copy(2);
-      _code(']', forbidden ?? _arithmetic, inCommandSub: inCommandSub);
+      _code(
+        ']',
+        forbidden ?? _arithmetic,
+        inCommandSub: inCommandSub,
+        heredocs: false,
+      );
     } else if (!quoted && _at(r"$'")) {
       _copy(1);
       _single(forbidden, ansi: true);
