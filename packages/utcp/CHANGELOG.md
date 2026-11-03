@@ -1,3 +1,11 @@
+## Unreleased
+
+- HTTP tool results are parsed as JSON only for `application/json` and `+json` content types, matched case-insensitively; other types (such as `application/x-ndjson`) and invalid JSON are returned as text instead of throwing, as the spec requires.
+- Tool results are no longer parsed as YAML; YAML is read only for discovered manuals (`HttpResult.decodeManual`).
+- OAuth2: `expires_in` sent as a string is accepted, an `access_token` that is not a usable bearer token is rejected before it is cached, and a cached token is dropped when the server answers 401 or 403.
+- OpenAPI-generated http tools without a request body keep `body_field: "body"` instead of `null`, which the TypeScript SDK rejects.
+- An unknown `dotenv` variable loader error says how to register it.
+
 ## 0.2.1
 
 - Docs: package cross-links, badges and platform notes.

@@ -47,8 +47,6 @@ final class McpHttpClient extends http.BaseClient {
     'last-event-id',
   };
 
-  static final _bearerToken = RegExp(r'^Bearer [\x21-\x7E]+$');
-
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final spec = HttpRequestSpec(HttpMethod.parse(request.method), request.url);
@@ -71,7 +69,9 @@ final class McpHttpClient extends http.BaseClient {
       context: _context,
       timeout: server.timeout,
     );
-    final isEventStream = response.contentType.contains('text/event-stream');
+    final isEventStream = response.contentType.toLowerCase().contains(
+      'text/event-stream',
+    );
     return http.StreamedResponse(
       _guard(
         response.body,
@@ -93,13 +93,6 @@ final class McpHttpClient extends http.BaseClient {
     final auth = this.auth;
     if (auth == null || spec.header('authorization') != null) return;
     await _credentials.authorize(spec, auth, timeout: server.timeout);
-    if (auth is OAuth2Auth &&
-        !_bearerToken.hasMatch(spec.header('authorization') ?? '')) {
-      throw const UtcpException(
-        'The OAuth2 token endpoint returned an access_token that is not a '
-        'usable bearer token (it must be non-empty visible ASCII).',
-      );
-    }
   }
 
   /// Forwards [body], ending it with an error when [abort] completes or when

@@ -11,7 +11,12 @@ import 'registry.dart';
 /// Loaders that can be configured from JSON (`load_variables_from`) register
 /// a parser for their `variable_loader_type` in [VariableLoader.registry].
 abstract class VariableLoader {
-  static final registry = TypeRegistry<VariableLoader>('variable_loader_type');
+  static final registry =
+      TypeRegistry<VariableLoader>('variable_loader_type', null, const {
+        'dotenv':
+            'Add package utcp_file and construct FileCommunicationProtocol or '
+            'call DotEnvVariableLoader.register() first.',
+      });
 
   /// The value of [key], or `null` when this loader does not define it.
   FutureOr<String?> get(String key);

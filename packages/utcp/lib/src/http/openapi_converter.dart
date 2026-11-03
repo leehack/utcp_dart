@@ -324,7 +324,10 @@ class OpenApiConverter {
         if (required.isNotEmpty) 'required': required.toList(),
       },
       headerFields: headerFields.toList(),
-      bodyField: bodyField,
+      // Without a body, the template default is kept rather than `null`,
+      // which TypeScript's schema rejects; it stays `null` only when an
+      // input named `body` must not become the request body.
+      bodyField: bodyField ?? (properties.containsKey('body') ? null : 'body'),
       contentType: contentType,
     );
   }

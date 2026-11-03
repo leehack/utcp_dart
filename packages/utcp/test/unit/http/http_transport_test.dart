@@ -55,6 +55,18 @@ void main() {
       );
     });
 
+    test('matches the form content type case-insensitively', () {
+      const template = HttpCallTemplate(
+        url: 'https://a.example/f',
+        httpMethod: HttpMethod.post,
+        contentType: 'Application/X-WWW-Form-Urlencoded',
+      );
+      final request = buildToolRequest(template, {
+        'body': {'a': '1'},
+      });
+      expect(request.body, 'a=1');
+    });
+
     test('missing path parameters are reported', () {
       expect(
         () =>
@@ -211,6 +223,100 @@ void main() {
         expect(fetches, 2);
       },
     );
+
+    group('OAuth2 token', () {
+      const auth = OAuth2Auth(
+        tokenUrl: 'https://a/token',
+        clientId: 'i',
+        clientSecret: 's',
+      );
+      const timeout = Duration(seconds: 1);
+
+      test('accepts expires_in sent as a string', () async {
+        for (final expiresIn in ['3600', 'soon']) {
+          final transport = HttpTransport(
+            client: MockClient(
+              (_) async => jsonResponse({
+                'access_token': 'tok',
+                'expires_in': expiresIn,
+              }),
+            ),
+          );
+          addTearDown(transport.close);
+          final request = get('https://a/x');
+          await transport.authorize(request, auth, timeout: timeout);
+          expect(request.header('authorization'), 'Bearer tok');
+        }
+      });
+
+      test('is validated before it is cached', () async {
+        final tokens = ['a b', 'a b', 'good'];
+        final transport = HttpTransport(
+          client: MockClient(
+            (_) async => jsonResponse({'access_token': tokens.removeAt(0)}),
+          ),
+        );
+        addTearDown(transport.close);
+        await expectLater(
+          transport.authorize(get('https://a/x'), auth, timeout: timeout),
+          throwsA(
+            isA<UtcpException>().having(
+              (e) => e.message,
+              'message',
+              contains('usable bearer token'),
+            ),
+          ),
+        );
+        final request = get('https://a/x');
+        await transport.authorize(request, auth, timeout: timeout);
+        expect(request.header('authorization'), 'Bearer good');
+      });
+
+      for (final status in [401, 403]) {
+        test('is dropped when the server answers $status', () async {
+          var fetches = 0;
+          final transport = HttpTransport(
+            client: MockClient((request) async {
+              if (request.url.path == '/token') {
+                return jsonResponse({'access_token': 'tok${++fetches}'});
+              }
+              return http.Response('', status);
+            }),
+          );
+          addTearDown(transport.close);
+          Future<HttpRequestSpec> call() async {
+            final request = get('https://a/tool');
+            await transport.authorize(request, auth, timeout: timeout);
+            await transport.send(request, context: 'test', timeout: timeout);
+            return request;
+          }
+
+          await call();
+          final retry = await call();
+          expect(retry.header('authorization'), 'Bearer tok2');
+          expect(fetches, 2);
+        });
+      }
+
+      test('stays cached when the server accepts it', () async {
+        var fetches = 0;
+        final transport = HttpTransport(
+          client: MockClient((request) async {
+            if (request.url.path == '/token') {
+              return jsonResponse({'access_token': 'tok${++fetches}'});
+            }
+            return http.Response('', 404);
+          }),
+        );
+        addTearDown(transport.close);
+        for (var i = 0; i < 2; i++) {
+          final request = get('https://a/tool');
+          await transport.authorize(request, auth, timeout: timeout);
+          await transport.send(request, context: 'test', timeout: timeout);
+        }
+        expect(fetches, 1);
+      });
+    });
 
     test(
       'OAuth2 falls back to a Basic header, then reports both failures',
@@ -552,8 +658,48 @@ void main() {
       });
       expect(result('{"a":1}', contentType: 'text/plain').decode(), '{"a":1}');
       expect(result('{"a":1}').decode(sniffJson: true), {'a': 1});
-      expect(result('a: 1', path: '/m.yaml').decode(), {'a': 1});
       expect(result('ünïcode', contentType: 'text/plain').decode(), 'ünïcode');
+    });
+
+    test('parses only application/json and +json types as JSON', () {
+      for (final type in [
+        'application/json; charset=utf-8',
+        'application/problem+json',
+        'Application/JSON',
+        'APPLICATION/VND.API+JSON',
+      ]) {
+        expect(result('{"a":1}', contentType: type).decode(), {'a': 1});
+      }
+      const ndjson = '{"a":1}\n{"a":2}\n';
+      expect(
+        result(ndjson, contentType: 'application/x-ndjson').decode(),
+        ndjson,
+      );
+      expect(
+        result('{"a":1}', contentType: 'text/jsonish').decode(),
+        '{"a":1}',
+      );
+    });
+
+    test('returns invalid JSON as text', () {
+      expect(
+        result('{not json', contentType: 'application/json').decode(),
+        '{not json',
+      );
+      expect(result('{not json').decode(sniffJson: true), '{not json');
+    });
+
+    test('parses YAML only for manuals', () {
+      expect(result('a: 1', path: '/m.yaml').decode(), 'a: 1');
+      expect(result('a: 1', contentType: 'application/yaml').decode(), 'a: 1');
+      expect(result('a: 1', path: '/m.yaml').decodeManual(), {'a': 1});
+      expect(result('a: 1', path: '/m.yml').decodeManual(), {'a': 1});
+      expect(result('a: 1', contentType: 'Application/YAML').decodeManual(), {
+        'a': 1,
+      });
+      expect(result('{"a":1}', contentType: 'text/plain').decodeManual(), {
+        'a': 1,
+      });
     });
 
     test('errors carry the server reason, bounded and collapsed', () {

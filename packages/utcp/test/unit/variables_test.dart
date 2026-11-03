@@ -107,6 +107,26 @@ void main() {
     );
   });
 
+  test('an unregistered dotenv loader names how to register it', () {
+    expect(
+      () => UtcpClientConfig.fromJson({
+        'load_variables_from': [
+          {'variable_loader_type': 'dotenv', 'env_file_path': '.env'},
+        ],
+      }),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          allOf(
+            contains("Unknown variable_loader_type 'dotenv'"),
+            contains('DotEnvVariableLoader.register()'),
+          ),
+        ),
+      ),
+    );
+  });
+
   test('invalid namespaces are rejected', () {
     const s = VariableSubstitutor(environment: {});
     expect(

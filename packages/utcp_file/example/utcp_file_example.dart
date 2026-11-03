@@ -28,7 +28,6 @@ export docs_MANUAL_FILE=manual.yaml
 docs_NOTES_FILE="notes.md"
 ''');
 
-  DotEnvVariableLoader.register();
   final client = await UtcpClient.fromJson(
     {
       'load_variables_from': [

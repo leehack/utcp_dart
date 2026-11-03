@@ -8,11 +8,17 @@ typedef JsonFactory<T> = T Function(JsonMap json);
 ///
 /// Plugins add their own subtypes with [register].
 final class TypeRegistry<T> {
-  TypeRegistry(this.discriminator, [Map<String, JsonFactory<T>>? builtIn])
-    : _factories = {...?builtIn};
+  /// [hints] tell the user how to register a known type that lives in
+  /// another package, in the error for an unregistered type.
+  TypeRegistry(
+    this.discriminator, [
+    Map<String, JsonFactory<T>>? builtIn,
+    this._hints = const {},
+  ]) : _factories = {...?builtIn};
 
   final String discriminator;
   final Map<String, JsonFactory<T>> _factories;
+  final Map<String, String> _hints;
 
   /// Registers [factory] for [type]. Returns `false`, leaving the existing
   /// parser in place, when [type] is already registered and [override] is
@@ -31,7 +37,9 @@ final class TypeRegistry<T> {
     final type = json.string(discriminator);
     final factory =
         _factories[type] ??
-        (throw FormatException("Unknown $discriminator '$type'."));
+        (throw FormatException(
+          ["Unknown $discriminator '$type'.", ?_hints[type]].join(' '),
+        ));
     return factory(json);
   }
 }

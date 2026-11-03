@@ -41,7 +41,6 @@ local_README=README.txt # inline comment
   tearDown(() => temp.delete(recursive: true));
 
   test('a file manual with dotenv variables works end to end', () async {
-    DotEnvVariableLoader.register();
     final client = await UtcpClient.fromJson(
       {
         'load_variables_from': [

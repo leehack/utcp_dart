@@ -63,10 +63,7 @@ class HttpCommunicationProtocol extends CommunicationProtocol {
         "discovering tools from '${template.name}'",
         maxDetailChars: 200,
       );
-      final document = asJsonMap(
-        response.decode(sniffJson: true),
-        'Discovery response',
-      );
+      final document = asJsonMap(response.decodeManual(), 'Discovery response');
       return RegisterManualResult(
         manualCallTemplate: template,
         manual: _manualFrom(document, response.url, template),

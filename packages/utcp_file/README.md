@@ -14,9 +14,6 @@ import 'package:utcp/utcp.dart';
 import 'package:utcp_file/utcp_file.dart';
 
 Future<void> main() async {
-  // Lets `load_variables_from` use `"variable_loader_type": "dotenv"`.
-  DotEnvVariableLoader.register();
-
   final client = await UtcpClient.fromJson(
     {
       'load_variables_from': [
@@ -33,6 +30,9 @@ Future<void> main() async {
   await client.close();
 }
 ```
+
+`FileCommunicationProtocol` registers the `dotenv` variable loader; without it, call
+`DotEnvVariableLoader.register()` before parsing a config that uses `dotenv`.
 
 A runnable example is in `example/utcp_file_example.dart`. Without JSON configuration, pass
 `FileCallTemplate(name: 'local', filePath: 'tools.yaml')` and `DotEnvVariableLoader('.env')`
