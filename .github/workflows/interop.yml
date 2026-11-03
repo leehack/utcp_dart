@@ -12,6 +12,9 @@ on:
   pull_request:
     paths: *paths
 
+permissions:
+  contents: read
+
 jobs:
   round-trip:
     name: Cross-SDK round trip
