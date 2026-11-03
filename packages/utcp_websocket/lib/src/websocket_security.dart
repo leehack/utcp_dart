@@ -30,14 +30,20 @@ void ensureSecureWebSocketUrl(String url, String context) {
 
 final _variablePlaceholder = RegExp(r'\$\{\w+\}|\$\w+');
 
+final _literalScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://');
+
 /// Throws a [FormatException] when [url], as written in a call template,
 /// can never pass [ensureSecureWebSocketUrl].
 ///
 /// Variables are substituted only when the template is used, so each
 /// `${VAR}` is checked as a value that is not loopback: `wss://${HOST}` and
-/// `ws://localhost:${PORT}` pass, `ws://${HOST}` does not. The connection
-/// checks the substituted URL again.
+/// `ws://localhost:${PORT}` pass, `ws://${HOST}` does not. A URL without a
+/// literal scheme, such as `${WS_URL}`, cannot be judged yet and passes. The
+/// connection checks the substituted URL again.
 void checkWebSocketUrlTemplate(String url) {
+  if (!_literalScheme.hasMatch(url) && _variablePlaceholder.hasMatch(url)) {
+    return;
+  }
   if (isSecureWebSocketUrl(url.replaceAll(_variablePlaceholder, '1'))) return;
   throw FormatException("Field 'url': ${_insecureUrlMessage(url)}");
 }

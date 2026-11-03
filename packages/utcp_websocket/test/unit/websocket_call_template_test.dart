@@ -71,6 +71,9 @@ void main() {
       r'wss://${HOST}/ws',
       r'ws://localhost:${PORT}/ws',
       r'ws://localhost:$PORT/ws',
+      // No literal scheme yet: only the connection can check it.
+      r'${WS_URL}',
+      r'${WS_URL}/path',
     ]) {
       test('accepts $url', () {
         expect(WebSocketCallTemplate.fromJson({'url': url}).url, url);
@@ -87,7 +90,6 @@ void main() {
       'not a url',
       '',
       r'ws://${HOST}/ws',
-      r'${WS_URL}',
     ]) {
       test('rejects $url', () {
         expect(
