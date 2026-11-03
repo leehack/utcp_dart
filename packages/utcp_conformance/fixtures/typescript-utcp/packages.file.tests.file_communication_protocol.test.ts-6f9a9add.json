@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/file/tests/file_communication_protocol.test.ts",
+    "line": 96
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "name": "nonexistent_manual",
+    "call_template_type": "file",
+    "file_path": "/path/to/nonexistent/file.json"
+  }
+}

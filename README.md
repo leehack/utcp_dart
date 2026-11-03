@@ -64,6 +64,27 @@ LLM tool-calling loop ([`claude_tool_use.dart`](packages/utcp/example/claude_too
 | `utcp_socket` | Yes | No: browsers cannot open raw sockets |
 | `utcp_file` | Yes | No: browsers cannot read files by path |
 
+## Spec compliance
+
+| Package | UTCP spec version |
+| --- | --- |
+| `utcp` | 1.1.0 |
+| `utcp_mcp` | 1.1.0 |
+| `utcp_cli` | 1.1.0 |
+| `utcp_file` | 1.1.0 |
+| `utcp_socket` | 1.1.0 |
+| `utcp_websocket` | 1.1.0 |
+
+Manuals are written with `utcp_version` set to `utcpProtocolVersion`. The
+[conformance suite](packages/utcp_conformance) parses and round-trips every UTCP document
+in the spec and the reference SDKs. It was last verified against:
+
+| Reference | Commit |
+| --- | --- |
+| [UTCP specification](https://github.com/universal-tool-calling-protocol/utcp-specification) | [`4a9ed93`](https://github.com/universal-tool-calling-protocol/utcp-specification/tree/4a9ed936a863a1f5d13ad8ef1b2b8a9783d459d6) |
+| [python-utcp](https://github.com/universal-tool-calling-protocol/python-utcp) | [`bb8e2f6`](https://github.com/universal-tool-calling-protocol/python-utcp/tree/bb8e2f6f6f78f4f773ff383a4e065523b0b1297a) |
+| [typescript-utcp](https://github.com/universal-tool-calling-protocol/typescript-utcp) | [`ea4902d`](https://github.com/universal-tool-calling-protocol/typescript-utcp/tree/ea4902d3bdae3880026cc9b3391a5f8895c9b1ad) |
+
 ## Links
 
 - [UTCP specification](https://github.com/universal-tool-calling-protocol/utcp-specification)

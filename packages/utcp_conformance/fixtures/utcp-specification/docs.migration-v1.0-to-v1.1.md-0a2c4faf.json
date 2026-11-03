@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/migration-v1.0-to-v1.1.md",
+    "line": 51
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP client config.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "my_tools",
+        "call_template_type": "http",
+        "url": "https://api.example.com/utcp"
+      }
+    ]
+  }
+}

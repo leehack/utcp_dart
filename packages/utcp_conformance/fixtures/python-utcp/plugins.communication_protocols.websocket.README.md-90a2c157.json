@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/websocket/README.md",
+    "line": 303
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "chat",
+    "call_template_type": "websocket",
+    "url": "wss://chat.example.com/ws",
+    "message": {
+      "type": "message",
+      "channel": "UTCP_ARG_channel_UTCP_ARG",
+      "user": "UTCP_ARG_user_UTCP_ARG",
+      "text": "UTCP_ARG_text_UTCP_ARG",
+      "timestamp": "{{now}}"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/http.md",
+    "line": 182
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "get_user",
+    "tool_call_template": {
+      "call_template_type": "http",
+      "url": "https://api.example.com/users/{id}",
+      "http_method": "GET"
+    },
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  }
+}

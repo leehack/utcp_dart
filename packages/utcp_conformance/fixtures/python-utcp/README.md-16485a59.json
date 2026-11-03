@@ -1,0 +1,39 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "README.md",
+    "line": 397
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "my_rest_api",
+    "call_template_type": "http",
+    "url": "https://api.example.com/users/{user_id}",
+    "http_method": "POST",
+    "content_type": "application/json",
+    "allowed_communication_protocols": [
+      "http"
+    ],
+    "auth": {
+      "auth_type": "api_key",
+      "api_key": "Bearer $API_KEY",
+      "var_name": "Authorization",
+      "location": "header"
+    },
+    "auth_tools": {
+      "auth_type": "api_key",
+      "api_key": "Bearer $TOOL_API_KEY",
+      "var_name": "Authorization",
+      "location": "header"
+    },
+    "headers": {
+      "X-Custom-Header": "value"
+    },
+    "body_field": "body",
+    "header_fields": [
+      "user_id"
+    ]
+  }
+}

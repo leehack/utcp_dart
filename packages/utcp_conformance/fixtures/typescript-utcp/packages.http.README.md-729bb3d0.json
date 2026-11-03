@@ -1,0 +1,24 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 516
+  },
+  "kind": "client_config",
+  "expect": "reject",
+  "reason": "Schematic example: the call template is elided (`// ...`), so it has no `call_template_type`.",
+  "document": {
+    "variables": {
+      "github__api_TOKEN": "github-token-123",
+      "gitlab__api_TOKEN": "gitlab-token-456"
+    },
+    "manual_call_templates": [
+      {
+        "name": "github_api",
+        "headers": {
+          "Authorization": "Bearer ${TOKEN}"
+        }
+      }
+    ]
+  }
+}

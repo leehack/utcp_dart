@@ -1,0 +1,51 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/cli.md",
+    "line": 275
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "python_pipeline",
+    "description": "Run Python development pipeline",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "project_dir": {
+          "type": "string"
+        },
+        "script_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_dir",
+        "script_name"
+      ]
+    },
+    "tool_call_template": {
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "cd UTCP_ARG_project_dir_UTCP_END",
+          "append_to_final_output": false
+        },
+        {
+          "command": "python -m pip install -r requirements.txt",
+          "append_to_final_output": false
+        },
+        {
+          "command": "python UTCP_ARG_script_name_UTCP_END",
+          "append_to_final_output": true
+        }
+      ],
+      "working_dir": "/workspace",
+      "env_vars": {
+        "PYTHONPATH": "/workspace/lib",
+        "VIRTUAL_ENV": "/workspace/venv"
+      }
+    }
+  }
+}

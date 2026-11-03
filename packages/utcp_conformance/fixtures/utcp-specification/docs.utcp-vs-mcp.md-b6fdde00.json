@@ -1,0 +1,31 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/utcp-vs-mcp.md",
+    "line": 37
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "Field no SDK has: http `query_params`.",
+  "may_drop": [
+    "tools.*.tool_call_template.query_params"
+  ],
+  "document": {
+    "manual_version": "1.0.0",
+    "utcp_version": "1.0.1",
+    "tools": [
+      {
+        "name": "get_weather",
+        "description": "Get current weather",
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.weather.com/current",
+          "http_method": "GET",
+          "query_params": {
+            "location": "{location}"
+          }
+        }
+      }
+    ]
+  }
+}

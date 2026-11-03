@@ -1,0 +1,30 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/for-tool-providers.md",
+    "line": 263
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "Field no SDK has: manual-level `variables`.",
+  "may_drop": [
+    "variables"
+  ],
+  "document": {
+    "manual_version": "1.0.0",
+    "utcp_version": "1.0.1",
+    "variables": {
+      "base_url": "https://api.example.com",
+      "timeout": 30
+    },
+    "tools": [
+      {
+        "name": "get_data",
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "${base_url}/data"
+        }
+      }
+    ]
+  }
+}

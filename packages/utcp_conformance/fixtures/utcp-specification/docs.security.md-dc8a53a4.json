@@ -1,0 +1,28 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/security.md",
+    "line": 228
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Docs bug: the MCP stdio `command` is an array, where the SDKs expect a string. Dart accepts it and writes it back as `command` plus `args`.",
+  "may_drop": [
+    "config.mcpServers.server_name.command"
+  ],
+  "document": {
+    "call_template_type": "mcp",
+    "config": {
+      "mcpServers": {
+        "server_name": {
+          "transport": "stdio",
+          "command": [
+            "python",
+            "-m",
+            "my_mcp_server"
+          ]
+        }
+      }
+    }
+  }
+}

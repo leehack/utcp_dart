@@ -1,0 +1,13 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/core/utcp/data/utcp_client_config.md",
+    "line": 59
+  },
+  "kind": "tool_repository",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool repository.",
+  "document": {
+    "tool_repository_type": "in_memory"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/cli/README.md",
+    "line": 73
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "python_pipeline",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "python setup.py install",
+        "append_to_final_output": false
+      },
+      {
+        "command": "python script.py --input UTCP_ARG_input_file_UTCP_END --result \"$CMD_0_OUTPUT\"",
+        "append_to_final_output": true
+      }
+    ],
+    "env_vars": {
+      "PYTHONPATH": "/custom/path",
+      "API_KEY": "${API_KEY}"
+    }
+  }
+}

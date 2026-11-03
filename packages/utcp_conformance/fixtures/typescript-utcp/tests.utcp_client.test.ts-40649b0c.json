@@ -1,0 +1,32 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "tests/utcp_client.test.ts",
+    "line": 521
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP tool. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "name": "cli_tool",
+    "description": "CLI test tool",
+    "inputs": {
+      "type": "object",
+      "properties": {}
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {}
+    },
+    "tags": [],
+    "tool_call_template": {
+      "name": "cli_provider",
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "echo test"
+        }
+      ]
+    }
+  }
+}

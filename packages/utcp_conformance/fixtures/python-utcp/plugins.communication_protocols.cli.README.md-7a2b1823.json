@@ -1,0 +1,27 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/cli/README.md",
+    "line": 32
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP client config.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "file_analysis",
+        "call_template_type": "cli",
+        "commands": [
+          {
+            "command": "cd UTCP_ARG_target_dir_UTCP_END",
+            "append_to_final_output": false
+          },
+          {
+            "command": "find . -type f -name '*.py' | wc -l"
+          }
+        ]
+      }
+    ]
+  }
+}

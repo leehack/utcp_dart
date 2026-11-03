@@ -1,0 +1,14 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/streamable_http_communication_protocol.test.ts",
+    "line": 237
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "TypeScript test that hands an http template to another transport to check its type guard. As an http template it has no `url`, which every SDK requires.",
+  "document": {
+    "name": "x",
+    "call_template_type": "http"
+  }
+}

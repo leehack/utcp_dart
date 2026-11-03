@@ -1,0 +1,20 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "README.md",
+    "line": 431
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "system_commands",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "git status"
+      }
+    ],
+    "working_dir": "./my-repo"
+  }
+}

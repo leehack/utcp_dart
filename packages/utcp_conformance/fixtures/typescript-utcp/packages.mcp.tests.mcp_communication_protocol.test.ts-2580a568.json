@@ -1,0 +1,23 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/mcp/tests/mcp_communication_protocol.test.ts",
+    "line": 277
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "TypeScript test of a negative `notification_stream_max_retries`. TypeScript rejects it when it builds the transport; Dart rejects it when parsing.",
+  "document": {
+    "name": "bad_retry_manual",
+    "call_template_type": "mcp",
+    "config": {
+      "mcpServers": {
+        "bad_server": {
+          "transport": "http",
+          "url": "<`http://localhost:${HTTP_PORT}/mcp`>",
+          "notification_stream_max_retries": -1
+        }
+      }
+    }
+  }
+}

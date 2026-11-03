@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/remote_loopback_bypass.test.ts",
+    "line": 420
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "call_template_type": "http",
+    "name": "m",
+    "url": "<`http://127.0.0.1:${internal.port}/items/{id}`>",
+    "http_method": "GET"
+  }
+}

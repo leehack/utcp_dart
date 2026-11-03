@@ -1,0 +1,26 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/README.md",
+    "line": 178
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "python_script",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "python analysis.py --input UTCP_ARG_input_file_UTCP_END"
+      }
+    ],
+    "env_vars": {
+      "PYTHONPATH": "/custom/python/path",
+      "API_KEY": "${MY_API_KEY}",
+      "LOG_LEVEL": "debug",
+      "DATABASE_URL": "${DATABASE_URL}"
+    },
+    "working_dir": "/path/to/scripts"
+  }
+}

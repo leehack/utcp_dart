@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [utcp, utcp_mcp, utcp_cli, utcp_file, utcp_socket, utcp_websocket]
+        package: [utcp, utcp_mcp, utcp_cli, utcp_file, utcp_socket, utcp_websocket, utcp_conformance]
     defaults:
       run:
         working-directory: packages/${{ matrix.package }}
@@ -40,3 +40,6 @@ jobs:
         run: dart test -p chrome test/unit
       - if: matrix.package == 'utcp_mcp'
         run: dart test -p chrome test/integration test/e2e
+      - if: matrix.package == 'utcp_conformance'
+        name: Corpus matches a harvest at refs.lock
+        run: dart run tool/harvest.dart

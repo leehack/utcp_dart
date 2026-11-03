@@ -1,0 +1,23 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/plugins/communication_protocols/websocket/src/utcp_websocket/websocket_call_template.md",
+    "line": 34
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "name": "secure_websocket",
+    "call_template_type": "websocket",
+    "url": "wss://api.example.com/ws",
+    "auth": {
+      "auth_type": "api_key",
+      "api_key": "${WS_API_KEY}",
+      "var_name": "Authorization",
+      "location": "header"
+    },
+    "keep_alive": true,
+    "protocol": "utcp-v1"
+  }
+}

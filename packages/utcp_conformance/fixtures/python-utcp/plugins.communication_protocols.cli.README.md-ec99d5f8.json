@@ -1,0 +1,36 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/cli/README.md",
+    "line": 95
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "git_analysis",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "git clone UTCP_ARG_repo_url_UTCP_END temp_repo",
+        "append_to_final_output": false
+      },
+      {
+        "command": "cd temp_repo",
+        "append_to_final_output": false
+      },
+      {
+        "command": "git log --oneline -10",
+        "append_to_final_output": true
+      },
+      {
+        "command": "echo \"Repository has $(find . -name '*.py' | wc -l) Python files\"",
+        "append_to_final_output": true
+      }
+    ],
+    "env_vars": {
+      "GIT_AUTHOR_NAME": "UTCP Bot",
+      "GIT_AUTHOR_EMAIL": "bot@utcp.dev"
+    }
+  }
+}

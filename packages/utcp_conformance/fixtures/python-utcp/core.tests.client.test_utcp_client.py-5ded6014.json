@@ -1,0 +1,23 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "core/tests/client/test_utcp_client.py",
+    "line": 229
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "python-utcp test input: a valid UTCP client config. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "variables": {
+      "TEST_VAR": "test_value"
+    },
+    "tool_repository": {
+      "tool_repository_type": "in_memory"
+    },
+    "tool_search_strategy": {
+      "tool_search_strategy_type": "tag_and_description_word_match"
+    },
+    "manual_call_templates": [],
+    "post_processing": []
+  }
+}

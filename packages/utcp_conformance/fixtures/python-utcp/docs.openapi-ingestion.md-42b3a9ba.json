@@ -1,0 +1,25 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "docs/openapi-ingestion.md",
+    "line": 79
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP client config.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "authenticated_api",
+        "call_template_type": "http",
+        "url": "https://api.example.com/openapi.json",
+        "auth": {
+          "auth_type": "api_key",
+          "api_key": "${API_KEY}",
+          "var_name": "Authorization",
+          "location": "header"
+        }
+      }
+    ]
+  }
+}

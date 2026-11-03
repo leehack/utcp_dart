@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 272
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "events_api",
+    "call_template_type": "sse",
+    "url": "https://api.example.com/events",
+    "event_type": "notification",
+    "reconnect": true,
+    "retry_timeout": 5000,
+    "headers": {
+      "Authorization": "Bearer ${API_KEY}"
+    }
+  }
+}

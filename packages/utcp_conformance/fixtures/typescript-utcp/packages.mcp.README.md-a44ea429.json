@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/mcp/README.md",
+    "line": 192
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "Schematic example: `config` is elided (`{ /* ... */ }`), so it has no `mcpServers`, which TypeScript requires too.",
+  "document": {
+    "name": "secure_mcp_servers",
+    "call_template_type": "mcp",
+    "config": {},
+    "auth": {
+      "auth_type": "oauth2",
+      "token_url": "https://auth.example.com/oauth/token",
+      "client_id": "${MCP_CLIENT_ID}",
+      "client_secret": "${MCP_CLIENT_SECRET}",
+      "scope": "mcp.tools.read mcp.tools.execute"
+    }
+  }
+}

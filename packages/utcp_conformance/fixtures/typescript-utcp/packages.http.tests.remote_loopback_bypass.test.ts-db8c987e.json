@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/remote_loopback_bypass.test.ts",
+    "line": 167
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP auth object. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "auth_type": "oauth2",
+    "token_url": "https://auth.example.com/token",
+    "client_id": "a",
+    "client_secret": "b"
+  }
+}

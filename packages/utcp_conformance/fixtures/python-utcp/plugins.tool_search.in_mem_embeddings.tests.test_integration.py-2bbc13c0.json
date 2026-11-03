@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/tool_search/in_mem_embeddings/tests/test_integration.py",
+    "line": 94
+  },
+  "kind": "tool_search_strategy",
+  "expect": "reject",
+  "reason": "Dart has no `in_mem_embeddings` search strategy (a Python plugin). An unregistered tool_search_strategy_type must be rejected.",
+  "document": {
+    "tool_search_strategy_type": "in_mem_embeddings",
+    "model_name": "all-MiniLM-L6-v2",
+    "similarity_threshold": 0.3
+  }
+}

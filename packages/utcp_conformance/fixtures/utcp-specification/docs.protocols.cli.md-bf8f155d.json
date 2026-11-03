@@ -1,0 +1,47 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/cli.md",
+    "line": 189
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "analyze_directory",
+    "description": "Analyze files in a directory",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Directory path to analyze"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "tool_call_template": {
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "cd UTCP_ARG_path_UTCP_END",
+          "append_to_final_output": false
+        },
+        {
+          "command": "find . -type f | wc -l",
+          "append_to_final_output": false
+        },
+        {
+          "command": "du -sh .",
+          "append_to_final_output": false
+        },
+        {
+          "command": "echo \"Directory Analysis: $CMD_2_OUTPUT total size, $CMD_1_OUTPUT files\"",
+          "append_to_final_output": true
+        }
+      ]
+    }
+  }
+}

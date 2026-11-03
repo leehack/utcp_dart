@@ -1,0 +1,20 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/sse.md",
+    "line": 354
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "call_template_type": "sse",
+    "url": "https://api.example.com/events/{stream_id}",
+    "event_type": "data_update",
+    "body_field": "filter_config",
+    "header_fields": [
+      "user_context",
+      "session_id"
+    ]
+  }
+}

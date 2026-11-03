@@ -1,0 +1,17 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/http/tests/test_streamable_http_communication_protocol.py",
+    "line": 34
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "call_template_type": "streamable_http",
+    "name": "test-streamable-http-executor",
+    "url": "<str(request.url.origin()) + \"/stream-ndjson\">",
+    "http_method": "GET",
+    "content_type": "application/x-ndjson"
+  }
+}

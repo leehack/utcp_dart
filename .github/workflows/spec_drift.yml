@@ -1,0 +1,59 @@
+name: Spec drift
+
+# The spec publishes no JSON Schemas, so re-harvesting its documents and the
+# reference SDKs' is the only way to notice upstream changes. Not a PR check.
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: spec-drift
+
+jobs:
+  harvest:
+    if: github.repository == 'leehack/utcp_dart' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      LABEL: spec-drift
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - name: Harvest upstream HEAD
+        id: harvest
+        working-directory: packages/utcp_conformance
+        run: |
+          status=0
+          dart run tool/harvest.dart --head --report "$RUNNER_TEMP/drift.md" || status=$?
+          if [ "$status" -gt 1 ]; then exit "$status"; fi
+          if [ "$status" -eq 1 ]; then drift=true; else drift=false; fi
+          echo "drift=$drift" >> "$GITHUB_OUTPUT"
+      - name: Open, update or close the drift issue
+        env:
+          DRIFT: ${{ steps.harvest.outputs.drift }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          number=$(gh issue list --label "$LABEL" --state open --json number --jq '.[0].number // empty')
+          if [ "$DRIFT" = true ]; then
+            # GitHub caps an issue body at 65536 characters.
+            { head -c 60000 "$RUNNER_TEMP/drift.md"; printf '\n\nFound by %s\n' "$RUN_URL"; } > "$RUNNER_TEMP/body.md"
+            if [ -n "$number" ]; then
+              gh issue edit "$number" --body-file "$RUNNER_TEMP/body.md"
+            else
+              gh label create "$LABEL" --color FBCA04 --force \
+                --description 'UTCP documents upstream differ from the conformance corpus'
+              gh issue create --title 'UTCP spec or reference SDK documents changed' \
+                --label "$LABEL" --body-file "$RUNNER_TEMP/body.md"
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --comment "The conformance corpus matches upstream HEAD again ($RUN_URL)."
+          fi

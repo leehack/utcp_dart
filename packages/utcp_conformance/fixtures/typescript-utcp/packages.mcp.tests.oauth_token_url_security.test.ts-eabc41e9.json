@@ -1,0 +1,17 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/mcp/tests/oauth_token_url_security.test.ts",
+    "line": 136
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP auth object. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "auth_type": "oauth2",
+    "token_url": "https://x/token",
+    "client_id": "cid",
+    "client_secret": "s",
+    "scope": ""
+  }
+}

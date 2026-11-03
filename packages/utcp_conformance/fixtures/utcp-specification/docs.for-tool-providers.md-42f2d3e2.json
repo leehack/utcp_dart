@@ -1,0 +1,46 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/for-tool-providers.md",
+    "line": 497
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP manual.",
+  "document": {
+    "tools": [
+      {
+        "name": "create_resource",
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.example.com/resources",
+          "http_method": "POST"
+        }
+      },
+      {
+        "name": "get_resource",
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.example.com/resources/{id}",
+          "http_method": "GET"
+        }
+      },
+      {
+        "name": "update_resource",
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.example.com/resources/{id}",
+          "http_method": "PUT"
+        }
+      },
+      {
+        "name": "delete_resource",
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.example.com/resources/{id}",
+          "http_method": "DELETE"
+        }
+      }
+    ]
+  }
+}

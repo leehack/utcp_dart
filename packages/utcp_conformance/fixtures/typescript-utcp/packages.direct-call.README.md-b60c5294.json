@@ -1,0 +1,33 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/direct-call/README.md",
+    "line": 32
+  },
+  "kind": "manual",
+  "expect": "reject",
+  "reason": "`direct-call` is a TypeScript-only in-process transport with no Dart equivalent. An unregistered call_template_type must be rejected.",
+  "document": {
+    "utcp_version": "1.0.0",
+    "manual_version": "1.0.0",
+    "tools": [
+      {
+        "name": "exampleTool",
+        "description": "An example tool",
+        "inputs": {
+          "type": "object",
+          "properties": {}
+        },
+        "outputs": {
+          "type": "object",
+          "properties": {}
+        },
+        "tags": [],
+        "tool_call_template": {
+          "call_template_type": "direct-call",
+          "callable_name": "exampleTool"
+        }
+      }
+    ]
+  }
+}

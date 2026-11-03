@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/file/README.md",
+    "line": 82
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP client config.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "local_file_tools",
+        "call_template_type": "file",
+        "file_path": "./manuals/local_tools.json"
+      }
+    ]
+  }
+}

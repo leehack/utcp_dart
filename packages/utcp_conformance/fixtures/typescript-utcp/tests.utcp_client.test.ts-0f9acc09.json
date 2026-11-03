@@ -1,0 +1,20 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "tests/utcp_client.test.ts",
+    "line": 291
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "name": "variable_test_manual",
+    "call_template_type": "http",
+    "http_method": "GET",
+    "url": "${API_URL}/endpoint?query=${GLOBAL_SERVICE_HOST}",
+    "headers": {
+      "X-API-Key": "${LOCAL_API_KEY}",
+      "Authorization": "Bearer ${GLOBAL_TOKEN}"
+    }
+  }
+}

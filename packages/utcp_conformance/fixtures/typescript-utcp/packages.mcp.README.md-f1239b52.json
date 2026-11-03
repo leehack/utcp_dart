@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/mcp/README.md",
+    "line": 222
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "Schematic example: `config` is elided (`{ /* ... */ }`), so it has no `mcpServers`, which TypeScript requires too.",
+  "document": {
+    "name": "my_mcp_servers",
+    "call_template_type": "mcp",
+    "config": {},
+    "register_resources_as_tools": true
+  }
+}

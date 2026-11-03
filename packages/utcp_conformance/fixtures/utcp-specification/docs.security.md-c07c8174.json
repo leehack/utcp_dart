@@ -1,0 +1,25 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/security.md",
+    "line": 179
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Fields no SDK has: sse `timeout` and `max_events`.",
+  "may_drop": [
+    "timeout",
+    "max_events"
+  ],
+  "document": {
+    "call_template_type": "sse",
+    "url": "https://api.example.com/events",
+    "headers": {
+      "Authorization": "Bearer ${SSE_TOKEN}",
+      "Accept": "text/event-stream",
+      "Cache-Control": "no-cache"
+    },
+    "timeout": 300,
+    "max_events": 1000
+  }
+}

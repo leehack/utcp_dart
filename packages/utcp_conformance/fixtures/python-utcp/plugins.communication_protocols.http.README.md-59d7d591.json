@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/http/README.md",
+    "line": 71
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "oauth_api",
+    "call_template_type": "http",
+    "url": "https://api.example.com/data",
+    "auth": {
+      "auth_type": "oauth2",
+      "client_id": "${CLIENT_ID}",
+      "client_secret": "${CLIENT_SECRET}",
+      "token_url": "https://auth.example.com/token"
+    }
+  }
+}

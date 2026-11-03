@@ -1,0 +1,42 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/README.md",
+    "line": 236
+  },
+  "kind": "manual",
+  "expect": "reject",
+  "reason": "CLI discovery output whose cli `tool_call_template` has no `commands`, which the TypeScript and Python schemas require too.",
+  "document": {
+    "utcp_version": "1.0.0",
+    "manual_version": "1.0.0",
+    "tools": [
+      {
+        "name": "echo_cli",
+        "description": "Echoes a message via CLI.",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "message"
+          ]
+        },
+        "outputs": {
+          "type": "string"
+        },
+        "tags": [
+          "cli",
+          "echo"
+        ],
+        "tool_call_template": {
+          "name": "my_cli_tools",
+          "call_template_type": "cli"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/sse.md",
+    "line": 220
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "stream_metrics",
+    "description": "Stream system performance metrics",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "server_id": {
+          "type": "string"
+        },
+        "metrics_config": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "server_id"
+      ]
+    },
+    "tool_call_template": {
+      "call_template_type": "sse",
+      "url": "https://monitoring.example.com/metrics/stream/{server_id}",
+      "event_type": "metric_update",
+      "reconnect": true,
+      "retry_timeout": 20000,
+      "body_field": "metrics_config",
+      "auth": {
+        "auth_type": "oauth2",
+        "client_id": "${MONITORING_CLIENT_ID}",
+        "client_secret": "${MONITORING_CLIENT_SECRET}",
+        "token_url": "https://auth.monitoring.com/token",
+        "scope": "metrics:read"
+      }
+    }
+  }
+}

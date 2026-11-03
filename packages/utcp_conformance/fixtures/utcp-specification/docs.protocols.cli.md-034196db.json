@@ -1,0 +1,40 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/cli.md",
+    "line": 116
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "safe_file_read",
+    "description": "Safely read a file",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9._-]+$"
+        }
+      },
+      "required": [
+        "filename"
+      ]
+    },
+    "tool_call_template": {
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "cd /safe/directory",
+          "append_to_final_output": false
+        },
+        {
+          "command": "cat UTCP_ARG_filename_UTCP_END",
+          "append_to_final_output": true
+        }
+      ],
+      "working_dir": "/safe/directory"
+    }
+  }
+}

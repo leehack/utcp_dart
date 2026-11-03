@@ -1,0 +1,30 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "core/README.md",
+    "line": 370
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP manual.",
+  "document": {
+    "manual_version": "string",
+    "utcp_version": "string",
+    "tools": [
+      {
+        "name": "string",
+        "description": "string",
+        "inputs": {},
+        "outputs": {},
+        "tags": [
+          "string"
+        ],
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://...",
+          "http_method": "GET"
+        }
+      }
+    ]
+  }
+}

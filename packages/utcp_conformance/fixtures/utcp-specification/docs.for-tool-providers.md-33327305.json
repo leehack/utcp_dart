@@ -1,0 +1,50 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/for-tool-providers.md",
+    "line": 100
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "create_user",
+    "description": "Create a new user account",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "user_fields": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string",
+              "format": "email"
+            }
+          },
+          "required": [
+            "name",
+            "email"
+          ]
+        }
+      },
+      "required": [
+        "user_fields"
+      ]
+    },
+    "tool_call_template": {
+      "call_template_type": "http",
+      "url": "https://api.example.com/users",
+      "http_method": "POST",
+      "auth": {
+        "auth_type": "api_key",
+        "api_key": "Bearer ${API_TOKEN}",
+        "var_name": "Authorization",
+        "location": "header"
+      },
+      "body_field": "user_fields"
+    }
+  }
+}

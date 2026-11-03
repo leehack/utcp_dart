@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/http/tests/test_http_communication_protocol.py",
+    "line": 22
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "call_template_type": "http",
+    "name": "test-http-call-template-executor",
+    "url": "<str(request.url.origin()) + \"/tool\">",
+    "http_method": "GET"
+  }
+}

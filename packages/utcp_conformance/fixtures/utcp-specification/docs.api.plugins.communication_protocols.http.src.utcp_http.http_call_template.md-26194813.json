@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/plugins/communication_protocols/http/src/utcp_http/http_call_template.md",
+    "line": 65
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "name": "oauth_api",
+    "call_template_type": "http",
+    "url": "https://api.example.com/data",
+    "http_method": "GET",
+    "auth": {
+      "auth_type": "oauth2",
+      "client_id": "${CLIENT_ID}",
+      "client_secret": "${CLIENT_SECRET}",
+      "token_url": "https://auth.example.com/token"
+    }
+  }
+}

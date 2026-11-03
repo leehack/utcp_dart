@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/core/README.md",
+    "line": 94
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP client config.",
+  "document": {
+    "load_variables_from": [
+      {
+        "variable_loader_type": "dotenv",
+        "env_file_path": "./.env"
+      }
+    ],
+    "variables": {
+      "github__api_TOKEN": "override-token"
+    }
+  }
+}

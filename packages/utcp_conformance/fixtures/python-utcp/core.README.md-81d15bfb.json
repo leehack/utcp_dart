@@ -1,0 +1,23 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "core/README.md",
+    "line": 452
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "streaming_data_source",
+    "call_template_type": "streamable_http",
+    "url": "https://api.example.com/stream",
+    "http_method": "POST",
+    "content_type": "application/octet-stream",
+    "chunk_size": 4096,
+    "timeout": 60000,
+    "auth": null,
+    "headers": {},
+    "body_field": "data",
+    "header_fields": []
+  }
+}

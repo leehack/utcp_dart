@@ -1,0 +1,27 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/plugins/communication_protocols/mcp/src/utcp_mcp/mcp_call_template.md",
+    "line": 51
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "name": "mcp_server",
+    "call_template_type": "mcp",
+    "config": {
+      "mcpServers": {
+        "filesystem": {
+          "command": "node",
+          "args": [
+            "mcp-server.js"
+          ],
+          "env": {
+            "NODE_ENV": "production"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/tests/mock_cli_script.ts",
+    "line": 23
+  },
+  "kind": "manual",
+  "expect": "reject",
+  "reason": "CLI discovery output whose cli `tool_call_template` has no `commands`, which the TypeScript and Python schemas require too.",
+  "document": {
+    "utcp_version": "1.0.0",
+    "manual_version": "1.0.0",
+    "tools": [
+      {
+        "name": "echo_cli",
+        "description": "Echoes a message via CLI.",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "message"
+          ]
+        },
+        "outputs": {
+          "type": "string"
+        },
+        "tags": [
+          "cli",
+          "echo"
+        ],
+        "tool_call_template": {
+          "name": "mock_cli_manual",
+          "call_template_type": "cli",
+          "command_name": "<`node \"${path.resolve(__dirname, 'mock_cli_script.ts')}\"`>"
+        }
+      },
+      {
+        "name": "add_numbers_cli",
+        "description": "Adds two numbers via CLI.",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "number"
+            },
+            "b": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ]
+        },
+        "outputs": {
+          "type": "number"
+        },
+        "tags": [
+          "cli",
+          "math"
+        ],
+        "tool_call_template": {
+          "name": "mock_cli_manual",
+          "call_template_type": "cli",
+          "command_name": "<`node \"${path.resolve(__dirname, 'mock_cli_script.ts')}\"`>"
+        }
+      },
+      {
+        "name": "read_env",
+        "description": "Reads a specific environment variable.",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "var_name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "var_name"
+          ]
+        },
+        "outputs": {
+          "type": "string"
+        },
+        "tags": [
+          "cli",
+          "env"
+        ],
+        "tool_call_template": {
+          "name": "mock_cli_manual",
+          "call_template_type": "cli",
+          "command_name": "<`node \"${path.resolve(__dirname, 'mock_cli_script.ts')}\"`>"
+        }
+      },
+      {
+        "name": "write_file_cli",
+        "description": "Writes content to a file in the CWD.",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "filename": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filename",
+            "content"
+          ]
+        },
+        "outputs": {
+          "type": "string"
+        },
+        "tags": [
+          "cli",
+          "file"
+        ],
+        "tool_call_template": {
+          "name": "mock_cli_manual",
+          "call_template_type": "cli",
+          "command_name": "<`node \"${path.resolve(__dirname, 'mock_cli_script.ts')}\"`>"
+        }
+      }
+    ]
+  }
+}

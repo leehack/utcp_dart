@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 386
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "create_resource",
+    "call_template_type": "http",
+    "http_method": "POST",
+    "url": "https://api.example.com/resources",
+    "body_field": "data",
+    "content_type": "application/json",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

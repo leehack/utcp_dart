@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/http.md",
+    "line": 54
+  },
+  "kind": "auth",
+  "expect": "reject",
+  "reason": "Schematic field reference: `location` lists the alternatives (`header|query|cookie`).",
+  "document": {
+    "auth_type": "api_key",
+    "api_key": "${API_KEY}",
+    "var_name": "X-API-Key",
+    "location": "header|query|cookie"
+  }
+}

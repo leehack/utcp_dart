@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/file/tests/test_file_communication_protocol.py",
+    "line": 266
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "name": "test-template",
+    "call_template_type": "file",
+    "file_path": "test.json",
+    "auth_tools": {
+      "auth_type": "api_key",
+      "api_key": "test-key",
+      "var_name": "Authorization",
+      "location": "header"
+    }
+  }
+}

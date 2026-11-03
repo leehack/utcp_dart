@@ -14,9 +14,13 @@ it, and encode any behavior the spec leaves open in a test.
 - `packages/utcp_<name>`: one package per transport that needs `dart:io` or a
   heavy dependency (`mcp`, `cli`, `file`, `socket`, `websocket`). A transport
   package depends on `utcp` and never the reverse.
+- `packages/utcp_conformance`: the unpublished (`publish_to: none`)
+  conformance corpus harvested from the spec and the reference SDKs. See
+  its README.
 - The root `pubspec.yaml` is a pub workspace. Add a new package to its
-  `workspace:` list, to the CI matrix, and to the tags in
-  `.github/workflows/publish_pubdev.yml`.
+  `workspace:` list, to the CI matrix, and, if it is published, to the tags
+  in `.github/workflows/publish_pubdev.yml`. The release tooling skips
+  packages with `publish_to: none`.
 - `tool/` holds the release scripts; their tests are in the root `test/`.
 
 ## Build and test
@@ -37,6 +41,10 @@ dart test   # release tooling
     sockets, child processes and files.
   - `test/e2e/` is tagged `e2e`: a real provider and a `UtcpClient` talking
     through the public API, or an example run as a process.
+- A behavior change that alters how a UTCP document parses or serializes
+  shows up in the conformance corpus: update the fixture's `expect`,
+  `may_drop` or `known_failure` with the change. Never edit a fixture's
+  `document`; it comes from upstream.
 - Every behavior change gets a test that fails without it. Cover malformed
   input and the security rules with negative tests.
 - Tests close every server, process, socket, stream and client they open.

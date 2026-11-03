@@ -1,0 +1,27 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/migration-v0.1-to-v1.0.md",
+    "line": 232
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "cd /app",
+        "append_to_final_output": false
+      },
+      {
+        "command": "python script.py UTCP_ARG_input_UTCP_END",
+        "append_to_final_output": true
+      }
+    ],
+    "working_dir": "/app",
+    "env_vars": {
+      "PYTHONPATH": "/app/lib"
+    }
+  }
+}

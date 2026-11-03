@@ -1,0 +1,28 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/README.md",
+    "line": 119
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "chained_commands",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "git rev-parse --short HEAD",
+        "append_to_final_output": false
+      },
+      {
+        "command": "echo \"Building version: $CMD_0_OUTPUT\"",
+        "append_to_final_output": false
+      },
+      {
+        "command": "docker build -t myapp:$CMD_0_OUTPUT .",
+        "append_to_final_output": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/for-tool-providers.md",
+    "line": 302
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "Field no SDK has: manual-level `info`.",
+  "may_drop": [
+    "info"
+  ],
+  "document": {
+    "manual_version": "1.0.0",
+    "utcp_version": "1.0.1",
+    "info": {
+      "title": "User Management API",
+      "version": "1.0.0",
+      "description": "API for managing user accounts"
+    },
+    "tools": [
+      {
+        "name": "get_user",
+        "description": "Retrieve user information by ID",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "user_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "user_id"
+          ]
+        },
+        "outputs": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          }
+        },
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.example.com/users/{user_id}",
+          "http_method": "GET",
+          "auth": {
+            "auth_type": "api_key",
+            "api_key": "Bearer ${API_TOKEN}",
+            "var_name": "Authorization",
+            "location": "header"
+          }
+        }
+      },
+      {
+        "name": "create_user",
+        "description": "Create a new user account",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "email"
+          ]
+        },
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.example.com/users",
+          "http_method": "POST",
+          "auth": {
+            "auth_type": "api_key",
+            "api_key": "Bearer ${API_TOKEN}",
+            "var_name": "Authorization",
+            "location": "header"
+          },
+          "body_field": "user_data"
+        }
+      }
+    ]
+  }
+}

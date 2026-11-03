@@ -1,0 +1,32 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/README.md",
+    "line": 457
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "build_and_test",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "npm run lint",
+        "append_to_final_output": false
+      },
+      {
+        "command": "npm test",
+        "append_to_final_output": true
+      },
+      {
+        "command": "npm run build",
+        "append_to_final_output": true
+      }
+    ],
+    "env_vars": {
+      "NODE_ENV": "production",
+      "CI": "true"
+    }
+  }
+}

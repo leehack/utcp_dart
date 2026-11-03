@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 168
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "weather_api",
+    "call_template_type": "http",
+    "http_method": "GET",
+    "url": "https://api.weatherapi.com/v1/current.json",
+    "headers": {
+      "X-API-Key": "${API_KEY}"
+    }
+  }
+}

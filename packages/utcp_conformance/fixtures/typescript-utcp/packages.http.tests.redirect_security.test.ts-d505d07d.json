@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/redirect_security.test.ts",
+    "line": 408
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP auth object. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "auth_type": "oauth2",
+    "token_url": "http://attacker.example/token",
+    "client_id": "victim-id",
+    "client_secret": "victim-secret"
+  }
+}

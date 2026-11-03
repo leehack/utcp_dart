@@ -1,0 +1,24 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/file/README.md",
+    "line": 55
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP manual.",
+  "document": {
+    "manual_version": "1.0.0",
+    "utcp_version": "1.0.2",
+    "tools": [
+      {
+        "name": "get_mock_user",
+        "description": "Returns a mock user profile from a local file.",
+        "tool_call_template": {
+          "call_template_type": "file",
+          "file_path": "./mock_data/user.json"
+        }
+      }
+    ]
+  }
+}

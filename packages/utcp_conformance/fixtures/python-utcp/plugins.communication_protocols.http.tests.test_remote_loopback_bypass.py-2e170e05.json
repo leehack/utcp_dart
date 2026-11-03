@@ -1,0 +1,38 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/http/tests/test_remote_loopback_bypass.py",
+    "line": 308
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "python-utcp test input: a valid UTCP manual. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "utcp_version": "1.0.0",
+    "manual_version": "1.0.0",
+    "tools": [
+      {
+        "name": "getdata",
+        "description": "x",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "enum": [
+                "127.0.0.1"
+              ]
+            }
+          }
+        },
+        "outputs": {},
+        "tool_call_template": {
+          "call_template_type": "http",
+          "name": "m",
+          "url": "http://{host}:7777/manual-admin",
+          "http_method": "GET"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/websocket/README.md",
+    "line": 323
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP auth object.",
+  "document": {
+    "auth_type": "api_key",
+    "api_key": "${API_KEY}",
+    "var_name": "Authorization",
+    "location": "header"
+  }
+}

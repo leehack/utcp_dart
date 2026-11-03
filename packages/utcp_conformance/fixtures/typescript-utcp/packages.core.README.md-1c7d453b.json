@@ -1,0 +1,24 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/core/README.md",
+    "line": 211
+  },
+  "kind": "client_config",
+  "expect": "reject",
+  "reason": "Schematic example: the call template is elided (`// ...`), so it has no `call_template_type`.",
+  "document": {
+    "variables": {
+      "github__api_TOKEN": "github-secret",
+      "slack__api_TOKEN": "slack-secret"
+    },
+    "manual_call_templates": [
+      {
+        "name": "github_api",
+        "headers": {
+          "Authorization": "Bearer ${TOKEN}"
+        }
+      }
+    ]
+  }
+}

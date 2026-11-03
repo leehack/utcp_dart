@@ -1,0 +1,35 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "tests/utcp_client.test.ts",
+    "line": 686
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP manual. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "utcp_version": "1.0",
+    "manual_version": "1.0",
+    "tools": [
+      {
+        "name": "ping",
+        "description": "A tool",
+        "inputs": {
+          "type": "object",
+          "properties": {}
+        },
+        "outputs": {
+          "type": "object",
+          "properties": {}
+        },
+        "tags": [],
+        "tool_call_template": {
+          "name": "svc",
+          "call_template_type": "http",
+          "url": "https://api.example.com/ping",
+          "http_method": "GET"
+        }
+      }
+    ]
+  }
+}

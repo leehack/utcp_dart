@@ -1,0 +1,31 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/sse.md",
+    "line": 26
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "call_template_type": "sse",
+    "url": "https://api.example.com/events/{stream_id}",
+    "event_type": "data_update",
+    "reconnect": true,
+    "retry_timeout": 30000,
+    "headers": {
+      "X-Custom-Header": "static_value"
+    },
+    "body_field": "payload",
+    "header_fields": [
+      "user_id",
+      "session_token"
+    ],
+    "auth": {
+      "auth_type": "api_key",
+      "api_key": "Bearer ${API_TOKEN}",
+      "var_name": "Authorization",
+      "location": "header"
+    }
+  }
+}

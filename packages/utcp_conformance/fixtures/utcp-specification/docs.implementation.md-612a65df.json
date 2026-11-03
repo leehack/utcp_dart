@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/implementation.md",
+    "line": 303
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "Illustrates a custom plugin type (`custom`). An unregistered call_template_type must be rejected.",
+  "document": {
+    "call_template_type": "custom",
+    "custom_field": "value",
+    "timeout": 30
+  }
+}

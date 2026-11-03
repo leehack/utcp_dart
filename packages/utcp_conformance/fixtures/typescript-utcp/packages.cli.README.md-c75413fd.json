@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/cli/README.md",
+    "line": 44
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "git_status_tool",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "git status --porcelain",
+        "append_to_final_output": true
+      }
+    ],
+    "working_dir": "/path/to/your/repo"
+  }
+}

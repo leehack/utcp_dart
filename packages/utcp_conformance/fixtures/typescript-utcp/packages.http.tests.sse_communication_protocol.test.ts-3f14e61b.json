@@ -1,0 +1,25 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/tests/sse_communication_protocol.test.ts",
+    "line": 43
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP manual. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "utcp_version": "1.0.1",
+    "manual_version": "1.0.0",
+    "tools": [
+      {
+        "name": "sse_tool",
+        "description": "An SSE test tool",
+        "tool_call_template": {
+          "name": "sse_server",
+          "call_template_type": "sse",
+          "url": "<`http://localhost:${serverPort}/events`>"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/direct-call/tests/example.test.ts",
+    "line": 77
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "`direct-call` is a TypeScript-only in-process transport with no Dart equivalent. An unregistered call_template_type must be rejected.",
+  "document": {
+    "name": "testManual",
+    "call_template_type": "direct-call",
+    "callable_name": "testManual"
+  }
+}

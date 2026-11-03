@@ -1,0 +1,103 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/text/tests/test_text_communication_protocol.py",
+    "line": 34
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "python-utcp test input: a valid UTCP manual. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "utcp_version": "1.0.0",
+    "manual_version": "1.0.0",
+    "tools": [
+      {
+        "name": "calculator",
+        "description": "Performs basic arithmetic operations",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "string",
+              "enum": [
+                "add",
+                "subtract",
+                "multiply",
+                "divide"
+              ]
+            },
+            "a": {
+              "type": "number"
+            },
+            "b": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "operation",
+            "a",
+            "b"
+          ]
+        },
+        "outputs": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "number"
+            }
+          }
+        },
+        "tags": [
+          "math",
+          "arithmetic"
+        ],
+        "tool_call_template": {
+          "call_template_type": "text",
+          "name": "test-text-call-template",
+          "content": "dummy content"
+        }
+      },
+      {
+        "name": "string_utils",
+        "description": "String manipulation utilities",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "operation": {
+              "type": "string",
+              "enum": [
+                "uppercase",
+                "lowercase",
+                "reverse"
+              ]
+            }
+          },
+          "required": [
+            "text",
+            "operation"
+          ]
+        },
+        "outputs": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "string"
+            }
+          }
+        },
+        "tags": [
+          "text",
+          "utilities"
+        ],
+        "tool_call_template": {
+          "call_template_type": "text",
+          "name": "test-text-call-template",
+          "content": "dummy content"
+        }
+      }
+    ]
+  }
+}

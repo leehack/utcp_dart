@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/websocket/README.md",
+    "line": 96
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "text_ws",
+    "call_template_type": "websocket",
+    "url": "wss://iot.example.com/ws",
+    "message": "CMD:UTCP_ARG_command_UTCP_ARG;DEVICE:UTCP_ARG_device_id_UTCP_ARG;VALUE:UTCP_ARG_value_UTCP_ARG"
+  }
+}

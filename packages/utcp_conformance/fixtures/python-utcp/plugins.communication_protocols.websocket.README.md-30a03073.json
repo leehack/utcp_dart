@@ -1,0 +1,21 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/websocket/README.md",
+    "line": 239
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "stocks",
+    "call_template_type": "websocket",
+    "url": "wss://stream.example.com/stocks",
+    "auth": {
+      "auth_type": "api_key",
+      "api_key": "${STOCK_API_KEY}",
+      "var_name": "Authorization",
+      "location": "header"
+    }
+  }
+}

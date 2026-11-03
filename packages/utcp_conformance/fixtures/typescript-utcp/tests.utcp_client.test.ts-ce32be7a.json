@@ -1,0 +1,36 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "tests/utcp_client.test.ts",
+    "line": 421
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP tool. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "name": "http_tool",
+    "description": "HTTP test tool",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "param1": {
+          "type": "string"
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {}
+    },
+    "tags": [
+      "http"
+    ],
+    "tool_call_template": {
+      "name": "http_provider",
+      "call_template_type": "http",
+      "url": "https://api.example.com/call",
+      "http_method": "GET",
+      "content_type": "application/json"
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/for-tool-providers.md",
+    "line": 24
+  },
+  "kind": "manual",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP manual.",
+  "document": {
+    "manual_version": "1.0.0",
+    "utcp_version": "1.0.1",
+    "tools": [
+      {
+        "name": "get_user",
+        "description": "Retrieve user information by ID",
+        "inputs": {
+          "type": "object",
+          "properties": {
+            "user_id": {
+              "type": "string",
+              "description": "User identifier"
+            }
+          },
+          "required": [
+            "user_id"
+          ]
+        },
+        "outputs": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          }
+        },
+        "tool_call_template": {
+          "call_template_type": "http",
+          "url": "https://api.example.com/users/{user_id}",
+          "http_method": "GET"
+        }
+      }
+    ]
+  }
+}

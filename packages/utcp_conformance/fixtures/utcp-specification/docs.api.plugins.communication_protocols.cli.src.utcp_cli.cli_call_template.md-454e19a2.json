@@ -1,0 +1,24 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/plugins/communication_protocols/cli/src/utcp_cli/cli_call_template.md",
+    "line": 194
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "name": "cross_platform_dir_tool",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "cd UTCP_ARG_target_dir_UTCP_END",
+        "append_to_final_output": false
+      },
+      {
+        "command": "ls -la",
+        "append_to_final_output": true
+      }
+    ]
+  }
+}

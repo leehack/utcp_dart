@@ -1,0 +1,24 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/cli/README.md",
+    "line": 125
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "conditional_processor",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "git status --porcelain",
+        "append_to_final_output": false
+      },
+      {
+        "command": "echo \"Changes detected: $CMD_0_OUTPUT\"",
+        "append_to_final_output": true
+      }
+    ]
+  }
+}

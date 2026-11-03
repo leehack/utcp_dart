@@ -1,0 +1,25 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/security.md",
+    "line": 79
+  },
+  "kind": "tool",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP tool.",
+  "document": {
+    "name": "admin_tool",
+    "description": "Administrative operations",
+    "tool_call_template": {
+      "call_template_type": "http",
+      "url": "https://api.example.com/admin/action",
+      "http_method": "POST",
+      "auth": {
+        "auth_type": "api_key",
+        "api_key": "${ADMIN_TOKEN}",
+        "var_name": "Authorization",
+        "location": "header"
+      }
+    }
+  }
+}

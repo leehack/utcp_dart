@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:test/test.dart';
 
 import '../tool/src/release.dart';
@@ -301,6 +303,34 @@ void main() {
       expect(problems('0.1.1', '## 0.1.1\n', utcp: '^0.3.0'), [
         contains('admits no utcp version'),
       ]);
+    });
+  });
+
+  group('readPackages', () {
+    late Directory root;
+    setUp(() async {
+      root = await Directory.systemTemp.createTemp('release_test_');
+    });
+    tearDown(() => root.delete(recursive: true));
+
+    void writePackage(String dir, String pubspec) {
+      File('${root.path}/packages/$dir/pubspec.yaml')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(pubspec);
+    }
+
+    test('skips packages that are not published', () {
+      writePackage('utcp', pubspec('utcp', '0.2.1'));
+      writePackage(
+        'utcp_conformance',
+        'name: utcp_conformance\npublish_to: none\n',
+      );
+      expect(readPackages(root).keys, ['utcp']);
+    });
+
+    test('rejects a package not named after its directory', () {
+      writePackage('utcp_x', pubspec('utcp_y', '0.1.0'));
+      expect(() => readPackages(root), throwsA(isA<ReleaseException>()));
     });
   });
 }

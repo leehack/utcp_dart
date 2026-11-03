@@ -1,0 +1,16 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/plugins/communication_protocols/http/src/utcp_http/http_call_template.md",
+    "line": 27
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "name": "my_rest_api",
+    "call_template_type": "http",
+    "url": "https://api.example.com/users/{user_id}",
+    "http_method": "GET"
+  }
+}

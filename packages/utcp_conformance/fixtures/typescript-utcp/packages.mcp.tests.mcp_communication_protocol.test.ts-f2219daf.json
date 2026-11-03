@@ -1,0 +1,23 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/mcp/tests/mcp_communication_protocol.test.ts",
+    "line": 711
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp test input: a valid UTCP call template. Any failure the test expects comes at registration or call time, not parsing.",
+  "document": {
+    "name": "m",
+    "call_template_type": "mcp",
+    "config": {
+      "mcpServers": {
+        "s": {
+          "transport": "stdio",
+          "command": "true",
+          "timeout": 90
+        }
+      }
+    }
+  }
+}

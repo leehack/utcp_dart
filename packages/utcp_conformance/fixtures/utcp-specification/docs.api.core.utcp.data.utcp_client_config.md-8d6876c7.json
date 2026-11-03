@@ -1,0 +1,14 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/core/utcp/data/utcp_client_config.md",
+    "line": 57
+  },
+  "kind": "variable_loader",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP variable loader.",
+  "document": {
+    "variable_loader_type": "dotenv",
+    "env_file_path": ".env"
+  }
+}

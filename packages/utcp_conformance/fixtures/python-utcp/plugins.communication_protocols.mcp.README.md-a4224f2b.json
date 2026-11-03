@@ -1,0 +1,28 @@
+{
+  "source": {
+    "repo": "python-utcp",
+    "path": "plugins/communication_protocols/mcp/README.md",
+    "line": 54
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "python-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "local_mcp",
+    "call_template_type": "mcp",
+    "config": {
+      "mcpServers": {
+        "filesystem": {
+          "command": "python",
+          "args": [
+            "-m",
+            "mcp_filesystem_server"
+          ],
+          "env": {
+            "LOG_LEVEL": "INFO"
+          }
+        }
+      }
+    }
+  }
+}

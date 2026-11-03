@@ -1,0 +1,17 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/sse.md",
+    "line": 145
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "call_template_type": "sse",
+    "url": "https://api.example.com/events",
+    "event_type": "order_update",
+    "reconnect": true,
+    "retry_timeout": 15000
+  }
+}

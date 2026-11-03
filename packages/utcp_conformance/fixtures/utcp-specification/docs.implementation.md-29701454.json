@@ -1,0 +1,28 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/implementation.md",
+    "line": 244
+  },
+  "kind": "client_config",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP client config.",
+  "document": {
+    "manual_call_templates": [
+      {
+        "name": "weather_service",
+        "call_template_type": "http",
+        "url": "https://api.weather.com/utcp"
+      }
+    ],
+    "variables": {
+      "WEATHER_API_KEY": "your-api-key"
+    },
+    "load_variables_from": [
+      {
+        "variable_loader_type": "dotenv",
+        "env_file_path": ".env"
+      }
+    ]
+  }
+}

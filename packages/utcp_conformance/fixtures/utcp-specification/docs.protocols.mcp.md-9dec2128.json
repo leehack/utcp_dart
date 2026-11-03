@@ -1,0 +1,36 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/mcp.md",
+    "line": 14
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "call_template_type": "mcp",
+    "config": {
+      "mcpServers": {
+        "filesystem": {
+          "command": "node",
+          "args": [
+            "mcp-server.js"
+          ],
+          "cwd": "/app/mcp",
+          "env": {
+            "NODE_ENV": "production",
+            "LOG_LEVEL": "info"
+          }
+        }
+      }
+    },
+    "auth": {
+      "auth_type": "oauth2",
+      "client_id": "${CLIENT_ID}",
+      "client_secret": "${CLIENT_SECRET}",
+      "token_url": "https://auth.example.com/token",
+      "scope": "read:tools"
+    },
+    "register_resources_as_tools": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/protocols/sse.md",
+    "line": 101
+  },
+  "kind": "auth",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP auth object.",
+  "document": {
+    "auth_type": "oauth2",
+    "client_id": "${CLIENT_ID}",
+    "client_secret": "${CLIENT_SECRET}",
+    "token_url": "https://auth.example.com/token",
+    "scope": "read write"
+  }
+}

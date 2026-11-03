@@ -1,0 +1,17 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 458
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "typescript-utcp docs example of a valid UTCP call template.",
+  "document": {
+    "name": "stock_api",
+    "call_template_type": "sse",
+    "url": "https://api.stocks.com/stream",
+    "event_type": "price_update",
+    "reconnect": true
+  }
+}

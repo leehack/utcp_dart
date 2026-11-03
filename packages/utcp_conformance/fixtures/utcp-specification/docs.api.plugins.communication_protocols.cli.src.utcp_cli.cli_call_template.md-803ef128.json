@@ -1,0 +1,31 @@
+{
+  "source": {
+    "repo": "utcp-specification",
+    "path": "docs/api/plugins/communication_protocols/cli/src/utcp_cli/cli_call_template.md",
+    "line": 230
+  },
+  "kind": "call_template",
+  "expect": "accept",
+  "reason": "Spec example of a valid UTCP call template.",
+  "document": {
+    "name": "python_multi_step_tool",
+    "call_template_type": "cli",
+    "commands": [
+      {
+        "command": "python setup.py install",
+        "append_to_final_output": false
+      },
+      {
+        "command": "<\"python script.py --input UTCP_ARG_input_file_UTCP_END --result \"$CMD_0_OUTPUT\"\">"
+      }
+    ],
+    "env_vars": {
+      "PYTHONPATH": "/custom/path",
+      "API_KEY": "${API_KEY_VAR}"
+    },
+    "inherit_env_vars": [
+      "OPENAI_API_KEY",
+      "AWS_PROFILE"
+    ]
+  }
+}

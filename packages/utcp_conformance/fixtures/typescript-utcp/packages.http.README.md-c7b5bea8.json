@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repo": "typescript-utcp",
+    "path": "packages/http/README.md",
+    "line": 310
+  },
+  "kind": "call_template",
+  "expect": "reject",
+  "reason": "README bug: the api_key auth uses `api_key_value` and `in`, which no SDK has; every SDK requires `api_key`.",
+  "document": {
+    "name": "api_with_key",
+    "call_template_type": "http",
+    "http_method": "GET",
+    "url": "https://api.example.com/data",
+    "auth": {
+      "auth_type": "api_key",
+      "var_name": "X-API-Key",
+      "api_key_value": "${API_KEY}",
+      "in": "header"
+    }
+  }
+}
