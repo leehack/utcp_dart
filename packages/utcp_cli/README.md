@@ -80,9 +80,20 @@ only, so treat Windows support as experimental.
   `[[ "$n" -gt 3 ]]` runs `rm`. A placeholder is therefore rejected (the call fails) inside
   `$(( ))`, `(( ))` (including `for ((...))`), `$[ ]`, any `${...}`, an array subscript
   `name[...]`, a `[[ ]]` that uses `-eq`, `-ne`, `-lt`, `-le`, `-gt` or `-ge`, a `let` command,
-  and a `declare`/`typeset`/`local` with `-i`. Compare numbers with `[ ]` or `test`, which accept
+  and a `declare`/`typeset`/`local` with `-i`. The `let`/`-i` check also fires inside a `{ }`
+  group or a function body and through the wrapper words `builtin`, `command`, `time`, `exec`,
+  `nohup` and `env` and a leading `\`. Compare numbers with `[ ]` or `test`, which accept
   only integer literals, or pass the value to a program such as `expr`. The reference SDKs do not
   reject these contexts.
+- The scanner models heredocs (`<<` and `<<-`, quoted and unquoted delimiters) and `case`
+  statements, so their bodies no longer desync the quoting of later placeholders. A placeholder
+  in a quoted-delimiter heredoc body (`<<'EOF'`), where bash would not expand it, is rejected, as
+  is a placeholder in a `case` statement inside a `$(...)` or backtick command substitution, which
+  bash 3.2 cannot parse reliably.
+- As defense in depth, independent of the scanner, an argument value that contains `[` together
+  with `$(` or a backtick is rejected, naming the argument: a command substitution inside an array
+  subscript is the one shape bash runs code from when a value is evaluated as a number. JSON
+  arrays such as `[1,2]` carry no substitution and still pass.
 - These checks only see placeholders. A template must not carry a value into those contexts
   some other way: through a shell variable or command output (`n=UTCP_ARG_n_UTCP_END; (( n ))`,
   `$(( $(cat file) ))`), a variable declared integer earlier, or a builtin that takes the value as
@@ -106,7 +117,9 @@ only, so treat Windows support as experimental.
   `set -e` ends only that command and the script goes on. Here the commands share one shell (so
   `cd` and variables carry over), and a command that ends it would leave the call without output.
   Such a call fails instead, with the shell's exit code and error; a script syntax error fails the
-  same way. Return a status with `false` or `(exit 3)` rather than `exit`.
+  same way. Return a status with `false` or `(exit 3)` rather than `exit`. A command may install a
+  `trap '…' EXIT`; the call still completes, and the trap's output, printed as the shell exits
+  after the end marker, is discarded.
 - Bash placeholders in arithmetic contexts are rejected (see Security), and output is capped by
   `maxOutputBytes`.
 

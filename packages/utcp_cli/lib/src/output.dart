@@ -7,18 +7,23 @@ import 'shell_script.dart';
 /// What a finished shell process wrote and returned.
 typedef ScriptOutput = ({String stdout, String stderr, int exitCode});
 
-/// [output] with the [ShellScript.endMarker] line removed from stdout.
+/// [output] with the [ShellScript.endMarker] line and anything after it
+/// removed from stdout.
 ///
-/// Throws a [UtcpException] when the marker is missing: the script stopped
-/// before its end, so the selected outputs were never printed. The shell's
-/// own stderr (command stderr is captured separately) says why.
+/// The marker is the last line the script prints, so it is missing only when
+/// the script stopped early; anything after it is written by a user `trap
+/// '…' EXIT` that runs during shell exit and is dropped. Throws a
+/// [UtcpException] when the marker is missing: the selected outputs were
+/// never printed. The shell's own stderr (command stderr is captured
+/// separately) says why.
 ScriptOutput requireFinished(ScriptOutput output, ShellScript script) {
   final marker = script.endMarker;
   if (marker == null) return output;
   final line = '$marker\n';
-  if (output.stdout.endsWith(line)) {
+  final end = output.stdout.indexOf(line);
+  if (end >= 0) {
     return (
-      stdout: output.stdout.substring(0, output.stdout.length - line.length),
+      stdout: output.stdout.substring(0, end),
       stderr: output.stderr,
       exitCode: output.exitCode,
     );
