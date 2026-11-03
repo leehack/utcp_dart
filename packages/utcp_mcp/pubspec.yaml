@@ -1,7 +1,7 @@
 name: utcp_mcp
 description: >-
   MCP transport for the Dart UTCP client: let LLM agents discover and call Model Context Protocol server tools over stdio, streamable HTTP and legacy HTTP+SSE.
-version: 0.1.1
+version: 0.2.0
 repository: https://github.com/leehack/utcp_dart/tree/main/packages/utcp_mcp
 issue_tracker: https://github.com/leehack/utcp_dart/issues
 topics:
@@ -20,7 +20,7 @@ dependencies:
   http: ^1.5.0
   logging: ^1.2.0
   mcp_dart: ^2.4.3
-  utcp: ^0.2.0
+  utcp: ^0.3.0
 
 dev_dependencies:
   lints: ^6.0.0

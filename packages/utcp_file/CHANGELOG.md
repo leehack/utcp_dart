@@ -1,4 +1,4 @@
-## Unreleased
+## 0.2.0
 
 - Relative file paths resolve against the client's `rootDir` when `FileCommunicationProtocol` has none.
 - `FileCommunicationProtocol(allowLoopbackTools: true)` lets trusted manual files point tools at loopback addresses; off by default.

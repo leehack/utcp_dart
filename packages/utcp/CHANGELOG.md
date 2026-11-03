@@ -1,4 +1,4 @@
-## Unreleased
+## 0.3.0
 
 - `registerManual` returns an unsuccessful result instead of throwing when a substituted variable makes the manual call template invalid, such as a URL variable a transport refuses.
 - A tool's `inputs` and `outputs` schemas drop keywords whose value is null, `const` and `default` included, which the Python SDK writes for every unset keyword and the TypeScript SDK rejects. Added `JsonSchema.fromJson`.

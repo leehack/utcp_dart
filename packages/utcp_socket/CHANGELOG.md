@@ -1,4 +1,4 @@
-## Unreleased
+## 0.2.0
 
 - **Breaking:** a `text` request without a template writes non-string arguments as Python's `str()` does instead of as JSON, matching the Python SDK: `{n: 1, flag: true}` now sends `1 True` instead of `1 true`, and `null` and lists become `None` and `['a', 1]`.
 - Delimiters accept `\N{name}` escapes for the names and aliases of Basic Latin, Latin-1 Supplement, General Punctuation and U+FEFF (such as `\N{NUL}` or `\N{RECORD SEPARATOR}`); other names fail when the template is parsed.
