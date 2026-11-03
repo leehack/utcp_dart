@@ -14,10 +14,9 @@ abstract interface class ToolSearchStrategy {
 /// Ranks tools by matches against their name, tags, and description.
 ///
 /// Scoring follows the TypeScript SDK's `tag_and_description_word_match`,
-/// which also scores the tool name and partial words. The spec's search page
-/// describes the Python SDK's version, which scores only whole tag and
-/// description words, so the two SDKs can rank the same tools differently;
-/// Dart matches TypeScript.
+/// which also scores the tool name and partial words. The Python SDK, which
+/// the spec's search page describes, scores only whole tag and description
+/// words, so the SDKs can rank the same tools differently.
 class TagSearchStrategy implements ToolSearchStrategy {
   const TagSearchStrategy({this.descriptionWeight = 1, this.tagWeight = 3});
 
