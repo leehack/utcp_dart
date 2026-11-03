@@ -20,6 +20,12 @@ void main() {
     expect((template.auth! as ApiKeyAuth).varName, 'X-Api-Key');
   });
 
+  test('manuals default to the spec version the package implements', () {
+    expect(utcpProtocolVersion, '1.1.0');
+    expect(const UtcpManual(tools: []).toJson()['utcp_version'], '1.1.0');
+    expect(UtcpManual.fromJson({'tools': <Object?>[]}).utcpVersion, '1.1.0');
+  });
+
   test('a manual without tools is rejected', () {
     expect(
       () => UtcpManual.fromJson({'utcp_version': '1.0.1'}),

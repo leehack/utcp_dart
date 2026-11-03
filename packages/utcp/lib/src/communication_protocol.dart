@@ -8,7 +8,7 @@ import 'registry.dart';
 /// types in [callTemplateTypes].
 abstract class CommunicationProtocol {
   /// The call template types this protocol serves, with their parsers.
-  /// `UtcpClient.create` registers them in [CallTemplate.registry].
+  /// A `UtcpClient` created with this protocol parses those types with them.
   Map<String, JsonFactory<CallTemplate>> get callTemplateTypes;
 
   /// Fetches the manual described by [manualCallTemplate]. Discovery

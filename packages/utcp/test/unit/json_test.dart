@@ -260,5 +260,35 @@ items:
       expect(() => registry.parse({'kind': 'b'}), throwsFormatException);
       expect(() => registry.parse({}), throwsFormatException);
     });
+
+    test(
+      'a scoped registry overrides locally and falls back to its parent',
+      () {
+        final parent = TypeRegistry<String>(
+          'kind',
+          {'a': (_) => 'parent-a'},
+          {'c': 'Register c first.'},
+        );
+        final scoped = TypeRegistry<String>.scoped(parent);
+        expect(scoped.register('a', (_) => 'scoped-a'), isFalse);
+        expect(scoped.register('a', (_) => 'scoped-a', override: true), isTrue);
+        expect(scoped.parse({'kind': 'a'}), 'scoped-a');
+        expect(parent.parse({'kind': 'a'}), 'parent-a');
+
+        parent.register('b', (_) => 'parent-b');
+        expect(scoped.parse({'kind': 'b'}), 'parent-b');
+        expect(scoped.types, unorderedEquals(['a', 'b']));
+        expect(
+          () => scoped.parse({'kind': 'c'}),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains('Register c first.'),
+            ),
+          ),
+        );
+      },
+    );
   });
 }

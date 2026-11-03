@@ -16,7 +16,7 @@ Future<void> main() async {
       if (frame == '{"type": "utcp"}') {
         socket.add(
           jsonEncode({
-            'utcp_version': '1.0.1',
+            'utcp_version': utcpProtocolVersion,
             'tools': [
               {
                 'name': 'greet',
