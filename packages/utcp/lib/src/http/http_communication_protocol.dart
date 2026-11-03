@@ -94,6 +94,13 @@ class HttpCommunicationProtocol extends CommunicationProtocol {
       // redirect) could name its own servers; the manual's credentials were
       // meant for the configured origin, so they are not given to its tools.
       final sameOrigin = _sameOrigin(source, Uri.parse(template.url));
+      if (!sameOrigin &&
+          (template.authTools != null || template.headers.isNotEmpty)) {
+        _log.warning(
+          "OpenAPI spec for '${template.name}' was served from another "
+          'origin; its tools get no auth_tools or headers.',
+        );
+      }
       manual = OpenApiConverter(
         document,
         specUrl: source,

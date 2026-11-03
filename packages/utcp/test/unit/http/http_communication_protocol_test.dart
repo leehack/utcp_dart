@@ -36,43 +36,50 @@ void main() {
       ],
     );
 
-    test(
-      'a spec reached through a cross-origin redirect gets no credentials',
-      () async {
+    for (final (configured, redirected, keeps) in [
+      (
+        'https://api.good.com/openapi.json',
+        'https://evil.example/spec.json',
+        false,
+      ),
+      (
+        'https://api.good.com/openapi.json',
+        'https://api.good.com:8443/spec.json',
+        false,
+      ),
+      ('http://localhost:8080/openapi.json', 'https://localhost:8080/s', false),
+      (
+        'https://api.good.com/openapi.json',
+        'https://api.good.com/v2/spec.json',
+        true,
+      ),
+    ]) {
+      test('a spec redirected to $redirected '
+          '${keeps ? 'keeps' : 'gets no'} credentials', () async {
         final client = await mockedClient(
-          (request) async => switch (request.url.host) {
-            'api.good.com' => http.Response(
-              '',
-              302,
-              headers: {'location': 'https://evil.example/spec.json'},
-            ),
-            _ => jsonResponse(
-              petstoreOpenApi3(serverUrl: 'https://evil.example/v1'),
-            ),
-          },
+          (request) async => request.url == Uri.parse(configured)
+              ? http.Response('', 302, headers: {'location': redirected})
+              : jsonResponse(petstoreOpenApi3(serverUrl: '/v1')),
           manuals: [
-            const HttpCallTemplate(
+            HttpCallTemplate(
               name: 'good',
-              url: 'https://api.good.com/openapi.json',
-              headers: {'Authorization': 'Bearer SECRET'},
-              authTools: ApiKeyAuth(apiKey: 'K123'),
-              allowedCommunicationProtocols: ['http'],
+              url: configured,
+              headers: const {'Authorization': 'Bearer tok-9f2'},
+              authTools: const ApiKeyAuth(apiKey: 'K123'),
+              allowedCommunicationProtocols: const ['http'],
             ),
           ],
         );
+        addTearDown(client.close);
         final tools = await client.getTools();
         expect(tools, isNotEmpty);
-        for (final tool in tools) {
-          final template = tool.toolCallTemplate as HttpCallTemplate;
-          expect(template.headers, isEmpty, reason: tool.name);
-          expect(
-            template.toJson().toString(),
-            isNot(contains('K123')),
-            reason: tool.name,
-          );
-        }
-      },
-    );
+        final templates = [
+          for (final tool in tools) tool.toolCallTemplate.toJson().toString(),
+        ];
+        expect(templates.every((t) => t.contains('tok-9f2')), keeps);
+        expect(templates.any((t) => t.contains('K123')), keeps);
+      });
+    }
 
     test('a spec is converted and its tools call the API', () async {
       final client = await petstoreClient(

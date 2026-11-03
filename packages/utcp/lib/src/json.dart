@@ -19,35 +19,26 @@ JsonMap asJsonMap(Object? value, String what) {
 ///
 /// YAML aliases are expanded, so a few hundred bytes of nested aliases can
 /// describe billions of nodes. Expansion stops with a [FormatException] once
-/// it produces more than ten nodes per input character, far beyond any
-/// document written without such aliases.
+/// it produces more than ten nodes, or a hundred string characters, per
+/// input character; documents written without such aliases stay far below.
 Object? decodeYaml(String text) {
-  // package:yaml deep-hashes collection keys while parsing, which expands
-  // aliases inside them before any budget can apply. Collection keys are
-  // invalid in JSON anyway, so a document that may combine them with
-  // aliases is refused before parsing.
-  final structure = text.replaceAll(_quotedOrComment, '""');
-  if (_mayHaveAlias.hasMatch(structure) &&
-      _mayHaveCollectionKey.hasMatch(structure)) {
-    throw const FormatException(
-      'YAML documents that combine aliases with collection keys are not '
-      'supported.',
-    );
-  }
-  var budget = text.length * 10 + 10000;
-  void spend(int cost) {
-    budget -= cost;
-    if (budget < 0) {
+  _rejectNonScalarKeys(text);
+  var nodes = text.length * 10 + 10000;
+  var chars = text.length * 100 + 1000000;
+  void spend(int nodeCost, int charCost) {
+    nodes -= nodeCost;
+    chars -= charCost;
+    if (nodes < 0 || chars < 0) {
       throw const FormatException(
-        'YAML document expands to too many nodes (alias expansion).',
+        'YAML document expands too far (alias expansion).',
       );
     }
   }
 
   Object? convert(Object? node) {
-    // Strings cost their length, so one long scalar referenced by many
-    // aliases is bounded too.
-    spend(node is String ? node.length + 1 : 1);
+    // Aliased strings are shared in memory but copied by every encoder
+    // downstream, so their length is bounded too.
+    spend(1, node is String ? node.length : 0);
     return switch (node) {
       YamlMap() => <String, Object?>{
         for (final e in node.entries) _yamlKey(e.key, spend): convert(e.value),
@@ -60,16 +51,143 @@ Object? decodeYaml(String text) {
   return convert(loadYaml(text));
 }
 
-/// Quoted scalars and comments, which cannot hold aliases or keys.
+/// package:yaml deep-hashes collection keys while parsing, which expands
+/// aliases inside them before any budget can apply. JSON keys are strings,
+/// so a document that may use an alias or a collection as a key is refused
+/// before parsing.
+///
+/// The check reads the document's structure, skipping block scalars, quoted
+/// scalars and comments. When unsure it refuses: it may reject an unusual
+/// document, but never lets such a key through.
+void _rejectNonScalarKeys(String text) {
+  final structure = _yamlStructure(text);
+  if (_aliasKey.hasMatch(structure) ||
+      _hasFlowAliasKey(structure) ||
+      (_mayHaveAlias.hasMatch(structure) &&
+          _mayHaveCollectionKey.hasMatch(structure))) {
+    throw const FormatException(
+      'YAML documents that use aliases or collections as mapping keys are '
+      'not supported.',
+    );
+  }
+}
+
+/// [text] without block scalar lines, and with quoted scalars and comments
+/// blanked.
+String _yamlStructure(String text) {
+  final out = StringBuffer();
+  int? blockParent;
+  int? blockIndent;
+  var flowDepth = 0;
+  for (final raw in text.split('\n')) {
+    if (blockParent != null) {
+      if (raw.trim().isEmpty) continue;
+      final indent = _leadingSpaces.firstMatch(raw)!.end;
+      blockIndent ??= indent > blockParent ? indent : null;
+      if (blockIndent != null && indent >= blockIndent) continue;
+      blockParent = blockIndent = null;
+    }
+    final line = raw.replaceAll(_quotedOrComment, '""');
+    out.writeln(line);
+    final depthBefore = flowDepth;
+    for (final c in line.codeUnits) {
+      if (c == _openBracket || c == _openBrace) flowDepth++;
+      if ((c == _closeBracket || c == _closeBrace) && flowDepth > 0) {
+        flowDepth--;
+      }
+    }
+    // Block scalars cannot appear inside flow collections.
+    if (depthBefore != 0 || flowDepth != 0) continue;
+    final opener = _blockScalarStart.firstMatch(line);
+    if (opener == null) continue;
+    final nodeStart = _nodeStart.firstMatch(line)!.group(0)!;
+    // Content is indented past the key after `key: |`; past the last `-` or
+    // `?` marker after `- |`; and past at least the line's own indentation
+    // minus one when `|` sits alone below its key.
+    blockParent = opener.group(1) != null
+        ? nodeStart.length
+        : nodeStart.trimRight().length - 1;
+  }
+  return out.toString();
+}
+
+/// Whether an alias stands alone as an entry of a flow mapping (`{*a}`,
+/// `{x: 1, *a}`), which makes it a key.
+bool _hasFlowAliasKey(String structure) {
+  final flow = <int>[];
+  var previous = _comma;
+  for (var i = 0; i < structure.length; i++) {
+    final c = structure.codeUnitAt(i);
+    if (c == _openBracket || c == _openBrace) {
+      flow.add(c);
+    } else if ((c == _closeBracket || c == _closeBrace) && flow.isNotEmpty) {
+      flow.removeLast();
+    } else if (c == _star &&
+        flow.lastOrNull == _openBrace &&
+        (previous == _openBrace || previous == _comma)) {
+      var end = i + 1;
+      while (end < structure.length &&
+          !_aliasEnd.contains(structure.codeUnitAt(end))) {
+        end++;
+      }
+      final next = _nextNonSpace(structure, end);
+      if (next == null || next == _comma || next == _closeBrace) return true;
+    }
+    if (!_whitespace.contains(c)) previous = c;
+  }
+  return false;
+}
+
+int? _nextNonSpace(String s, int from) {
+  for (var i = from; i < s.length; i++) {
+    final c = s.codeUnitAt(i);
+    if (!_whitespace.contains(c)) return c;
+  }
+  return null;
+}
+
+const _openBracket = 0x5B, _closeBracket = 0x5D;
+const _openBrace = 0x7B, _closeBrace = 0x7D;
+const _comma = 0x2C, _star = 0x2A;
+const _whitespace = {0x20, 0x09, 0x0A, 0x0D};
+const _aliasEnd = {
+  ..._whitespace,
+  _comma,
+  _openBracket,
+  _closeBracket,
+  _openBrace,
+  _closeBrace,
+};
+
+final _leadingSpaces = RegExp('^[ \t]*');
+
+/// Indentation plus the `-` and `?` markers that start a line's node.
+final _nodeStart = RegExp('^[ \t]*(?:[-?][ \t]+)*');
+
+/// A `|` or `>` block scalar indicator ending the line, after `key:` (group
+/// 1) or at the start of a node, optionally after a tag or anchor.
+final _blockScalarStart = RegExp(
+  r'(?:(:[ \t]+)|^[ \t]*(?:[-?][ \t]+)*)(?:[!&]\S*[ \t]+)*[|>][1-9+-]{0,2}\s*$',
+);
+
+/// Quoted scalars where a scalar can start, and comments. A quote inside a
+/// plain scalar (`it's`) is text, not a quote, so it is left alone.
 final _quotedOrComment = RegExp(
-  r'"(?:[^"\\\n]|\\.)*"'
-  r"|'(?:[^'\n]|'')*'"
-  r'|(?:^|\s)#[^\n]*',
-  multiLine: true,
+  r'(?<=^[ \t]*(?:[-?][ \t]+)*|[\[{,][ \t]*|:[ \t]+)'
+  r'''(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*')'''
+  r'|(?<=^|[ \t])#.*',
 );
 
 final _mayHaveAlias = RegExp(
   r'(?:^|[\s,\[{:-])\*[^\s,\[\]{}]',
+  multiLine: true,
+);
+
+/// An alias used as an implicit key, `*a : 1`. package:yaml reads `:` as part
+/// of an alias name, so `*a: 1` is not a key and markdown such as
+/// `**Note**: text` is left alone.
+final _aliasKey = RegExp(
+  r'(?:^|[\s,\[{?-])\*[^\s,\[\]{}]+[ \t]+:(?=[\s,\[\]{}]|$)',
   multiLine: true,
 );
 
@@ -82,13 +200,13 @@ final _mayHaveCollectionKey = RegExp(
 
 /// JSON object keys are strings, so only scalar YAML keys are accepted; a
 /// collection key could also hide an alias bomb behind `toString`.
-String _yamlKey(Object? key, void Function(int) spend) {
+String _yamlKey(Object? key, void Function(int, int) spend) {
   final value = key is YamlScalar ? key.value : key;
   if (value is Map || value is List) {
     throw const FormatException('YAML mapping keys must be scalars.');
   }
   final name = '$value';
-  spend(name.length + 1);
+  spend(1, name.length);
   return name;
 }
 

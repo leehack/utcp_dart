@@ -85,6 +85,111 @@ void main() {
       expect(() => decodeYaml('$levels]\n: 1'), throwsFormatException);
     });
 
+    test('rejects aliases used as keys before parsing', () {
+      final ladder = StringBuffer('a0: &a0 [x, x, x, x, x, x, x, x, x, x]\n');
+      for (var i = 1; i < 12; i++) {
+        final refs = List.filled(10, '*a${i - 1}').join(', ');
+        ladder.writeln('a$i: &a$i [$refs]');
+      }
+      for (final key in [
+        '*a11 : 1',
+        '*a11\t: 1',
+        'z: {*a11 : 1}',
+        'z: {*a11}',
+        'z: {y: 1, *a11 }',
+        'z: [*a11 : 1]',
+        '? *a11\n: 1',
+        'z: |\n  text\n*a11 : 1',
+        'z: {k: |\n  *a11 : 1}',
+      ]) {
+        expect(
+          () => decodeYaml('$ladder$key\n'),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains('as mapping keys'),
+            ),
+          ),
+          reason: key,
+        );
+      }
+    });
+
+    test('ignores key-like text in block scalars, quotes and comments', () {
+      expect(
+        decodeYaml('''
+base: &b {x: 1}
+use: *b
+list: [*b, *b]
+map: {a: *b, c: *b}
+md: |
+  **Note:** see [docs][1].
+  *Deprecated* - why use this ?
+
+  [1]: https://example.com/docs
+items:
+  - >-
+    *a : not a key
+  - k: |
+      ? also text
+    next: "*q : quoted"  # *c : comment
+    note: '**Note**: the list
+      *is* limited.'
+'''),
+        {
+          'base': {'x': 1},
+          'use': {'x': 1},
+          'list': [
+            {'x': 1},
+            {'x': 1},
+          ],
+          'map': {
+            'a': {'x': 1},
+            'c': {'x': 1},
+          },
+          'md':
+              '**Note:** see [docs][1].\n*Deprecated* - why use this ?\n\n'
+              '[1]: https://example.com/docs\n',
+          'items': [
+            '*a : not a key',
+            {
+              'k': '? also text\n',
+              'next': '*q : quoted',
+              'note': '**Note**: the list *is* limited.',
+            },
+          ],
+        },
+      );
+    });
+
+    test('still checks lines after a block scalar ends', () {
+      for (final doc in [
+        'a: &a [1]\nl:\n- k: |\n    text\n  ? *a\n  : 1\n',
+        'a: &a [1]\nl:\n- k: |\n  ? *a\n  : 1\n',
+      ]) {
+        expect(
+          () => decodeYaml(doc),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains('as mapping keys'),
+            ),
+          ),
+          reason: doc,
+        );
+      }
+    });
+
+    test('accepts a long anchored scalar reused across a document', () {
+      final doc = StringBuffer('errors:\n  e: &e "${'x' * 500}"\npaths:\n');
+      for (var i = 0; i < 300; i++) {
+        doc.writeln('  p$i: {a: *e, b: *e, c: *e}');
+      }
+      expect(decodeYaml('$doc'), containsPair('paths', hasLength(300)));
+    });
+
     test('bounds a long scalar referenced by many aliases', () {
       final doc = StringBuffer('s: &s ${'x' * 100000}\nl:\n');
       for (var i = 0; i < 2000; i++) {
