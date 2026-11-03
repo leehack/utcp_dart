@@ -59,7 +59,35 @@ void main() {
       ['m.create_note'],
     );
     expect(await strategy.searchTools(repository, 'x', limit: 2), hasLength(2));
+  });
+
+  test('a limit of 0 or less returns every tool, as in TypeScript', () async {
+    // Python returns [] for 0 and raises for a negative limit.
+    final strategy = const TagSearchStrategy();
     expect(await strategy.searchTools(repository, 'x', limit: 0), hasLength(3));
+    expect(
+      await strategy.searchTools(repository, 'x', limit: -1),
+      hasLength(3),
+    );
+  });
+
+  test('the tool name is scored, as in TypeScript', () async {
+    // Python scores only tags and description words, so it would rank
+    // m.summarize (a description match) above m.translate.
+    await repository.saveManual(
+      const FakeCallTemplate(name: 'n'),
+      UtcpManual(
+        tools: [
+          fakeTool('n.summarize', description: 'Summarize, then translate'),
+          fakeTool('n.translate', description: 'Turns text into French'),
+        ],
+      ),
+    );
+    final results = await const TagSearchStrategy().searchTools(
+      repository,
+      'translate',
+    );
+    expect(results.take(2).map((t) => t.name), ['n.translate', 'n.summarize']);
   });
 
   test('ties keep registration order', () async {

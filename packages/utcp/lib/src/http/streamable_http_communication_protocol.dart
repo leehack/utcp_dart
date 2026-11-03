@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -25,8 +24,9 @@ final _log = Logger('utcp.streamable_http');
 /// The response Content-Type decides the chunks: `application/x-ndjson`
 /// yields one value per line (the raw line when it is not JSON),
 /// `application/json` yields the whole body as one value (the raw bytes when
-/// it is not JSON), and anything else yields [Uint8List] chunks of at most
-/// [StreamableHttpCallTemplate.chunkSize] bytes.
+/// it is not JSON), and anything else yields [Uint8List] chunks of exactly
+/// [StreamableHttpCallTemplate.chunkSize] bytes, as the spec describes, the
+/// last one possibly shorter.
 class StreamableHttpCommunicationProtocol extends CommunicationProtocol {
   /// When [transport] is given, the caller keeps ownership of it.
   StreamableHttpCommunicationProtocol({
@@ -159,17 +159,24 @@ class StreamableHttpCommunicationProtocol extends CommunicationProtocol {
     if (contentType.contains('application/json')) {
       return _json(response.body);
     }
-    return response.body.expand((chunk) {
-      final bytes = chunk is Uint8List ? chunk : Uint8List.fromList(chunk);
-      return [
-        for (var start = 0; start < bytes.length; start += chunkSize)
-          Uint8List.sublistView(
-            bytes,
-            start,
-            min(start + chunkSize, bytes.length),
-          ),
-      ];
-    });
+    return _binary(response.body, chunkSize);
+  }
+
+  /// Regroups [body] into [chunkSize]-byte chunks, whatever sizes the
+  /// network delivers; each is yielded once it is full.
+  Stream<Uint8List> _binary(Stream<List<int>> body, int chunkSize) async* {
+    final pending = BytesBuilder(copy: false);
+    await for (final chunk in body) {
+      pending.add(chunk);
+      if (pending.length < chunkSize) continue;
+      final bytes = pending.takeBytes();
+      var start = 0;
+      for (; bytes.length - start >= chunkSize; start += chunkSize) {
+        yield Uint8List.sublistView(bytes, start, start + chunkSize);
+      }
+      pending.add(Uint8List.sublistView(bytes, start));
+    }
+    if (pending.isNotEmpty) yield pending.takeBytes();
   }
 
   Stream<Object?> _ndjson(Stream<List<int>> body) async* {

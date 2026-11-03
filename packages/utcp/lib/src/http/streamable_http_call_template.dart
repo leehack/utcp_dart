@@ -4,7 +4,7 @@ import 'http_call_template.dart';
 
 /// Streams a tool's HTTP response in chunks, decoded by its Content-Type:
 /// NDJSON line by line, JSON as one value, anything else as byte chunks of
-/// at most [chunkSize].
+/// [chunkSize] (the last one possibly shorter).
 ///
 /// Tool arguments are mapped onto the request like [HttpCallTemplate].
 class StreamableHttpCallTemplate extends CallTemplate

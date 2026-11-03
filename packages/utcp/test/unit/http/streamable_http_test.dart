@@ -116,20 +116,54 @@ void main() {
   });
 
   group('binary', () {
-    test(
-      'chunks are at most chunk_size bytes and yielded as they arrive',
-      () async {
+    test('chunks are regrouped to chunk_size, the last one shorter', () async {
+      for (final (reads, sizes) in [
+        ([List.filled(10, 1), List.filled(3, 2)], [4, 4, 4, 1]),
+        (
+          [
+            for (var i = 0; i < 5; i++) [i],
+          ],
+          [4, 1],
+        ),
+        ([List.filled(8, 1)], [4, 4]),
+      ]) {
         final chunks = await stream(
-          [List.filled(10, 1), List.filled(3, 2)],
+          reads,
           'application/octet-stream',
           fields: {'chunk_size': 4},
         ).toList();
+        expect([for (final c in chunks) (c! as Uint8List).length], sizes);
         expect(
-          [for (final c in chunks) (c! as Uint8List).length],
-          [4, 4, 2, 3],
+          [for (final c in chunks) ...(c! as Uint8List)],
+          [for (final r in reads) ...r],
         );
-      },
-    );
+      }
+    });
+
+    test('a full chunk is yielded before the response ends', () async {
+      final body = ControlledBody();
+      final protocol = protocolFor(
+        (request, _) async =>
+            body.response(contentType: 'application/octet-stream'),
+      );
+      final received = Completer<Object?>();
+      final done = protocol
+          .callToolStreaming(
+            caller,
+            'm.export',
+            const {},
+            template({'chunk_size': 4}),
+          )
+          .listen((chunk) {
+            if (!received.isCompleted) received.complete(chunk);
+          })
+          .asFuture<void>();
+      body.add('ab');
+      body.add('cdef');
+      expect(utf8.decode((await received.future)! as List<int>), 'abcd');
+      await body.close();
+      await done;
+    });
 
     test('unknown content types are treated as binary', () async {
       final chunks = await stream(['plain'], 'text/plain').toList();
