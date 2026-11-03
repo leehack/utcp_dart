@@ -1,9 +1,10 @@
 name: Publish to pub.dev
 
-# pub.dev automated publishing accepts only an OIDC token from a tag push
-# matching the package's `<package>-v{{version}}` pattern, so this cannot run
-# inside release_on_prep_merge.yml, which pushes the tags.
+# pub.dev accepts an OIDC token only from a run on a tag matching the
+# package's `<package>-v{{version}}` pattern, started by a tag push or by a
+# workflow_dispatch on that tag (release_on_prep_merge.yml dispatches it).
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'utcp-v[0-9]+.[0-9]+.[0-9]+*'
@@ -32,6 +33,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "$GITHUB_REF_TYPE" != tag ]]; then
+            echo "Run this workflow on a <package>-v<version> tag, not $GITHUB_REF_TYPE $TAG_NAME." >&2
+            exit 1
+          fi
           name="${TAG_NAME%%-v*}"
           tag_version="${TAG_NAME#"$name-v"}"
           path="packages/$name"

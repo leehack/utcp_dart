@@ -108,21 +108,20 @@ not on pub.dev. Release only in an explicit release task, and never run
    (semver, the first changelog heading, the `utcp` constraint,
    `dart pub publish --dry-run`) before pushing any tag. It then pushes
    `utcp-v<version>`, waits for it on pub.dev, and pushes the other
-   `<package>-v<version>` tags. Each tag runs `publish_pubdev.yml`, which
-   publishes through pub.dev OIDC and creates a GitHub Release.
+   `<package>-v<version>` tags, dispatching `publish_pubdev.yml` on each. That
+   run publishes through pub.dev OIDC and creates a GitHub Release. Pushing a
+   tag by hand also runs it.
 
 To release what is already unpublished on `main`, run *Release on prep
 merge* from the Actions tab on `main`.
 
 One-time setup by the owner:
 
-- Repository secret `RELEASE_AUTOMATION_TOKEN`: a fine-grained PAT for
-  `leehack/utcp_dart` only, with Contents: Read and write. Tags pushed with
-  `GITHUB_TOKEN` start no workflows.
 - Repository label `release-prep`.
 - On pub.dev, for each package: Admin → Automated publishing → Enable
   publishing from GitHub Actions, repository `leehack/utcp_dart`, tag pattern
-  `<package>-v{{version}}` (for example `utcp_mcp-v{{version}}`). A new
+  `<package>-v{{version}}` (for example `utcp_mcp-v{{version}}`), with both
+  push and workflow_dispatch events enabled. No secret is needed. A new
   package's first version must be published by hand.
 
 When a run fails:

@@ -19,6 +19,13 @@ jobs:
     name: Tag unpublished package versions
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    # Tags pushed with GITHUB_TOKEN start no workflows, but a
+    # workflow_dispatch it sends does, so each publish run is dispatched on
+    # its tag and no long-lived token is needed.
+    permissions:
+      contents: write
+      actions: write
+      pull-requests: read
     timeout-minutes: 60
     env:
       PUBDEV_WAIT_ATTEMPTS: 90
@@ -68,17 +75,6 @@ jobs:
           fi
           echo "should_release=$should_release" >> "$GITHUB_OUTPUT"
 
-      - name: Check release token
-        if: steps.gate.outputs.should_release == 'true'
-        env:
-          RELEASE_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
-        shell: bash
-        run: |
-          if [[ -z "${RELEASE_TOKEN:-}" ]]; then
-            echo "Missing the RELEASE_AUTOMATION_TOKEN secret. Tags pushed with GITHUB_TOKEN do not start publish_pubdev.yml, so add a fine-grained PAT with Contents: read and write on this repository (see AGENTS.md, Releasing), then rerun this workflow." >&2
-            exit 1
-          fi
-
       # A clean checkout: `dart pub publish --dry-run` fails on a dirty tree.
       - uses: actions/checkout@v4
         if: steps.gate.outputs.should_release == 'true'
@@ -126,7 +122,7 @@ jobs:
         if: steps.plan.outputs.release_sha != ''
         env:
           RELEASE_SHA: ${{ steps.plan.outputs.release_sha }}
-          RELEASE_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -138,8 +134,9 @@ jobs:
               return 0
             fi
             echo "Creating $tag at $RELEASE_SHA."
-            GH_TOKEN="$RELEASE_TOKEN" gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
               -f "ref=refs/tags/$tag" -f "sha=$RELEASE_SHA" >/dev/null
+            gh workflow run publish_pubdev.yml --repo "$GITHUB_REPOSITORY" --ref "$tag"
           }
 
           # The package listing, not the version URL: pub resolves
