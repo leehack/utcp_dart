@@ -10,6 +10,7 @@ Future<void> main() async {
   final server = buildTestServer(
     name: Platform.environment['MCP_SERVER_NAME'] ?? 'stdio_server',
     onCrash: () => exit(3),
+    whoami: () => {'pid': pid, 'cwd': Directory.current.path},
   );
   await server.connect(StdioServerTransport());
 }

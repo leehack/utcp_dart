@@ -1,3 +1,7 @@
+## Unreleased
+
+- Runs on the web with streamable HTTP servers; there a stdio server fails discovery, and its tool calls throw a `UtcpException`, saying it needs a native platform. See the README's Platforms section for CORS and redirects in browsers.
+
 ## 0.1.0
 
 - Initial release: the `mcp` call template and communication protocol, for MCP servers over stdio and streamable HTTP.
