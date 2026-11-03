@@ -110,6 +110,7 @@ void main() {
     ('message', 42),
     ('message', ['a']),
     ('response_format', 'xml'),
+    // Python parses 0, then asyncio.timeout(0) fails every call.
     ('timeout', 0),
     ('timeout', 'soon'),
     ('keep_alive', 'yes'),

@@ -16,3 +16,9 @@ workspace:
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.26.0
+  utcp: any
+  utcp_cli: any
+  utcp_file: any
+  utcp_mcp: any
+  utcp_socket: any
+  utcp_websocket: any
