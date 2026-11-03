@@ -582,6 +582,26 @@ void main() {
   });
 
   group('discovery', () {
+    test('a manual without utcp_version is accepted', () async {
+      final protocol = protocolFor(
+        (request, _) async => streamedResponse([
+          jsonEncode({
+            'tools': [
+              toolWith('t', {
+                'call_template_type': 'sse',
+                'url': 'https://api.example.com/events',
+              }),
+            ],
+          }),
+        ], contentType: 'application/json'),
+      );
+      final result = await protocol.registerManual(
+        caller,
+        template({'name': 'm', 'url': manualUrl}),
+      );
+      expect(result.success, isTrue, reason: '${result.errors}');
+      expect(result.manual.tools.single.name, 't');
+    });
     test('fetches the manual with headers and auth', () async {
       late http.BaseRequest seen;
       final protocol = protocolFor((request, _) async {
@@ -677,6 +697,12 @@ void main() {
       expect(again, isA<SseCallTemplate>());
       expect(again.toJson(), full.toJson());
       expect((again as SseCallTemplate).retryTimeout.inMilliseconds, 1500);
+    });
+
+    test('a fractional retry_timeout is kept and round-trips', () {
+      final parsed = template({'retry_timeout': 0.5});
+      expect(parsed.retryTimeout, const Duration(microseconds: 500));
+      expect(parsed.toJson()['retry_timeout'], 0.5);
     });
 
     test('malformed fields are rejected', () {

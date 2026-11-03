@@ -1,4 +1,5 @@
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:test/test.dart';
 import 'package:utcp/utcp.dart';
 
@@ -192,6 +193,56 @@ void main() {
         const HttpCallTemplate(name: 'again', url: specUrl),
       );
       expect(result.errors.single, contains('neither a UTCP manual'));
+    });
+
+    test('a manual needs utcp_version to be told from a spec', () async {
+      final client = await petstoreClient(
+        (_) => jsonResponse({
+          'tools': [weatherTool()],
+        }),
+      );
+      addTearDown(client.close);
+      final result = await client.registerManual(
+        const HttpCallTemplate(name: 'again', url: specUrl),
+      );
+      expect(result.errors.single, contains('neither a UTCP manual'));
+    });
+  });
+
+  group('tool calls', () {
+    test('a GET supplied its body field fails before any request', () async {
+      final sent = <http.Request>[];
+      final protocol = HttpCommunicationProtocol(
+        transport: HttpTransport(
+          client: MockClient((request) async {
+            sent.add(request);
+            return jsonResponse({'ok': true});
+          }),
+        ),
+      );
+      addTearDown(protocol.close);
+      final caller = await UtcpClient.create(
+        config: UtcpClientConfig(environment: const {}),
+      );
+      addTearDown(caller.close);
+      const template = HttpCallTemplate(url: 'https://api.example.com/x');
+      await expectLater(
+        protocol.callTool(caller, 'm.x', {
+          'body': {'k': 1},
+        }, template),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains("body_field 'body' was supplied but http_method is GET"),
+          ),
+        ),
+      );
+      expect(sent, isEmpty);
+      expect(await protocol.callTool(caller, 'm.x', {'q': 1}, template), {
+        'ok': true,
+      });
+      expect(sent.single.url.query, 'q=1');
     });
   });
 }
