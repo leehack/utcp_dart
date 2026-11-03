@@ -7,6 +7,7 @@
   "kind": "call_template",
   "expect": "reject",
   "reason": "Docs bug: text call templates lost `file_path` in UTCP 1.1 (it moved to the `file` transport). The reference SDKs require `content` and reject this too.",
+  "reject_error": "no longer support 'file_path'",
   "document": {
     "call_template_type": "text",
     "file_path": "/path/to/openapi.yaml"

@@ -6,7 +6,7 @@
   },
   "kind": "tool",
   "expect": "accept",
-  "reason": "Docs bug: the tool uses MCP's `input_schema`; UTCP tools have `inputs`, so the schema is dropped.",
+  "reason": "Docs bug: the tool uses MCP's `input_schema`; UTCP tools have `inputs`. Dart and Python accept the tool and drop the schema, leaving empty `inputs`; TypeScript rejects the unrecognized key.",
   "may_drop": [
     "input_schema"
   ],
