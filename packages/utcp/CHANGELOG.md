@@ -1,4 +1,4 @@
-## Unreleased
+## 0.2.0
 
 - **Breaking:** `UtcpClient.create` takes `protocols` as a list; each protocol declares its `callTemplateTypes`.
 - **Breaking:** tool arguments are `Map<String, Object?>` and `Tool.inputs`/`outputs` are typed `JsonSchema`s.

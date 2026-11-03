@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.0
 
 - `tcp` transport with length-prefix, delimiter, fixed-length and stream framing.
 - `udp` transport with multi-datagram responses and fire-and-forget requests.

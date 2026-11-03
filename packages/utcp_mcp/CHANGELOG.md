@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.0
 
 - Initial release: the `mcp` call template and communication protocol, for MCP servers over stdio and streamable HTTP.
 - Tools are discovered from every configured server and named `manual.server.tool`; resources can be registered as tools.

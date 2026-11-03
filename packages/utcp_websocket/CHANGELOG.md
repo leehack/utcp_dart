@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.0
 
 - `websocket` transport with string and object message templates, JSON/text/binary responses, and streaming calls.
 - Pooled connections with serialized exchanges, subprotocols, keep-alive pings, handshake headers and auth.
