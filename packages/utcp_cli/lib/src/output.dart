@@ -14,10 +14,9 @@ typedef ScriptOutput = ({String stdout, String stderr, int exitCode});
 /// written by a user `trap '…' EXIT` and is dropped. It is missing when the
 /// script stopped early: a command ended it (`exit`, `exec`, `set -e`), or
 /// the shell hit a syntax error. Then the outputs printed so far are followed
-/// by [stoppedCommandOutput], the output of the command that ended it (empty
-/// when the shell stopped between commands), and by the shell's own stderr,
-/// which holds a syntax error, since the spec returns a failing script's
-/// output instead of an error.
+/// by [stoppedCommandOutput] (empty when the shell stopped between commands)
+/// and the shell's own stderr, such as a syntax error, since the spec returns
+/// a failing script's output instead of an error.
 Future<ScriptOutput> finishedOutput(
   ScriptOutput output,
   ShellScript script,

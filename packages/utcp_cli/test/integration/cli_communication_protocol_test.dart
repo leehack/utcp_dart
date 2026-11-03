@@ -180,7 +180,7 @@ void main() {
       );
     });
 
-    group('a script that stops between commands', () {
+    group('shell options and early stops', () {
       test('set -e does not end it on an exempt failure', () async {
         expect(
           await call([
@@ -237,7 +237,10 @@ void main() {
         ]);
         expect(result, startsWith('A\n'));
         expect(result, contains('syntax error'));
-        expect('A'.allMatches('$result'), hasLength(1));
+        expect(
+          RegExp(r'^A$', multiLine: true).allMatches('$result'),
+          hasLength(1),
+        );
       });
 
       test('a syntax error does not leak an unselected output', () async {
