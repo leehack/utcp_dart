@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:test/test.dart';
 import 'package:utcp_websocket/src/websocket_connection.dart';
 import 'package:web_socket/testing.dart';
@@ -45,7 +47,7 @@ void main() {
   });
 
   test('releasing the connection ends the exchange', () async {
-    final release = await connection.acquire();
+    final release = await connection.acquire(const Duration(seconds: 5));
     connection.send('q1');
     server
       ..sendText('answer-1')
@@ -57,6 +59,22 @@ void main() {
     server.sendText('late');
     await pumpEventQueue();
     expect(connection.bufferedFrames, 0);
+  });
+
+  test('a holder that keeps the connection times a waiter out', () async {
+    final release = await connection.acquire(const Duration(seconds: 5));
+    await expectLater(
+      connection.acquire(const Duration(milliseconds: 50)),
+      throwsA(isA<TimeoutException>()),
+    );
+    var acquired = false;
+    final next = connection
+        .acquire(const Duration(seconds: 5))
+        .then((r) => acquired = true);
+    await pumpEventQueue();
+    expect(acquired, isFalse, reason: 'still held');
+    release();
+    await next;
   });
 
   test('pauses reading while too many frames wait', () async {

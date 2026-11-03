@@ -83,7 +83,9 @@ With `register_resources_as_tools: true`, each MCP resource is also registered a
   never sent again, since the tool may already have run. Sessions close when the last manual using
   them is deregistered; `close` ends every session and child process.
 - Errors and logs name the server and, for stdio, its command, but never its `args`, `env`,
-  headers or token, and carry no stack traces.
+  headers or token, and carry no stack traces. An HTTP server's URL appears as scheme, host, port
+  and path; its user info and query values are masked whether quoted decoded or percent-encoded.
+  Values shorter than 4 characters are left as they are.
 - MCP has no tool-level streaming, so `callToolStreaming` yields the whole result once.
 - Child-process stderr is discarded. Set `UTCP_MCP_CHILD_STDERR=inherit` to see it.
 - `mcp_dart` writes its own debug logs to stderr, including the full command line of a stdio server

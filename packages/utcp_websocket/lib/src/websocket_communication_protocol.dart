@@ -38,13 +38,16 @@ typedef WebSocketConnector =
 /// `{"type": "tool_error", "error": ...}` fails the call, and frames tagged
 /// with a `request_id` are skipped, since this transport never sends one.
 ///
-/// Connections stay open for reuse until the manual is deregistered or the
-/// protocol is closed, except that a call sending
-/// [WebSocketCallTemplate.headerFields] gets a connection of its own, closed
-/// when the call ends. Responses carry no correlation id, so exchanges on
-/// one connection run one at a time, frames that arrive outside an exchange
-/// are dropped, and a connection whose exchange timed out or was cancelled
-/// is closed rather than reused.
+/// Connections stay open for reuse until the manual is deregistered (which
+/// also aborts a connection to it still being opened) or the protocol is
+/// closed, except that a call sending [WebSocketCallTemplate.headerFields]
+/// gets a connection of its own, closed when the call ends. Responses carry
+/// no correlation id, so exchanges on one connection run one at a time (a
+/// call waits at most [WebSocketCallTemplate.timeout] for its turn), frames
+/// that arrive outside an exchange are dropped, and a connection whose
+/// exchange timed out or was cancelled is closed rather than reused. A
+/// frame that arrives after the next call's message was sent is taken as
+/// part of that call: nothing on the wire tells the two apart.
 class WebSocketCommunicationProtocol extends CommunicationProtocol {
   /// [transport] fetches OAuth2 tokens; when given, the caller keeps
   /// ownership of it. [connector] replaces how sockets are opened, for
@@ -68,13 +71,10 @@ class WebSocketCommunicationProtocol extends CommunicationProtocol {
   /// Every open connection, pooled or not.
   final _live = <WebSocketConnection>{};
 
-  /// Connection attempts in progress, settled whatever their outcome.
-  final _pending = <Future<void>>{};
+  /// Connection attempts in progress.
+  final _attempts = <_Attempt>{};
 
   var _isClosed = false;
-
-  /// Emits once, in [close], to abort handshakes in progress.
-  final _closing = StreamController<void>.broadcast(sync: true);
 
   @override
   Map<String, JsonFactory<CallTemplate>> get callTemplateTypes => const {
@@ -156,7 +156,13 @@ class WebSocketCommunicationProtocol extends CommunicationProtocol {
     CallTemplate manualCallTemplate,
   ) async {
     if (manualCallTemplate is! WebSocketCallTemplate) return;
-    final connection = _connections[_key(manualCallTemplate)];
+    final key = _key(manualCallTemplate);
+    final connecting = [
+      for (final attempt in _attempts)
+        if (attempt.key == key) attempt..abort(),
+    ];
+    await Future.wait([for (final attempt in connecting) attempt.settled]);
+    final connection = _connections[key];
     if (connection != null) await _drop(connection);
   }
 
@@ -261,15 +267,15 @@ class WebSocketCommunicationProtocol extends CommunicationProtocol {
   @override
   Future<void> close() async {
     final first = !_isClosed;
-    if (first) {
-      _isClosed = true;
-      _closing.add(null);
-      unawaited(_closing.close());
+    _isClosed = true;
+    final connecting = [..._attempts];
+    for (final attempt in connecting) {
+      attempt.abort();
     }
     await Future.wait([
       for (final c in [..._live]) _drop(c),
     ]);
-    await Future.wait([..._pending]);
+    await Future.wait([for (final attempt in connecting) attempt.settled]);
     if (first && _ownsTransport) _transport.close();
   }
 
@@ -332,7 +338,7 @@ class WebSocketCommunicationProtocol extends CommunicationProtocol {
       // Header field values are call arguments: pooling per value would
       // keep a socket open for every distinct value ever sent.
       final connection = await _open('', template, headers);
-      final release = await connection.acquire();
+      final release = await connection.acquire(template.timeout);
       return _Lease(connection, () async {
         release();
         await _drop(connection);
@@ -350,7 +356,16 @@ class WebSocketCommunicationProtocol extends CommunicationProtocol {
         connection =
             await (pending ?? (_opening[key] = _openPooled(key, template)));
       }
-      final release = await connection.acquire();
+      final void Function() release;
+      try {
+        release = await connection.acquire(template.timeout);
+      } on TimeoutException {
+        throw UtcpException(
+          'Waiting for the WebSocket connection to '
+          '${describeUrlString(template.url)} timed out after '
+          '${template.timeout.inSeconds} s: earlier calls still hold it.',
+        );
+      }
       if (!connection.isClosed) {
         return _Lease(connection, () async => release(), opened: opened);
       }
@@ -382,15 +397,16 @@ class WebSocketCommunicationProtocol extends CommunicationProtocol {
     WebSocketCallTemplate template,
     Map<String, String> headers,
   ) {
-    final connection = _connect(key, template, headers);
-    final settled = connection.then<void>((_) {}, onError: (Object _) {});
-    _pending.add(settled);
-    unawaited(settled.whenComplete(() => _pending.remove(settled)));
+    final attempt = _Attempt(key);
+    _attempts.add(attempt);
+    final connection = _connect(attempt, template, headers);
+    attempt.settled = connection.then<void>((_) {}, onError: (Object _) {});
+    unawaited(attempt.settled.whenComplete(() => _attempts.remove(attempt)));
     return connection;
   }
 
   Future<WebSocketConnection> _connect(
-    String key,
+    _Attempt attempt,
     WebSocketCallTemplate template,
     Map<String, String> headers,
   ) async {
@@ -405,21 +421,30 @@ class WebSocketCommunicationProtocol extends CommunicationProtocol {
       template.auth,
       timeout: template.timeout,
     );
-    _ensureOpen();
+    final url = describeUrl(request.uri);
+    _ensureNotAborted(attempt, url);
     final channel = await _connector(
       request.uri,
       request.headers,
       template,
-      _closing.stream,
+      attempt.cancel.stream,
     );
-    final connection = WebSocketConnection(key, channel);
-    if (_isClosed) {
+    final connection = WebSocketConnection(attempt.key, channel);
+    if (attempt.aborted) {
+      // The connector completed a handshake it was asked to abort.
       await connection.close();
-      _ensureOpen();
+      _ensureNotAborted(attempt, url);
     }
     _live.add(connection);
-    _log.fine('Connected to ${describeUrl(request.uri)}.');
+    _log.fine('Connected to $url.');
     return connection;
+  }
+
+  void _ensureNotAborted(_Attempt attempt, String url) {
+    _ensureOpen();
+    if (attempt.aborted) {
+      throw UtcpException('Connecting to $url was cancelled.');
+    }
   }
 
   static Future<WebSocketChannel> _connectWebSocket(
@@ -442,6 +467,29 @@ class WebSocketCommunicationProtocol extends CommunicationProtocol {
     }
     _live.remove(connection);
     await connection.close();
+  }
+}
+
+/// A connection attempt, aborted by [WebSocketCommunicationProtocol.close]
+/// or by deregistering the manual it connects for.
+final class _Attempt {
+  _Attempt(this.key);
+
+  /// The pool key, or `''` for a connection of a call's own.
+  final String key;
+
+  /// Emits once, on [abort], to cancel the handshake.
+  final cancel = StreamController<void>.broadcast(sync: true);
+  bool aborted = false;
+
+  /// Completes, never with an error, once the attempt has finished.
+  late final Future<void> settled;
+
+  void abort() {
+    if (aborted) return;
+    aborted = true;
+    cancel.add(null);
+    unawaited(cancel.close());
   }
 }
 

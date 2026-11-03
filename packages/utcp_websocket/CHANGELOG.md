@@ -10,3 +10,8 @@
 - `WebSocketCallTemplate.endpoints` lets the core remote-loopback rule cover WebSocket tools in manuals discovered over any transport; `rejectRemoteLoopbackWebSocketTools` is removed in favor of the core check.
 - Errors and logs no longer include a WebSocket URL's query string or user info.
 - `WebSocketCommunicationProtocol` takes an optional `connector`, for example to use in-memory channels.
+- On the VM, paused reading stops reading the socket, so TCP flow control pushes back on the server instead of frames piling up in memory, and a message over 16 MiB fails the call.
+- A call waiting for a pooled connection that other calls hold fails after its `timeout` instead of waiting indefinitely.
+- Deregistering a manual aborts its connection still being opened instead of leaving it open in the pool.
+- Closing a connection waits for the server's close frame, so the socket and keep-alive timer no longer outlive it.
+- The README states which frames belong to which call, and what frames without a correlation id cannot guarantee.
