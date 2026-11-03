@@ -5,26 +5,40 @@ import 'dart:typed_data';
 /// not valid in the encoding.
 typedef ResponseDecoder = String Function(Uint8List bytes);
 
-/// The decoder for a `response_byte_format`, looked up the way Python's
-/// `codecs.lookup` normalizes names (case, `-`, `_` and spaces ignored), or
-/// null when the encoding is not supported.
+/// The decoder for a `response_byte_format`, or null when the encoding is
+/// not supported.
+///
+/// Case and every character other than a letter or digit are ignored, a
+/// superset of how Python's `codecs.lookup` normalizes names, so
+/// `iso_646.irv:1991` finds `iso646irv1991`.
 ///
 /// Supports the UTF-8, ASCII, Latin-1, UTF-16 and Windows-1252 families,
 /// which covers the names used with the Python SDK in practice.
 ResponseDecoder? responseDecoder(String name) =>
     _decoders[name.toLowerCase().replaceAll(_separators, '')];
 
-final _separators = RegExp('[-_ ]');
+final _separators = RegExp('[^a-z0-9]');
 
 /// The error for a `response_byte_format` [responseDecoder] does not know.
 String unsupportedResponseByteFormat(String name) =>
     "Unsupported response_byte_format '$name'. Supported: utf-8, ascii, "
     'latin-1, utf-16, utf-16-le, utf-16-be, cp1252.';
 
+// Python's aliases, which include every name `Encoding.getByName` knows.
 final Map<String, ResponseDecoder> _decoders = {
-  for (final name in ['utf8', 'u8', 'utf', 'cp65001']) name: utf8.decode,
-  for (final name in ['ascii', 'usascii', '646']) name: ascii.decode,
-  for (final name in ['latin1', 'latin', 'l1', 'iso88591', '88591', 'cp819'])
+  for (final name in [
+    'utf8', 'u8', 'utf', 'cp65001', 'csutf8', 'utf8ucs2', 'utf8ucs4', //
+  ])
+    name: utf8.decode,
+  for (final name in [
+    'ascii', 'usascii', '646', 'us', 'cp367', 'ibm367', 'csascii', //
+    'iso646us', 'isoir6', 'ansix341968', 'ansix341986', 'iso646irv1991',
+  ])
+    name: ascii.decode,
+  for (final name in [
+    'latin1', 'latin', 'l1', 'iso88591', '88591', 'cp819', 'ibm819', //
+    'csisolatin1', 'isoir100', 'iso885911987', '8859', 'iso8859',
+  ])
     name: latin1.decode,
   for (final name in ['utf16', 'u16']) name: _utf16Bom,
   for (final name in ['utf16le', 'unicodelittleunmarked'])

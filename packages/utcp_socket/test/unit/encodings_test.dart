@@ -33,6 +33,22 @@ void main() {
     }
   });
 
+  test('accepts every name Encoding.getByName knows', () {
+    for (final name in [
+      'iso_8859-1:1987', 'iso-ir-100', 'iso_8859-1', 'iso-8859-1', //
+      'latin1', 'l1', 'ibm819', 'cp819', 'csisolatin1', 'iso-ir-6',
+      'ansi_x3.4-1968', 'ansi_x3.4-1986', 'iso_646.irv:1991', 'iso646-us',
+      'us-ascii', 'us', 'ibm367', 'cp367', 'csascii', 'ascii', 'csutf8',
+      'utf-8',
+    ]) {
+      expect(
+        responseDecoder(name),
+        Encoding.getByName(name)!.decode,
+        reason: name,
+      );
+    }
+  });
+
   test('latin-1 decodes every byte', () {
     expect(decode('latin-1', [0x63, 0x61, 0x66, 0xE9]), 'café');
   });

@@ -3,4 +3,4 @@ library;
 
 export 'src/websocket_call_template.dart';
 export 'src/websocket_communication_protocol.dart';
-export 'src/websocket_security.dart';
+export 'src/websocket_security.dart' hide InsecureWebSocketUrlException;

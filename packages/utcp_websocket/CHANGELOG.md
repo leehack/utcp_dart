@@ -1,6 +1,6 @@
 ## Unreleased
 
-- `WebSocketCallTemplate.fromJson` rejects a `url` that is neither `wss://` nor `ws://` to a loopback address, as the Python reference does; the check when connecting stays.
+- **Breaking:** `WebSocketCallTemplate.fromJson` rejects a `url` that is neither `wss://` nor `ws://` to a loopback address, as the Python reference does, so a document with one fails when the client is created. A host placeholder counts as remote: `ws://${HOST}:8765/ws` fails even with `HOST=localhost`; use `wss://`, a literal loopback host, or a whole-URL variable such as `${WS_URL}`.
 
 ## 0.1.1
 

@@ -32,20 +32,38 @@ final _variablePlaceholder = RegExp(r'\$\{\w+\}|\$\w+');
 
 final _literalScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://');
 
-/// Throws a [FormatException] when [url], as written in a call template,
-/// can never pass [ensureSecureWebSocketUrl].
+/// Throws an [InsecureWebSocketUrlException] when [url], as written in a
+/// call template, can never pass [ensureSecureWebSocketUrl].
 ///
 /// Variables are substituted only when the template is used, so each
 /// `${VAR}` is checked as a value that is not loopback: `wss://${HOST}` and
 /// `ws://localhost:${PORT}` pass, `ws://${HOST}` does not. A URL without a
-/// literal scheme, such as `${WS_URL}`, cannot be judged yet and passes. The
-/// connection checks the substituted URL again.
+/// literal scheme, such as `${WS_URL}`, cannot be judged yet and passes; the
+/// client checks it when it parses the substituted template.
 void checkWebSocketUrlTemplate(String url) {
   if (!_literalScheme.hasMatch(url) && _variablePlaceholder.hasMatch(url)) {
     return;
   }
   if (isSecureWebSocketUrl(url.replaceAll(_variablePlaceholder, '1'))) return;
-  throw FormatException("Field 'url': ${_insecureUrlMessage(url)}");
+  throw InsecureWebSocketUrlException(
+    "Field 'url': ${_insecureUrlMessage(url)}",
+  );
+}
+
+/// A call template's `url` is not `wss://` or loopback `ws://`.
+///
+/// A [FormatException], so a document with such a URL fails to parse, and a
+/// [UtcpSecurityException], so a call whose substituted URL is refused fails
+/// as any other security rejection does.
+final class InsecureWebSocketUrlException extends UtcpSecurityException
+    implements FormatException {
+  const InsecureWebSocketUrlException(super.message);
+
+  @override
+  Object? get source => null;
+
+  @override
+  int? get offset => null;
 }
 
 String _insecureUrlMessage(String url) =>

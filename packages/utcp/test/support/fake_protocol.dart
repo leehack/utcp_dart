@@ -78,11 +78,20 @@ class FakeCallTemplate extends CallTemplate {
     super.allowedCommunicationProtocols,
   });
 
-  factory FakeCallTemplate.fromJson(JsonMap json) => FakeCallTemplate(
-    name: json.optString('name'),
-    token: json.optString('token'),
-    allowedCommunicationProtocols: json.allowedCommunicationProtocols,
-  );
+  /// Throws a [FormatException] for the token [malformedToken].
+  factory FakeCallTemplate.fromJson(JsonMap json) {
+    final token = json.optString('token');
+    if (token == malformedToken) {
+      throw const FormatException("Field 'token' is malformed.");
+    }
+    return FakeCallTemplate(
+      name: json.optString('name'),
+      token: token,
+      allowedCommunicationProtocols: json.allowedCommunicationProtocols,
+    );
+  }
+
+  static const malformedToken = 'malformed';
 
   static const type = 'fake';
 

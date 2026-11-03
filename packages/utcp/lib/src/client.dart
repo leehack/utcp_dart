@@ -213,10 +213,18 @@ class UtcpClient {
     CallTemplate manualCallTemplate,
     String name,
   ) async {
-    final processed = await substituteCallTemplateVariables(
-      _callTemplates.parse({...manualCallTemplate.toJson(), 'name': name}),
-      name,
-    );
+    final CallTemplate processed;
+    try {
+      processed = await substituteCallTemplateVariables(
+        _callTemplates.parse({...manualCallTemplate.toJson(), 'name': name}),
+        name,
+      );
+    } on FormatException catch (e) {
+      // A substituted value can make the template invalid, such as a
+      // `${URL}` that resolves to an address the transport refuses.
+      _log.warning("Error registering manual '$name': ${e.message}");
+      return RegisterManualResult.failure(manualCallTemplate, [e.message]);
+    }
     final protocol = _protocolFor(processed.callTemplateType);
     final result = await withCallTemplateRegistry(
       _callTemplates,
