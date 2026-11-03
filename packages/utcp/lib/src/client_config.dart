@@ -17,7 +17,9 @@ class UtcpClientConfig {
   /// Parses the JSON configuration format shared with the other UTCP SDKs.
   ///
   /// Call template types must be registered first; `UtcpClient.fromJson`
-  /// does that for the protocols it is given.
+  /// does that for the protocols it is given. Loaders from
+  /// `load_variables_from` are parsed with [VariableLoader.registry] and
+  /// consulted before [variableLoaders].
   factory UtcpClientConfig.fromJson(
     JsonMap json, {
     List<VariableLoader> variableLoaders = const [],
@@ -37,7 +39,12 @@ class UtcpClientConfig {
     final search = json.optObject('tool_search_strategy');
     return UtcpClientConfig(
       variables: json.optStringMap('variables') ?? const {},
-      variableLoaders: variableLoaders,
+      variableLoaders: [
+        for (final loader
+            in json.optObjectList('load_variables_from') ?? const <JsonMap>[])
+          VariableLoader.registry.parse(loader),
+        ...variableLoaders,
+      ],
       toolSearchStrategy: search == null
           ? const TagSearchStrategy()
           : TagSearchStrategy.fromJson(search),

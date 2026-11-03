@@ -74,6 +74,39 @@ void main() {
     );
   });
 
+  test('load_variables_from is parsed with the loader registry', () async {
+    VariableLoader.registry.register(
+      'inline',
+      (json) => _MapLoader(json.optStringMap('values') ?? const {}),
+    );
+    final config = UtcpClientConfig.fromJson(
+      {
+        'load_variables_from': [
+          {
+            'variable_loader_type': 'inline',
+            'values': {'A': 'from-json'},
+          },
+        ],
+      },
+      variableLoaders: [
+        _MapLoader(const {'A': 'passed', 'B': 'passed'}),
+      ],
+    );
+    final s = VariableSubstitutor(
+      loaders: config.variableLoaders,
+      environment: const {},
+    );
+    expect(await s.substitute([r'$A', r'$B']), ['from-json', 'passed']);
+    expect(
+      () => UtcpClientConfig.fromJson({
+        'load_variables_from': [
+          {'variable_loader_type': 'vault'},
+        ],
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('invalid namespaces are rejected', () {
     const s = VariableSubstitutor(environment: {});
     expect(
@@ -83,7 +116,7 @@ void main() {
   });
 }
 
-class _MapLoader implements VariableLoader {
+class _MapLoader extends VariableLoader {
   _MapLoader(this.values);
 
   final Map<String, String> values;

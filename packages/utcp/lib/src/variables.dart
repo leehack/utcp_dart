@@ -3,10 +3,17 @@ import 'dart:async';
 import 'env/environment.dart';
 import 'exceptions.dart';
 import 'json.dart';
+import 'registry.dart';
 
 /// A source of variable values consulted after `UtcpClientConfig.variables`
 /// and before the process environment.
-abstract interface class VariableLoader {
+///
+/// Loaders that can be configured from JSON (`load_variables_from`) register
+/// a parser for their `variable_loader_type` in [VariableLoader.registry].
+abstract class VariableLoader {
+  static final registry = TypeRegistry<VariableLoader>('variable_loader_type');
+
+  /// The value of [key], or `null` when this loader does not define it.
   FutureOr<String?> get(String key);
 }
 
