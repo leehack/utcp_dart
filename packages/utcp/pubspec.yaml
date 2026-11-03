@@ -2,7 +2,7 @@ name: utcp
 description: >-
   Universal Tool Calling Protocol (UTCP) client for Dart. Discover tools from
   UTCP manuals and call them directly over their native HTTP interfaces.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/leehack/utcp_dart/tree/main/packages/utcp
 issue_tracker: https://github.com/leehack/utcp_dart/issues
 topics:
