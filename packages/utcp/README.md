@@ -64,6 +64,30 @@ class _ToolsState extends State<Tools> {
 `utcp_websocket` also runs on the web. `utcp_mcp`, `utcp_cli`, `utcp_file` and `utcp_socket` need
 `dart:io`: use them on mobile and desktop, not in a browser.
 
+## LLM tool calling
+
+Each `Tool` carries a name, a description and a JSON Schema for its inputs, which is what LLM
+function-calling APIs take. Hand the tools to the model, then run each call it makes through
+`callTool`:
+
+```dart
+final tools = [
+  for (final tool in await client.getTools())
+    {
+      // Most LLM APIs allow only [a-zA-Z0-9_-] in tool names.
+      'name': tool.name.replaceAll('.', '__'),
+      'description': tool.description,
+      'input_schema': tool.inputs, // `parameters` for OpenAI and Gemini
+    },
+];
+// When the model asks for a tool, call it and send the result back:
+final result = await client.callTool(utcpName, toolInput);
+```
+
+[`example/claude_tool_use.dart`](example/claude_tool_use.dart) runs the full loop against the
+Claude Messages API: tool definitions, parallel tool calls, errors returned to the model, and
+the final answer.
+
 ## Variables
 
 Call templates can reference `${VAR}` or `$VAR`. Values are resolved from

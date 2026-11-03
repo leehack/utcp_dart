@@ -39,7 +39,8 @@ Future<void> main() async {
 }
 ```
 
-More in the [`utcp` README](packages/utcp/README.md), including a Flutter example.
+More in the [`utcp` README](packages/utcp/README.md), including a Flutter example and an
+LLM tool-calling loop ([`claude_tool_use.dart`](packages/utcp/example/claude_tool_use.dart)).
 
 ## Packages
 
