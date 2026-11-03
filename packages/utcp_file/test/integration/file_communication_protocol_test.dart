@@ -117,12 +117,12 @@ tools:
         "'tool_call_template'",
       ),
       (
-        'an OpenAPI document',
+        'an OpenAPI operation without responses',
         'openapi.yaml',
-        'openapi: 3.0.0\npaths: {}\n',
-        'OpenAPI files are not supported',
+        'openapi: 3.0.0\npaths:\n  /x:\n    get:\n      operationId: x\n'
+            '      parameters: 1\n',
+        'Invalid manual file',
       ),
-      ('a Swagger document', 'swagger.json', '{"swagger": "2.0"}', 'OpenAPI'),
     ]) {
       test('$what is a failure', () async {
         if (content != null) await write(name, content);
@@ -132,6 +132,56 @@ tools:
         expect(result.errors.single, contains(error));
       });
     }
+  });
+
+  group('OpenAPI documents', () {
+    test('are converted, with auth_tools applied', () async {
+      await write('openapi.yaml', '''
+openapi: 3.0.0
+info: {title: Pets}
+servers: [{url: https://pets.example.com/v1}]
+paths:
+  /pets/{id}:
+    get:
+      operationId: getPet
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+''');
+      final result = await protocol.registerManual(
+        client,
+        const FileCallTemplate(
+          name: 'pets',
+          filePath: 'openapi.yaml',
+          authTools: ApiKeyAuth(apiKey: 'k'),
+        ),
+      );
+      expect(result.errors, isEmpty);
+      final tool = result.manual.tools.single;
+      expect(tool.name, 'getPet');
+      final template = tool.toolCallTemplate as HttpCallTemplate;
+      expect(template.url, 'https://pets.example.com/v1/pets/{id}');
+      expect(tool.inputs.required, ['id']);
+    });
+
+    test('may not point tools at loopback', () async {
+      await write(
+        'local.json',
+        jsonEncode({
+          'openapi': '3.0.0',
+          'servers': [
+            {'url': 'http://localhost:8080'},
+          ],
+          'paths': {
+            '/x': {
+              'get': {'operationId': 'x'},
+            },
+          },
+        }),
+      );
+      final result = await register('local.json');
+      expect(result.success, isFalse);
+      expect(result.errors.single, contains('loopback'));
+    });
   });
 
   group('tool calls', () {

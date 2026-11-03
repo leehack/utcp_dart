@@ -45,17 +45,20 @@ class FileCommunicationProtocol extends CommunicationProtocol {
         '.yaml' || '.yml' => yamlToJson(loadYaml(content)),
         _ => jsonDecode(content),
       }, 'Manual file');
-      if (_isOpenApi(json)) {
-        return failure(
-          "'$path' is an OpenAPI document; OpenAPI files are not supported "
-          'by the file protocol yet.',
-        );
-      }
       return RegisterManualResult(
         manualCallTemplate: template,
-        manual: UtcpManual.fromJson(json),
+        manual: OpenApiConverter.isOpenApi(json)
+            ? OpenApiConverter(
+                json,
+                specUrl: Uri.file(path),
+                callTemplateName: template.name,
+                authTools: template.authTools,
+              ).convert()
+            : UtcpManual.fromJson(json),
       );
     } on FormatException catch (e) {
+      return failure("Invalid manual file '$path': ${e.message}");
+    } on UtcpException catch (e) {
       return failure("Invalid manual file '$path': ${e.message}");
     } on FileSystemException catch (e) {
       return failure("Could not read manual file '$path': ${e.message}");
@@ -81,10 +84,4 @@ class FileCommunicationProtocol extends CommunicationProtocol {
       );
     }
   }
-
-  // The reference SDKs convert these with their OpenAPI converter.
-  static bool _isOpenApi(JsonMap json) =>
-      json.containsKey('openapi') ||
-      json.containsKey('swagger') ||
-      json.containsKey('paths');
 }

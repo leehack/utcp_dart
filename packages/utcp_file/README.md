@@ -41,12 +41,12 @@ to `UtcpClientConfig` directly.
 {"call_template_type": "file", "file_path": "manuals/tools.yaml"}
 ```
 
-- Discovery reads the file as a UTCP manual: `.yaml` and `.yml` files as YAML, everything else as
-  JSON. Relative paths resolve against `FileCommunicationProtocol(rootDir: ...)`, or the current
+- Discovery reads the file as a UTCP manual or an OpenAPI 2.0/3.x document: `.yaml` and `.yml`
+  files as YAML, everything else as JSON. OpenAPI documents are converted with `utcp`'s
+  `OpenApiConverter`, applying `auth_tools`. As in the Python SDK, a file counts as a remote
+  origin, so its servers may not point at loopback addresses. Relative paths resolve against `FileCommunicationProtocol(rootDir: ...)`, or the current
   directory.
 - A tool call with a `file` template returns the text of its file.
-- `auth_tools` is kept for tools generated from an OpenAPI document. OpenAPI documents in a file
-  are not supported yet: registering one fails with an error saying so.
 
 ## `.env` variable loader
 
