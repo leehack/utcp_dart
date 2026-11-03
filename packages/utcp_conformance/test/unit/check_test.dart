@@ -6,6 +6,7 @@ Fixture fixture(
   Expectation expect, {
   JsonMap document = const {},
   List<String> mayDrop = const [],
+  String? rejectError,
 }) => Fixture(
   id: 'id',
   source: const FixtureSource('repo', 'a.md', 1),
@@ -13,6 +14,7 @@ Fixture fixture(
   expect: expect,
   reason: 'why',
   mayDrop: mayDrop,
+  rejectError: rejectError,
   document: document,
 );
 
@@ -193,6 +195,21 @@ void main() {
         ),
         [contains('expected a rejection')],
       );
+      final bad = {'call_template_type': 'nope'};
+      expect(
+        problems(
+          fixture(Expectation.reject, document: bad, rejectError: 'missing'),
+          Outcome.of(DocumentKind.callTemplate, bad),
+        ),
+        [contains('expected a rejection containing "missing"')],
+      );
+      expect(
+        problems(
+          fixture(Expectation.reject, document: bad, rejectError: 'nope'),
+          Outcome.of(DocumentKind.callTemplate, bad),
+        ),
+        isEmpty,
+      );
       expect(
         problems(
           fixture(Expectation.accept, document: extra),
@@ -246,6 +263,7 @@ void main() {
       reason: 'why',
       mayDrop: ['x'],
       knownFailure: 'bug',
+      rejectError: 'no',
       document: {'auth_type': 'basic'},
     );
     final copy = Fixture.fromJson('id', original.toJson());

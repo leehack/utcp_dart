@@ -151,7 +151,7 @@ available.
 | Package | Transports |
 | --- | --- |
 | [`utcp`](https://pub.dev/packages/utcp) | Core client, `http` (with OpenAPI conversion), `sse`, `streamable_http`, `text` |
-| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio and streamable HTTP) |
+| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio, streamable HTTP and legacy HTTP+SSE) |
 | [`utcp_cli`](https://pub.dev/packages/utcp_cli) | `cli` |
 | [`utcp_file`](https://pub.dev/packages/utcp_file) | `file`, `.env` variable loader |
 | [`utcp_socket`](https://pub.dev/packages/utcp_socket) | `tcp`, `udp` |

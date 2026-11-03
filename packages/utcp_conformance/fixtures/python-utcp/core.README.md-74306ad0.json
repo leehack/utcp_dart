@@ -6,7 +6,7 @@
   },
   "kind": "call_template",
   "expect": "accept",
-  "reason": "Docs bug: the MCP stdio `command` is an array, where the SDKs expect a string. Dart accepts it and writes it back as `command` plus `args`.",
+  "reason": "Docs bug: the MCP stdio `command` is an array, where MCP server configs use a string `command` plus `args`. Both reference SDKs parse it and keep the array; Dart accepts it and writes it back as `command` plus `args`.",
   "may_drop": [
     "config.mcpServers.server_name.command"
   ],

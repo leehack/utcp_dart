@@ -6,7 +6,7 @@
   },
   "kind": "manual",
   "expect": "accept",
-  "reason": "The migration guide's v1.0 manual (its `utcp_version` says 0.2.0). Fields no SDK has: manual-level `info` and tool-level `auth`.",
+  "reason": "The migration guide's v1.0 manual (its `utcp_version` says 0.2.0). Fields in no SDK's model: manual-level `info` and tool-level `auth`. Dart accepts the document and ignores them; both reference SDKs reject the whole document (Python: unexpected keyword argument, TypeScript: unrecognized key).",
   "may_drop": [
     "info",
     "tools.*.auth"

@@ -128,8 +128,13 @@ List<String> problems(Fixture fixture, Outcome outcome) {
     case Expectation.unreviewed:
       return ['not reviewed (Dart ${outcome.summary})'];
     case Expectation.reject:
+      final error = outcome.error;
+      final want = fixture.rejectError;
       return [
-        if (outcome.accepted) 'expected a rejection, but Dart accepts it',
+        if (error == null)
+          'expected a rejection, but Dart accepts it'
+        else if (want != null && !error.contains(want))
+          'expected a rejection containing "$want": $error',
       ];
     case Expectation.accept:
       if (!outcome.accepted) return ['expected acceptance: ${outcome.error}'];

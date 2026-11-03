@@ -6,7 +6,7 @@
   },
   "kind": "manual",
   "expect": "accept",
-  "reason": "Field no SDK has: manual-level `auth`.",
+  "reason": "Field in no SDK's model: manual-level `auth`. Dart accepts the document and ignores it; both reference SDKs reject the whole document (Python: unexpected keyword argument, TypeScript: unrecognized key).",
   "may_drop": [
     "auth"
   ],
