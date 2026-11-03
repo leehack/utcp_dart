@@ -54,25 +54,29 @@ void main() {
       );
     });
 
-    test(
-      'rejects milliseconds that overflow to infinity, naming the field',
-      () {
-        for (final value in [1e306, double.maxFinite, double.infinity, -1]) {
-          expect(
-            () =>
-                <String, Object?>{'timeout': value}.optMilliseconds('timeout'),
-            throwsA(
-              isA<FormatException>().having(
-                (e) => e.message,
-                'message',
-                contains("'timeout'"),
-              ),
+    test('rejects milliseconds too large for a Duration, naming the field', () {
+      for (final value in [
+        1e306,
+        1e300,
+        double.maxFinite,
+        double.infinity,
+        double.nan,
+        10000000000000000,
+        -1,
+      ]) {
+        expect(
+          () => <String, Object?>{'timeout': value}.optMilliseconds('timeout'),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains("'timeout'"),
             ),
-            reason: '$value',
-          );
-        }
-      },
-    );
+          ),
+          reason: '$value',
+        );
+      }
+    });
   });
 
   group('decodeYaml', () {
