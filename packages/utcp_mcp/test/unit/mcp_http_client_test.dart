@@ -94,6 +94,32 @@ void main() {
     expect(sent[1].headers['authorization'], 'Token mine');
   });
 
+  group('rejectedFirstPost', () {
+    for (final status in [404, 405]) {
+      test('is set by a $status to a POST without a session', () async {
+        respond = (_) async =>
+            http.StreamedResponse(const Stream.empty(), status);
+        final c = client();
+        expect(c.rejectedFirstPost, isFalse);
+        await post(c);
+        expect(c.rejectedFirstPost, isTrue);
+      });
+    }
+
+    test('ignores other statuses, GETs and requests in a session', () async {
+      final c = client();
+      respond = (_) async => http.StreamedResponse(const Stream.empty(), 400);
+      await post(c);
+      respond = (_) async => http.StreamedResponse(const Stream.empty(), 405);
+      await c.send(http.Request('GET', Uri.parse(c.server.url)));
+      await c.send(
+        http.Request('POST', Uri.parse(c.server.url))
+          ..headers['Mcp-Session-Id'] = 's1',
+      );
+      expect(c.rejectedFirstPost, isFalse);
+    });
+  });
+
   group('OAuth2', () {
     const oauth = OAuth2Auth(
       tokenUrl: 'https://auth.example.com/token',

@@ -48,15 +48,21 @@ example with its own MCP server is in `example/utcp_mcp_example.dart`.
 ## Call template
 
 `config.mcpServers` uses the server format of MCP host configuration files. An entry with
-`command` is a stdio server and one with `url` is an HTTP server; `transport: "stdio"` or
-`transport: "http"` makes the choice explicit.
+`command` is a stdio server and one with `url` is an HTTP server. `transport`, or `type` as MCP
+hosts spell it, makes the choice explicit: `stdio`; `http` (also `streamable-http`,
+`streamable_http` or `streamableHttp`); or `sse` for a legacy HTTP+SSE server.
+
+An `http` server is tried with streamable HTTP first. If it answers that first request with 404 or
+405, the legacy HTTP+SSE transport is used instead, as the MCP specification's backwards
+compatibility section describes. A `ws://` or `wss://` URL is rejected when the config is parsed:
+WebSocket MCP servers are not supported.
 
 | Field | Servers | Default | Meaning |
 | --- | --- | --- | --- |
 | `command`, `args` | stdio | `args: []` | Process to start. |
 | `env` | stdio | `{}` | Added to this process's environment. |
 | `cwd` | stdio | inherited | Working directory. |
-| `url` | http | | Streamable HTTP endpoint. |
+| `url` | http | | Streamable HTTP endpoint, or the event stream URL of an `sse` server. |
 | `headers` | http | `{}` | Sent with every request. |
 | `auth_token` | http | | Sent as `Authorization: Bearer <token>`. |
 | `timeout` | both | `30` | Seconds allowed to connect and for each request. |
@@ -139,7 +145,7 @@ request through `HttpTransport`. Known gaps:
   is constructed, as `mcp_dart` 2.4 does.
 - Response bodies are read by `mcp_dart` without a size limit, so an HTTP server you register can
   make this process buffer a large JSON response or event in memory.
-- WebSocket and legacy SSE MCP servers are not supported.
+- WebSocket MCP servers are not supported.
 
 A stdio server runs with the privileges of this process, so register `mcp` manuals only from
 configuration you trust. A manual fetched over HTTP cannot smuggle in `mcp` tools: the client drops

@@ -104,6 +104,58 @@ void main() {
     expect(McpServerConfig.fromJson({'command': 'x'}), isA<McpStdioServer>());
   });
 
+  group('transport', () {
+    McpServerConfig parse(JsonMap json) => McpServerConfig.fromJson(json);
+    const url = 'https://x.example/mcp';
+
+    test('accepts the names MCP hosts use, in transport or type', () {
+      for (final name in [
+        'http',
+        'streamable-http',
+        'streamable_http',
+        'streamableHttp',
+      ]) {
+        for (final key in ['transport', 'type']) {
+          final server = parse({key: name, 'url': url});
+          expect(
+            server,
+            isA<McpHttpServer>().having(
+              (s) => s.protocol,
+              'protocol',
+              McpHttpProtocol.streamableHttp,
+            ),
+            reason: '$key: $name',
+          );
+        }
+      }
+      expect(parse({'type': 'stdio', 'command': 'x'}), isA<McpStdioServer>());
+    });
+
+    test('sse selects the legacy transport and round-trips', () {
+      for (final key in ['transport', 'type']) {
+        final server = parse({key: 'sse', 'url': url});
+        expect(
+          server,
+          isA<McpHttpServer>().having(
+            (s) => s.protocol,
+            'protocol',
+            McpHttpProtocol.sse,
+          ),
+        );
+        expect(server.toJson()['transport'], 'sse');
+        expect(parse(server.toJson()).toJson(), server.toJson());
+      }
+    });
+
+    test('transport wins over type', () {
+      final server = parse({'transport': 'http', 'type': 'sse', 'url': url});
+      expect(
+        (server as McpHttpServer).protocol,
+        McpHttpProtocol.streamableHttp,
+      );
+    });
+  });
+
   test('reads auth_token and HTTP options', () {
     final server =
         McpServerConfig.fromJson({
@@ -154,6 +206,17 @@ void main() {
         },
       }, "Unsupported transport 'websocket'");
     });
+    for (final url in ['ws://127.0.0.1:1/mcp', 'wss://x.example/mcp']) {
+      test('a WebSocket URL ($url)', () {
+        for (final transport in [null, 'http', 'sse']) {
+          rejects({
+            'mcpServers': {
+              's': {'url': url, 'transport': ?transport},
+            },
+          }, "MCP server 's' has a WebSocket URL");
+        }
+      });
+    }
     test('mistyped fields', () {
       rejects({
         'mcpServers': {

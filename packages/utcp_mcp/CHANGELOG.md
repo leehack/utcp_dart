@@ -2,6 +2,9 @@
 
 - A cached OAuth2 token is dropped when the server answers 401 or 403, and a token that is not a usable bearer token is no longer cached.
 - A `text/event-stream` response is recognized whatever the case of its Content-Type.
+- Legacy HTTP+SSE MCP servers are supported: `transport` or `type` `sse` selects them, and an `http` server that answers its first request with 404 or 405 falls back to SSE.
+- A server's `type` is read as MCP host configuration files write it, and `streamable-http`, `streamable_http` and `streamableHttp` are accepted as `http`. Before, `{"type": "sse"}` was silently treated as streamable HTTP.
+- A `ws://` or `wss://` server URL is rejected when the config is parsed, with an error saying WebSocket MCP servers are not supported.
 
 ## 0.1.1
 

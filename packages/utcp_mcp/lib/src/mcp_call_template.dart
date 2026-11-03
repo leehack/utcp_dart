@@ -76,12 +76,14 @@ class McpConfig {
 sealed class McpServerConfig {
   const McpServerConfig({required this.timeout});
 
-  /// Parses a server entry. `transport` selects the type; without it, an
+  /// Parses a server entry. `transport`, or `type` as MCP host
+  /// configuration files spell it, selects the type; without either, an
   /// entry with `command` is a stdio server and one with `url` is an HTTP
-  /// server, as in MCP host configuration files.
+  /// server.
   factory McpServerConfig.fromJson(JsonMap json, [String name = 'server']) {
     final transport =
         json.optString('transport') ??
+        json.optString('type') ??
         switch (json) {
           _ when json.containsKey('command') => McpStdioServer.transport,
           _ when json.containsKey('url') => McpHttpServer.transport,
@@ -91,13 +93,24 @@ sealed class McpServerConfig {
         };
     return switch (transport) {
       McpStdioServer.transport => McpStdioServer.fromJson(json),
-      McpHttpServer.transport => McpHttpServer.fromJson(json),
+      'sse' => McpHttpServer.fromJson(json, name, McpHttpProtocol.sse),
+      _ when _streamableHttp.contains(transport) => McpHttpServer.fromJson(
+        json,
+        name,
+      ),
       _ => throw FormatException(
         "Unsupported transport '$transport' for MCP server '$name'. "
-        "Use 'stdio' or 'http'.",
+        "Use 'stdio', 'http' or 'sse'.",
       ),
     };
   }
+
+  static const _streamableHttp = {
+    McpHttpServer.transport,
+    'streamable-http',
+    'streamable_http',
+    'streamableHttp',
+  };
 
   /// Limit for connecting and for each MCP request.
   final Duration timeout;
@@ -145,10 +158,27 @@ class McpStdioServer extends McpServerConfig {
   };
 }
 
-/// An MCP server reached over the streamable HTTP transport.
+/// How an [McpHttpServer] is spoken to.
+enum McpHttpProtocol {
+  /// Streamable HTTP, falling back to [sse] when the server answers the
+  /// first request with 404 or 405, as the MCP specification's backwards
+  /// compatibility section describes.
+  streamableHttp('http'),
+
+  /// The deprecated HTTP+SSE transport (MCP 2024-11-05) only.
+  sse('sse');
+
+  const McpHttpProtocol(this.wireName);
+
+  /// The `transport` value written by `toJson`.
+  final String wireName;
+}
+
+/// An MCP server reached over HTTP: streamable HTTP, or legacy HTTP+SSE.
 class McpHttpServer extends McpServerConfig {
   const McpHttpServer({
     required this.url,
+    this.protocol = McpHttpProtocol.streamableHttp,
     this.headers = const {},
     this.authToken,
     super.timeout = const Duration(seconds: 30),
@@ -157,7 +187,18 @@ class McpHttpServer extends McpServerConfig {
     this.notificationStreamMaxRetries = 0,
   });
 
-  factory McpHttpServer.fromJson(JsonMap json) {
+  factory McpHttpServer.fromJson(
+    JsonMap json, [
+    String name = 'server',
+    McpHttpProtocol protocol = McpHttpProtocol.streamableHttp,
+  ]) {
+    final url = json.string('url');
+    if (Uri.tryParse(url)?.scheme case 'ws' || 'wss') {
+      throw FormatException(
+        "MCP server '$name' has a WebSocket URL, and WebSocket MCP servers "
+        'are not supported. Use its streamable HTTP or SSE endpoint.',
+      );
+    }
     final retries = json.optInt('notification_stream_max_retries') ?? 0;
     if (retries < 0) {
       throw const FormatException(
@@ -165,7 +206,8 @@ class McpHttpServer extends McpServerConfig {
       );
     }
     return McpHttpServer(
-      url: json.string('url'),
+      url: url,
+      protocol: protocol,
       headers: json.optStringMap('headers') ?? const {},
       authToken: json.optString('auth_token'),
       timeout: _seconds(json, 'timeout', 30),
@@ -177,8 +219,11 @@ class McpHttpServer extends McpServerConfig {
 
   static const transport = 'http';
 
-  /// The MCP endpoint. HTTPS, or plain HTTP to a loopback address.
+  /// The MCP endpoint (for [McpHttpProtocol.sse], the event stream URL).
+  /// HTTPS, or plain HTTP to a loopback address.
   final String url;
+
+  final McpHttpProtocol protocol;
 
   /// Static headers sent with every request.
   final Map<String, String> headers;
@@ -197,9 +242,21 @@ class McpHttpServer extends McpServerConfig {
   /// drops. UTCP calls are request/response, so the default is 0.
   final int notificationStreamMaxRetries;
 
+  /// The same server, spoken to with [protocol].
+  McpHttpServer withProtocol(McpHttpProtocol protocol) => McpHttpServer(
+    url: url,
+    protocol: protocol,
+    headers: headers,
+    authToken: authToken,
+    timeout: timeout,
+    sseReadTimeout: sseReadTimeout,
+    terminateOnClose: terminateOnClose,
+    notificationStreamMaxRetries: notificationStreamMaxRetries,
+  );
+
   @override
   JsonMap toJson() => {
-    'transport': transport,
+    'transport': protocol.wireName,
     'url': url,
     'headers': headers,
     'auth_token': ?authToken,
