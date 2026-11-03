@@ -53,6 +53,23 @@ void main() {
       expect(registry[TcpCallTemplate.type]!(t.toJson()).toJson(), json);
     });
 
+    test('Python encoding names parse for tcp and udp', () {
+      for (final format in ['latin-1', 'utf-16', 'cp1252', 'UTF_8']) {
+        for (final parse in [
+          TcpCallTemplate.fromJson,
+          UdpCallTemplate.fromJson,
+        ]) {
+          final t = parse({
+            'host': 'h',
+            'port': 1,
+            'response_byte_format': format,
+          });
+          expect(t.responseByteFormat, format);
+          expect(t.toJson(), containsPair('response_byte_format', format));
+        }
+      }
+    });
+
     test('an explicit null response_byte_format selects raw bytes', () {
       final t = TcpCallTemplate.fromJson({
         'call_template_type': 'tcp',
@@ -89,6 +106,7 @@ void main() {
       ('request_data_format', 'xml', 'request_data_format'),
       ('timeout', -1, 'timeout'),
       ('max_response_size', 0, 'max_response_size'),
+      ('response_byte_format', 'klingon', "response_byte_format 'klingon'"),
       ('message_delimiter', r'\x0', 'escape'),
       ('auth', {'auth_type': 'basic'}, 'auth'),
     ]) {

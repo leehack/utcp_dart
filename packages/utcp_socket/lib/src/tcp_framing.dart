@@ -48,17 +48,22 @@ Uint8List _lengthPrefix(int length, TcpCallTemplate template) {
 /// Reads one response from [input] per [template]'s framing strategy,
 /// handling messages split across reads. Bytes after the frame are ignored.
 ///
+/// [TcpCallTemplate.maxResponseSize] bounds a [TcpFramingStrategy.stream]
+/// response, which stops there, as in the Python SDK. Every other framing
+/// fails beyond [maxFrameBytes] instead.
+///
 /// [TcpCallTemplate.timeout] is an idle limit, as in the Python transport:
 /// it bounds each wait for data rather than the whole response. In stream
 /// framing, going idle ends the response; otherwise it is an error.
 Future<Uint8List> readFrame(
   Stream<List<int>> input,
-  TcpCallTemplate template,
-) async {
+  TcpCallTemplate template, {
+  required int maxFrameBytes,
+}) async {
   final stream = template.framingStrategy == TcpFramingStrategy.stream
       ? input.timeout(template.timeout, onTimeout: (sink) => sink.close())
       : input.timeout(template.timeout);
-  final reader = _FrameReader(template);
+  final reader = _FrameReader(template, maxFrameBytes);
   try {
     await for (final chunk in stream) {
       final frame = reader.add(chunk);
@@ -74,16 +79,19 @@ Future<Uint8List> readFrame(
 }
 
 final class _FrameReader {
-  _FrameReader(this.template)
+  _FrameReader(this.template, this._maxFrameBytes)
     : _delimiter = template.framingStrategy == TcpFramingStrategy.delimiter
           ? template.delimiterBytes
           : const [];
 
   final TcpCallTemplate template;
+  final int _maxFrameBytes;
   final List<int> _delimiter;
   final _data = <int>[];
 
-  int get _max => template.maxResponseSize;
+  int get _max => template.framingStrategy == TcpFramingStrategy.stream
+      ? template.maxResponseSize
+      : _maxFrameBytes;
 
   /// Returns the frame once [chunk] completes it.
   Uint8List? add(List<int> chunk) {
@@ -158,6 +166,7 @@ final class _FrameReader {
       Uint8List.fromList(_data.sublist(start, end));
 
   UtcpException _oversized(String detail) => UtcpException(
-    'TCP response $detail, more than max_response_size ($_max).',
+    'TCP response $detail, more than the $_max-byte frame limit '
+    '(TcpCommunicationProtocol.maxFrameBytes).',
   );
 }

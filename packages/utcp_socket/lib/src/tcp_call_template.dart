@@ -129,8 +129,10 @@ class TcpCallTemplate extends SocketCallTemplate {
   /// Response size in [TcpFramingStrategy.fixedLength] framing.
   final int? fixedMessageLength;
 
-  /// Most bytes read for one response. [TcpFramingStrategy.stream] framing
-  /// stops reading there; every other framing fails beyond it.
+  /// Most bytes read for a [TcpFramingStrategy.stream] response, which
+  /// stops there. Other framings are bounded by
+  /// `TcpCommunicationProtocol.maxFrameBytes`, as in the Python SDK, where
+  /// this field applies to stream framing only.
   final int maxResponseSize;
 
   @override

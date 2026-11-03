@@ -26,6 +26,12 @@ TcpCallTemplate _tcp(
   timeout: timeout,
 );
 
+Future<List<int>> _read(
+  Stream<List<int>> input,
+  TcpCallTemplate template, {
+  int maxFrameBytes = 65536,
+}) => readFrame(input, template, maxFrameBytes: maxFrameBytes);
+
 /// Feeds [chunks] one read at a time, then closes.
 Stream<List<int>> _reads(List<List<int>> chunks) => Stream.fromIterable(chunks);
 
@@ -107,11 +113,8 @@ void main() {
     test('length prefix across partial reads, ignoring what follows', () async {
       final template = _tcp(TcpFramingStrategy.lengthPrefix, prefixBytes: 2);
       final wire = [0, 5, ...utf8.encode('hello'), 0, 3, 1, 2, 3];
-      expect(
-        utf8.decode(await readFrame(_byteByByte(wire), template)),
-        'hello',
-      );
-      expect(utf8.decode(await readFrame(_reads([wire]), template)), 'hello');
+      expect(utf8.decode(await _read(_byteByByte(wire), template)), 'hello');
+      expect(utf8.decode(await _read(_reads([wire]), template)), 'hello');
     });
 
     test('little-endian and 8-byte prefixes', () async {
@@ -120,7 +123,7 @@ void main() {
         endian: LengthPrefixEndian.little,
       );
       expect(
-        await readFrame(
+        await _read(
           _reads([
             [2, 0, 0, 0, 7, 8],
           ]),
@@ -130,7 +133,7 @@ void main() {
       );
       final wide = _tcp(TcpFramingStrategy.lengthPrefix, prefixBytes: 8);
       expect(
-        await readFrame(
+        await _read(
           _reads([
             [0, 0, 0, 0, 0, 0, 0, 1, 9],
           ]),
@@ -140,29 +143,27 @@ void main() {
       );
     });
 
-    test('a declared length over max_response_size fails fast', () async {
-      final template = _tcp(
-        TcpFramingStrategy.lengthPrefix,
-        maxResponseSize: 10,
-      );
+    test('a declared length over the frame limit fails fast', () async {
+      final template = _tcp(TcpFramingStrategy.lengthPrefix);
       await expectLater(
-        readFrame(
+        _read(
           _reads([
             [0, 0, 0, 11],
           ]),
           template,
+          maxFrameBytes: 10,
         ),
         throwsA(
           isA<UtcpException>().having(
             (e) => e.message,
             'message',
-            contains('max_response_size'),
+            contains('maxFrameBytes'),
           ),
         ),
       );
       final wide = _tcp(TcpFramingStrategy.lengthPrefix, prefixBytes: 8);
       await expectLater(
-        readFrame(
+        _read(
           _reads([
             [0xff, 0, 0, 0, 0, 0, 0, 0],
           ]),
@@ -176,7 +177,7 @@ void main() {
       final template = _tcp(TcpFramingStrategy.delimiter, delimiter: r'\r\n');
       expect(
         utf8.decode(
-          await readFrame(
+          await _read(
             _reads([utf8.encode('one\r'), utf8.encode('\ntwo\r\n')]),
             template,
           ),
@@ -184,79 +185,104 @@ void main() {
         'one',
       );
       expect(
-        utf8.decode(
-          await readFrame(_reads([utf8.encode('a\r\nb\r\n')]), template),
-        ),
+        utf8.decode(await _read(_reads([utf8.encode('a\r\nb\r\n')]), template)),
         'a',
       );
       expect(
-        utf8.decode(
-          await readFrame(_byteByByte(utf8.encode('xyz\r\n')), template),
-        ),
+        utf8.decode(await _read(_byteByByte(utf8.encode('xyz\r\n')), template)),
         'xyz',
       );
     });
 
-    test('delimiter missing within max_response_size fails', () async {
-      final template = _tcp(TcpFramingStrategy.delimiter, maxResponseSize: 4);
+    test('delimiter missing within the frame limit fails', () async {
+      final template = _tcp(TcpFramingStrategy.delimiter);
       await expectLater(
-        readFrame(_reads([utf8.encode('abcdef')]), template),
+        _read(_reads([utf8.encode('abcdef')]), template, maxFrameBytes: 4),
         throwsA(isA<UtcpException>()),
       );
       // Exactly max bytes plus the delimiter still fits.
       expect(
-        utf8.decode(await readFrame(_reads([utf8.encode('abcd\n')]), template)),
+        utf8.decode(
+          await _read(
+            _reads([utf8.encode('abcd\n')]),
+            template,
+            maxFrameBytes: 4,
+          ),
+        ),
         'abcd',
       );
     });
 
-    test('a delimited frame over max_response_size fails', () async {
-      final template = _tcp(TcpFramingStrategy.delimiter, maxResponseSize: 4);
+    test('a delimited frame over the frame limit fails', () async {
+      final template = _tcp(TcpFramingStrategy.delimiter);
       for (final read in [
         _reads([utf8.encode('abcdef\n')]),
         _byteByByte(utf8.encode('abcde\n')),
       ]) {
         await expectLater(
-          readFrame(read, template),
+          _read(read, template, maxFrameBytes: 4),
           throwsA(
             isA<UtcpException>().having(
               (e) => e.message,
               'message',
-              contains('max_response_size'),
+              contains('maxFrameBytes'),
             ),
           ),
         );
       }
     });
 
-    test('a fixed length over max_response_size fails', () async {
+    test('a fixed length over the frame limit fails', () async {
       await expectLater(
-        readFrame(
+        _read(
           _reads([List.filled(8, 1)]),
-          _tcp(
-            TcpFramingStrategy.fixedLength,
-            fixedLength: 8,
-            maxResponseSize: 4,
-          ),
+          _tcp(TcpFramingStrategy.fixedLength, fixedLength: 8),
+          maxFrameBytes: 4,
         ),
         throwsA(
           isA<UtcpException>().having(
             (e) => e.message,
             'message',
-            contains('max_response_size'),
+            contains('maxFrameBytes'),
           ),
         ),
       );
     });
 
+    test('max_response_size bounds only stream framing', () async {
+      final big = List.filled(100, 7);
+      final frames = {
+        _tcp(TcpFramingStrategy.lengthPrefix, maxResponseSize: 10): [
+          ...[0, 0, 0, 100],
+          ...big,
+        ],
+        _tcp(TcpFramingStrategy.delimiter, maxResponseSize: 10): [
+          ...big,
+          ...utf8.encode('\n'),
+        ],
+        _tcp(
+          TcpFramingStrategy.fixedLength,
+          fixedLength: 100,
+          maxResponseSize: 10,
+        ): big,
+      };
+      for (final MapEntry(key: template, value: wire) in frames.entries) {
+        expect(
+          await _read(_reads([wire]), template),
+          big,
+          reason: template.framingStrategy.wireName,
+        );
+      }
+    });
+
     test('fixed length reads exactly that many bytes', () async {
       final template = _tcp(TcpFramingStrategy.fixedLength, fixedLength: 3);
-      expect(await readFrame(_byteByByte([1, 2, 3, 4]), template), [1, 2, 3]);
+      expect(await _read(_byteByByte([1, 2, 3, 4]), template), [1, 2, 3]);
     });
 
     test('stream reads to close and truncates at max_response_size', () async {
       expect(
-        await readFrame(
+        await _read(
           _reads([
             [1, 2],
             [3],
@@ -265,12 +291,9 @@ void main() {
         ),
         [1, 2, 3],
       );
+      expect(await _read(_reads([]), _tcp(TcpFramingStrategy.stream)), isEmpty);
       expect(
-        await readFrame(_reads([]), _tcp(TcpFramingStrategy.stream)),
-        isEmpty,
-      );
-      expect(
-        await readFrame(
+        await _read(
           _reads([
             [1, 2],
             [3, 4, 5],
@@ -288,7 +311,7 @@ void main() {
         _tcp(TcpFramingStrategy.fixedLength, fixedLength: 4),
       ]) {
         await expectLater(
-          readFrame(
+          _read(
             _reads([
               [0, 0, 0],
             ]),
@@ -314,7 +337,7 @@ void main() {
         addTearDown(open.close);
         open.add([1, 2]);
         expect(
-          await readFrame(
+          await _read(
             open.stream,
             _tcp(TcpFramingStrategy.stream, timeout: idle),
           ),
@@ -325,7 +348,7 @@ void main() {
         addTearDown(silent.close);
         silent.add([1]);
         await expectLater(
-          readFrame(
+          _read(
             silent.stream,
             _tcp(TcpFramingStrategy.delimiter, timeout: idle),
           ),
@@ -342,7 +365,7 @@ void main() {
 
     test('a read error propagates', () async {
       await expectLater(
-        readFrame(
+        _read(
           Stream.error(const FormatException('boom')),
           _tcp(TcpFramingStrategy.stream),
         ),

@@ -1,5 +1,7 @@
 import 'package:utcp/utcp.dart';
 
+import 'encodings.dart';
+
 /// How tool arguments are turned into the request payload.
 enum RequestDataFormat {
   /// The arguments as one JSON object.
@@ -38,9 +40,10 @@ abstract class SocketCallTemplate extends CallTemplate {
   /// `UTCP_ARG_<name>_UTCP_ARG` placeholders.
   final String? requestDataTemplate;
 
-  /// Encoding used to decode the response, such as `utf-8`, `ascii` or
-  /// `latin1`. When null, tool calls return the raw bytes. A response that
-  /// does not decode is also returned as raw bytes.
+  /// Encoding used to decode the response, such as `utf-8`, `ascii`,
+  /// `latin-1`, `utf-16` or `cp1252`, spelled as Python spells it. When
+  /// null, tool calls return the raw bytes. A response that does not decode
+  /// is also returned as raw bytes.
   final String? responseByteFormat;
 
   /// Serialized as whole milliseconds.
@@ -87,10 +90,17 @@ extension SocketCallTemplateJson on JsonMap {
   RequestDataFormat get requestDataFormat =>
       RequestDataFormat.parse(optString('request_data_format') ?? 'json');
 
-  /// `utf-8` when absent; an explicit null selects raw bytes.
-  String? get responseByteFormat => containsKey('response_byte_format')
-      ? optString('response_byte_format')
-      : 'utf-8';
+  /// `utf-8` when absent; an explicit null selects raw bytes. An encoding
+  /// that cannot be decoded is rejected here rather than after a request
+  /// was sent.
+  String? get responseByteFormat {
+    if (!containsKey('response_byte_format')) return 'utf-8';
+    final format = optString('response_byte_format');
+    if (format != null && responseDecoder(format) == null) {
+      throw FormatException(unsupportedResponseByteFormat(format));
+    }
+    return format;
+  }
 
   Duration get socketTimeout =>
       Duration(milliseconds: positiveInt('timeout') ?? 30000);
