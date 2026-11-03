@@ -1,4 +1,4 @@
-## Unreleased
+## 0.2.0
 
 - An empty `commands` list, a blank command or an empty `working_dir` parses and round-trips, as in the reference SDKs; discovery and calls with it fail with a `UtcpException`.
 - A command that ends a bash script (`exit`, `exec`, `set -e`) no longer fails the call: the outputs selected before it and its own output are returned, within `maxOutputBytes`, as the spec returns a failing script's output. A script syntax error returns the shell's error text.

@@ -1,7 +1,7 @@
 name: utcp_file
 description: >-
   File transport and dotenv loader for the Dart UTCP client: load UTCP manuals and OpenAPI documents from local JSON or YAML files.
-version: 0.1.1
+version: 0.2.0
 repository: https://github.com/leehack/utcp_dart/tree/main/packages/utcp_file
 issue_tracker: https://github.com/leehack/utcp_dart/issues
 topics:
@@ -18,7 +18,7 @@ resolution: workspace
 
 dependencies:
   path: ^1.9.0
-  utcp: ^0.2.0
+  utcp: ^0.3.0
   yaml: ^3.1.0
 
 dev_dependencies:
