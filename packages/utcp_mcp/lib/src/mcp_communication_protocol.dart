@@ -508,12 +508,13 @@ class McpCommunicationProtocol extends CommunicationProtocol {
           if (uri != null) ...[
             for (final part in uri.userInfo.split(':')) ...[
               part,
-              Uri.decodeComponent(part),
+              ?_tryDecode(Uri.decodeComponent, part),
             ],
-            ...uri.queryParametersAll.values.expand((v) => v),
             for (final pair in uri.query.split('&'))
-              if (pair.indexOf('=') case final i when i >= 0)
+              if (pair.indexOf('=') case final i when i >= 0) ...[
                 pair.substring(i + 1),
+                ?_tryDecode(Uri.decodeQueryComponent, pair.substring(i + 1)),
+              ],
           ],
         ].where((s) => s.length >= _minSecretLength).toList()..sort(
           (a, b) => b.length.compareTo(a.length),
@@ -532,6 +533,16 @@ class McpCommunicationProtocol extends CommunicationProtocol {
       text = text.replaceAll(secret, '***');
     }
     return text;
+  }
+
+  /// [decode] of [part], or null when it holds non-UTF-8 escapes. The raw
+  /// [part] is masked regardless, so nothing is leaked by skipping it.
+  static String? _tryDecode(String Function(String) decode, String part) {
+    try {
+      return decode(part);
+    } on FormatException {
+      return null;
+    }
   }
 
   /// [error] with [_redact] applied to its message, keeping its type.
@@ -651,7 +662,10 @@ final class _Session {
       } on mcp.StreamableHttpError catch (e) {
         _log.fine('Could not terminate the MCP session: ${e.message}');
       } on Exception catch (e) {
-        _log.fine('Could not terminate the MCP session: $e');
+        _log.fine(
+          'Could not terminate the MCP session: '
+          '${McpCommunicationProtocol._redact('$e', server)}',
+        );
       }
     }
     client.onclose = null;

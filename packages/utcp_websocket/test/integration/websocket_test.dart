@@ -848,6 +848,51 @@ void main() {
         ),
       );
     });
+
+    test('the cap applies per message, not per connection', () async {
+      const messageBytes = 6 * 1024 * 1024;
+      var upgrades = 0;
+      final server = await serve(
+        (_, _) {},
+        onRequest: (request) async {
+          upgrades++;
+          final socket = await upgradeByHand(request);
+          addTearDown(socket.close);
+          final fragment = List.filled(1024 * 1024, 0x78);
+          socket.listen((_) async {
+            try {
+              final fragments = messageBytes ~/ fragment.length;
+              for (var i = 0; i < fragments; i++) {
+                socket.add(
+                  serverFrame(
+                    i == 0 ? 1 : 0,
+                    fragment,
+                    fin: i == fragments - 1,
+                  ),
+                );
+                await socket.flush();
+              }
+            } on SocketException {
+              // The client closed.
+            } on StateError {
+              // The client's close frame also reaches this listener.
+            }
+          }, onError: (Object _) {});
+          return true;
+        },
+      );
+      expect(messageBytes * 3, greaterThan(maxMessageBytes));
+      for (var i = 0; i < 3; i++) {
+        final response = await protocol.callTool(
+          client,
+          't',
+          const {},
+          at(server),
+        );
+        expect(response, hasLength(messageBytes));
+      }
+      expect(upgrades, 1, reason: 'one connection carried every message');
+    });
   });
 
   test('close() closes every pooled connection', () async {

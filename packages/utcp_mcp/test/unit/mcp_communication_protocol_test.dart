@@ -354,6 +354,22 @@ void main() {
       }
     });
 
+    test('never throws on non-UTF-8 escapes in the URL', () async {
+      const url =
+          'https://us%FFer:pa%FFss@mcp.example.com/mcp?k=%FFsecret&t=SECRET-2';
+      final failing = McpCommunicationProtocol(
+        transportFactory: (name, server, auth) =>
+            _FailingTransport('refused: $url us%FFer pa%FFss %FFsecret'),
+      );
+      addTearDown(failing.close);
+      final result = await failing.registerManual(caller, httpManual(url));
+      expect(result.success, isFalse);
+      for (final text in [...result.errors, ...records]) {
+        expect(text, isNot(contains('%FF')));
+        expect(text, isNot(contains('SECRET-2')));
+      }
+    });
+
     test('a refused plain HTTP URL is reported without its query', () async {
       final insecure = McpCommunicationProtocol();
       addTearDown(insecure.close);
@@ -401,6 +417,54 @@ void main() {
             (e) => e.message,
             'message',
             allOf(contains('refused'), isNot(contains('SECRET'))),
+          ),
+        ),
+      );
+    });
+
+    test('keeps the HTTP status and body of a masked error', () async {
+      servers.failSending['tools/call'] = const UtcpHttpException(
+        'refused https://mcp.example.com/?key=SECRET-ARG',
+        statusCode: 502,
+        body: 'upstream',
+      );
+      await expectLater(
+        protocol.callTool(caller, 'manual.alpha.echo', {
+          'message': 'x',
+        }, stdioManual),
+        throwsA(
+          isA<UtcpHttpException>()
+              .having((e) => e.statusCode, 'statusCode', 502)
+              .having((e) => e.body, 'body', 'upstream')
+              .having((e) => e.message, 'message', isNot(contains('SECRET'))),
+        ),
+      );
+    });
+
+    test('masks a secret that contains another secret whole', () async {
+      servers.failSending['tools/call'] = const UtcpException(
+        'refused SECRET-ARG-TAIL',
+      );
+      const nested = McpCallTemplate(
+        name: 'manual',
+        config: McpConfig(
+          mcpServers: {
+            'alpha': McpStdioServer(
+              command: 'alpha',
+              args: ['SECRET-ARG', 'SECRET-ARG-TAIL'],
+            ),
+          },
+        ),
+      );
+      await expectLater(
+        protocol.callTool(caller, 'manual.alpha.echo', {
+          'message': 'x',
+        }, nested),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            isNot(contains('TAIL')),
           ),
         ),
       );
