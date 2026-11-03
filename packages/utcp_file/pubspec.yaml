@@ -1,0 +1,27 @@
+name: utcp_file
+description: >-
+  File transport and .env variable loader for the Universal Tool Calling
+  Protocol (UTCP) Dart client. Load UTCP manuals from local JSON or YAML files.
+version: 0.1.0
+repository: https://github.com/leehack/utcp_dart/tree/main/packages/utcp_file
+issue_tracker: https://github.com/leehack/utcp_dart/issues
+topics:
+  - utcp
+  - ai
+  - llm
+  - agents
+  - dotenv
+
+environment:
+  sdk: ^3.8.0
+
+resolution: workspace
+
+dependencies:
+  path: ^1.9.0
+  utcp: ^0.2.0
+  yaml: ^3.1.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.0
