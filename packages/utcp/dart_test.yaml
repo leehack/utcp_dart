@@ -1,0 +1,6 @@
+tags:
+  integration:
+    description: Real local servers, sockets or processes.
+  e2e:
+    description: Runs examples or a full provider and client end to end.
+    timeout: 2x

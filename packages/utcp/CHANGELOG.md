@@ -1,0 +1,17 @@
+## Unreleased
+
+- **Breaking:** `UtcpClient.create` takes `protocols` as a list; each protocol declares its `callTemplateTypes`.
+- **Breaking:** tool arguments are `Map<String, Object?>` and `Tool.inputs`/`outputs` are typed `JsonSchema`s.
+- **Breaking:** `HttpCallTemplate.httpMethod` is an `HttpMethod` enum; `Auth.register` and `CallTemplate.register` moved to `Auth.registry` and `CallTemplate.registry`.
+- Added `UtcpClient.fromJson` for the configuration format shared with the other UTCP SDKs.
+- `HttpTransport` and `buildToolRequest` are public for transports built on HTTP.
+- Fixed concurrent registrations of the same manual name both succeeding.
+- Fixed loopback detection of decimal IPv4 addresses on the web.
+
+## 0.1.0
+
+- Initial release: UTCP manual, tool, call-template, and auth models.
+- `UtcpClient` with manual registration, tool calls, streaming calls, and tag/description search.
+- Namespaced `${VAR}` substitution from config, variable loaders, and the environment.
+- HTTP transport with API key, Basic, OAuth2 client-credentials, and user OAuth2 auth.
+- HTTPS-only remote requests, redirect re-validation, and auth stripping on cross-origin redirects.
