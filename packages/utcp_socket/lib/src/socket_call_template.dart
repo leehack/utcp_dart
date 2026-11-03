@@ -97,10 +97,7 @@ extension SocketCallTemplateJson on JsonMap {
     if (!containsKey('response_byte_format')) return 'utf-8';
     final format = optString('response_byte_format');
     if (format != null && responseDecoder(format) == null) {
-      throw FormatException(
-        "Unsupported response_byte_format '$format'. Supported: "
-        '$supportedResponseByteFormats.',
-      );
+      throw FormatException(unsupportedResponseByteFormat(format));
     }
     return format;
   }

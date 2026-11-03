@@ -30,10 +30,7 @@ Object decodeResponse(Uint8List bytes, String? encoding) {
   if (encoding == null) return bytes;
   final decode =
       responseDecoder(encoding) ??
-      (throw UtcpException(
-        "Unsupported response_byte_format '$encoding'. Supported: "
-        '$supportedResponseByteFormats.',
-      ));
+      (throw UtcpException(unsupportedResponseByteFormat(encoding)));
   try {
     return decode(bytes);
   } on FormatException {

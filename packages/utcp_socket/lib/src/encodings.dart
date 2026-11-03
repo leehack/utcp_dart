@@ -12,11 +12,14 @@ typedef ResponseDecoder = String Function(Uint8List bytes);
 /// Supports the UTF-8, ASCII, Latin-1, UTF-16 and Windows-1252 families,
 /// which covers the names used with the Python SDK in practice.
 ResponseDecoder? responseDecoder(String name) =>
-    _decoders[name.toLowerCase().replaceAll(RegExp(r'[-_ ]'), '')];
+    _decoders[name.toLowerCase().replaceAll(_separators, '')];
 
-/// The names [responseDecoder] accepts, for error messages.
-const supportedResponseByteFormats =
-    'utf-8, ascii, latin-1, utf-16, utf-16-le, utf-16-be, cp1252';
+final _separators = RegExp('[-_ ]');
+
+/// The error for a `response_byte_format` [responseDecoder] does not know.
+String unsupportedResponseByteFormat(String name) =>
+    "Unsupported response_byte_format '$name'. Supported: utf-8, ascii, "
+    'latin-1, utf-16, utf-16-le, utf-16-be, cp1252.';
 
 final Map<String, ResponseDecoder> _decoders = {
   for (final name in ['utf8', 'u8', 'utf', 'cp65001']) name: utf8.decode,
