@@ -711,7 +711,7 @@ final class HttpTransport {
   static final _bearerToken = RegExp(r'^[\x21-\x7E]+$');
 
   /// Some providers send `expires_in` as a string; an unreadable value falls
-  /// back to the default lifetime, as in the Python SDK.
+  /// back to the default lifetime, as in the TypeScript SDK.
   static int? _expiresIn(JsonMap data) => switch (data['expires_in']) {
     final num value => value.toInt(),
     final String value => num.tryParse(value.trim())?.toInt(),
