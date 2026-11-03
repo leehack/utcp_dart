@@ -140,6 +140,12 @@ void main() {
       expect(await loader.get('URL'), 'https://api.example.com/v1');
     });
 
+    test('is registered by FileCommunicationProtocol', () {
+      expect(VariableLoader.registry.contains('dotenv'), isFalse);
+      FileCommunicationProtocol();
+      expect(VariableLoader.registry.contains('dotenv'), isTrue);
+    });
+
     test('parses from JSON once registered', () {
       final json = {'variable_loader_type': 'dotenv', 'env_file_path': '.env'};
       DotEnvVariableLoader.register();

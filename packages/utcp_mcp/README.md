@@ -143,8 +143,6 @@ request through `HttpTransport`. Known gaps:
 
 - The routing depends on `mcp_dart` creating its client through `http.Client()` when the transport
   is constructed, as `mcp_dart` 2.4 does.
-- A token the server revokes before its `expires_in` keeps being sent until it expires locally,
-  because the `utcp` token cache cannot be invalidated yet.
 - Response bodies are read by `mcp_dart` without a size limit, so an HTTP server you register can
   make this process buffer a large JSON response or event in memory.
 - WebSocket MCP servers are not supported.

@@ -150,6 +150,33 @@ void main() {
       expect(sent[2].headers['Authorization'], 'Bearer tok');
     });
 
+    test('fetches a new token after the server rejects one', () async {
+      var fetches = 0;
+      respond = (request) async => request.url.path == '/token'
+          ? http.StreamedResponse(
+              Stream.value(
+                utf8.encode(jsonEncode({'access_token': 'tok${++fetches}'})),
+              ),
+              200,
+              headers: {'content-type': 'application/json'},
+            )
+          : http.StreamedResponse(const Stream.empty(), 401);
+      final c = client(auth: oauth);
+      await post(c);
+      await post(c);
+      expect(sent.map((r) => r.url.path), ['/token', '/mcp', '/token', '/mcp']);
+      expect(sent[3].headers['Authorization'], 'Bearer tok2');
+    });
+
+    test('does not cache a token it rejects', () async {
+      tokenEndpoint('a b');
+      final c = client(auth: oauth);
+      await expectLater(post(c), throwsA(isA<UtcpException>()));
+      tokenEndpoint('tok');
+      await post(c);
+      expect(sent.last.headers['Authorization'], 'Bearer tok');
+    });
+
     test('refuses a redirect from the token endpoint', () async {
       tokenEndpoint(
         'tok',

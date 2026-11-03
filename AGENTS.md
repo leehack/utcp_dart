@@ -142,6 +142,11 @@ read by people. Lead with the outcome, say each thing once, and cut narration
 and boilerplate. Code comments explain why (a non-obvious constraint or
 trade-off), never what the code does.
 
+A PR that changes behavior shows it in a Mermaid diagram in its body, which
+GitHub renders: a flowchart for a decision, a sequence diagram for an
+exchange between parties. Contrast before and after when that is the point.
+Skip it when there is no behavior to show, such as a docs fix or a release.
+
 ## This file
 
 When a task reveals a durable rule that changes agent behavior and that no
