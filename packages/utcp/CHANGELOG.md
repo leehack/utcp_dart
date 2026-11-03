@@ -5,6 +5,8 @@
 - **Breaking:** `HttpCallTemplate.httpMethod` is an `HttpMethod` enum; `Auth.register` and `CallTemplate.register` moved to `Auth.registry` and `CallTemplate.registry`.
 - Added `UtcpClient.fromJson` for the configuration format shared with the other UTCP SDKs.
 - `HttpTransport` and `buildToolRequest` are public for transports built on HTTP.
+- `http` manuals may be OpenAPI 2.0 or 3.x documents, converted to tools; `OpenApiConverter` converts documents loaded elsewhere.
+- Added the `text` transport for UTCP manuals and OpenAPI documents supplied inline.
 - Fixed concurrent registrations of the same manual name both succeeding.
 - Fixed loopback detection of decimal IPv4 addresses on the web.
 

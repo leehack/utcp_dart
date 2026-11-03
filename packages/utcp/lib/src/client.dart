@@ -10,6 +10,7 @@ import 'data/utcp_manual.dart';
 import 'exceptions.dart';
 import 'http/http_communication_protocol.dart';
 import 'json.dart';
+import 'text/text_communication_protocol.dart';
 import 'tool_repository.dart';
 import 'variables.dart';
 
@@ -19,6 +20,7 @@ final _log = Logger('utcp');
 /// serves the same call template type.
 final Map<String, CommunicationProtocol Function()> _coreProtocols = {
   'http': HttpCommunicationProtocol.new,
+  'text': TextCommunicationProtocol.new,
 };
 
 /// Discovers tools from UTCP manuals and calls them through the matching

@@ -4,6 +4,6 @@ Dart packages for the [Universal Tool Calling Protocol (UTCP)](https://github.co
 
 | Package | Transports |
 | --- | --- |
-| [`utcp`](packages/utcp) | Core client, `http` |
+| [`utcp`](packages/utcp) | Core client, `http` (with OpenAPI conversion), `text` |
 
 Contributors and coding agents: see [AGENTS.md](AGENTS.md).
