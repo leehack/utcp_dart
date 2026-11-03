@@ -94,15 +94,15 @@ void main() {
     expect(sent[1].headers['authorization'], 'Token mine');
   });
 
-  group('rejectedFirstPost', () {
+  group('firstPostRejection', () {
     for (final status in [404, 405]) {
       test('is set by a $status to a POST without a session', () async {
         respond = (_) async =>
             http.StreamedResponse(const Stream.empty(), status);
         final c = client();
-        expect(c.rejectedFirstPost, isFalse);
+        expect(c.firstPostRejection, isNull);
         await post(c);
-        expect(c.rejectedFirstPost, isTrue);
+        expect(c.firstPostRejection, status);
       });
     }
 
@@ -116,7 +116,7 @@ void main() {
         http.Request('POST', Uri.parse(c.server.url))
           ..headers['Mcp-Session-Id'] = 's1',
       );
-      expect(c.rejectedFirstPost, isFalse);
+      expect(c.firstPostRejection, isNull);
     });
   });
 

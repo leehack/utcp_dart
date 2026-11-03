@@ -112,7 +112,11 @@ class StreamableHttpCommunicationProtocol extends CommunicationProtocol {
     StreamableHttpCallTemplate template,
     Future<void> cancel,
   ) async* {
-    final request = buildToolRequest(template, arguments);
+    final request = buildToolRequest(
+      template,
+      arguments,
+      getWithBody: GetWithBody.reject,
+    );
     final stop = Completer<void>();
     var timedOut = false;
     final deadline = Timer(template.timeout, () {

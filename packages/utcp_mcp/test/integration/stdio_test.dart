@@ -64,6 +64,7 @@ void main() {
   });
 
   test('calls tools and maps their results', () async {
+    await protocol.registerManual(caller, manual);
     expect(await call('echo', {'message': 'test'}), {
       'reply': 'you said: test',
     });

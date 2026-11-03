@@ -24,6 +24,17 @@ const _maxInlinedNodes = 10000;
 /// left alone.
 const _dataKeywords = {'const', 'default', 'enum', 'example', 'examples'};
 
+/// Keywords whose values map names to schemas, so their keys are names, not
+/// keywords: a property may be called `default` or `$ref`.
+const _namedSchemaKeywords = {
+  'properties',
+  'patternProperties',
+  'dependentSchemas',
+  'dependencies',
+  r'$defs',
+  'definitions',
+};
+
 /// [schema] with its local `$ref`s inlined, as the TypeScript SDK does, since
 /// many clients ignore the `$defs` that FastMCP and Pydantic emit. Keywords
 /// next to a `$ref` are merged over its target. A cyclic, remote or
@@ -67,18 +78,31 @@ final class _RefInliner {
 
   /// A copy of [node] with local references inlined. [resolving] holds the
   /// references being expanded above [node]; meeting one again is a cycle.
-  Object? inline(Object? node, Set<String> resolving) {
+  /// When [named], [node] maps names to schemas.
+  Object? inline(Object? node, Set<String> resolving, {bool named = false}) {
     if (node is! Map<Object?, Object?> && node is! List<Object?>) return node;
     if (++_nodes > _maxInlinedNodes) throw _TooLarge();
     if (node is List<Object?>) {
       return [for (final item in node) inline(item, resolving)];
     }
     final map = asJsonMap(node, 'Tool schema');
+    if (named) {
+      return {
+        for (final MapEntry(:key, :value) in map.entries)
+          key: inline(value, resolving),
+      };
+    }
     final ref = map[r'$ref'];
     final siblings = <String, Object?>{
       for (final MapEntry(:key, :value) in map.entries)
         if (key != r'$ref' || ref is! String)
-          key: _dataKeywords.contains(key) ? value : inline(value, resolving),
+          key: _dataKeywords.contains(key)
+              ? value
+              : inline(
+                  value,
+                  resolving,
+                  named: _namedSchemaKeywords.contains(key),
+                ),
     };
     if (ref is! String) return siblings;
     final target = resolving.contains(ref) ? null : _pointer(ref);
@@ -105,6 +129,8 @@ final class _RefInliner {
           raw,
         ).replaceAll('~1', '/').replaceAll('~0', '~');
       } on ArgumentError {
+        return null;
+      } on FormatException {
         return null;
       }
       node = switch (node) {

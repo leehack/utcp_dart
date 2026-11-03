@@ -2,12 +2,13 @@
 
 - A cached OAuth2 token is dropped when the server answers 401 or 403, and a token that is not a usable bearer token is no longer cached.
 - A `text/event-stream` response is recognized whatever the case of its Content-Type.
-- Legacy HTTP+SSE MCP servers are supported: `transport` or `type` `sse` selects them, and an `http` server that answers its first request with 404 or 405 falls back to SSE.
-- A server's `type` is read as MCP host configuration files write it, and `streamable-http`, `streamable_http` and `streamableHttp` are accepted as `http`. Before, `{"type": "sse"}` was silently treated as streamable HTTP.
-- A `ws://` or `wss://` server URL is rejected when the config is parsed, with an error saying WebSocket MCP servers are not supported.
-- A string `auth` on an HTTP server is used as its bearer token, as MCP hosts write it. An `auth` object, or `auth` on a stdio server, is rejected naming the server instead of being dropped.
+- Legacy HTTP+SSE MCP servers are supported: `transport` or `type` `sse` selects them, and an `http` server that answers its first request with 404 or 405 falls back to SSE. When the fallback fails too, the error gives the streamable HTTP status as well.
+- **Breaking:** a server's `type` is read as MCP host configuration files write it, so `{"type": "sse"}`, which used to mean streamable HTTP, now selects legacy HTTP+SSE. `streamable-http`, `streamable_http` and `streamableHttp` are accepted as `http`.
+- **Breaking:** a `ws://` or `wss://` server URL, which used to parse, is rejected when the config is parsed, with an error saying WebSocket MCP servers are not supported.
+- **Breaking:** an `auth` object on an HTTP server, and any `auth` on a stdio server (`null` included), used to be dropped and now throw a `FormatException` naming the server. A string `auth` on an HTTP server is used as its bearer token, as MCP hosts write it.
 - Resource tools are unique: resources that share a name, or whose `resource_<name>` is a tool's name, become `resource_<name>_<n>` in URI order, and a tool named `resource_<name>` is called instead of shadowed.
-- Local `$ref`s in tool schemas are inlined, as the TypeScript SDK does; cycles stay references and expansion is bounded.
+- **Breaking:** a resource tool reads the URI it was registered with, without listing resources and tools again, even after the server's resources change. Register the manual with the protocol that calls its tools first; otherwise a resource tool is sent as a tool call.
+- Local `$ref`s in tool schemas are inlined, as the TypeScript SDK does, including under properties named `default`, `enum` or `const`. Cycles and malformed references stay references, and expansion is bounded.
 - A JSON-RPC error from the server throws `McpRpcException`, whose `code` is the error code.
 - A stdio `command` may be an array, as in the UTCP security guide: the first element is the command and the rest go before `args`.
 

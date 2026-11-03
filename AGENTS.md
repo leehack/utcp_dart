@@ -42,6 +42,8 @@ dart test   # release tooling
     sockets, child processes and files.
   - `test/e2e/` is tagged `e2e`: a real provider and a `UtcpClient` talking
     through the public API, or an example run as a process.
+  - `test/conformance/` (`packages/utcp_conformance` only) is tagged
+    `conformance`: the fixture corpus checked against the Dart parsers.
 - A behavior change that alters how a UTCP document parses or serializes
   shows up in the conformance corpus: update the fixture's `expect`,
   `may_drop` or `known_failure` with the change. Never edit a fixture's

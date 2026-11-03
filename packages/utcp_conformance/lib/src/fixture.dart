@@ -64,6 +64,7 @@ class Fixture {
     this.reason = '',
     this.mayDrop = const [],
     this.knownFailure,
+    this.rejectError,
   });
 
   /// Reads the fixture file named [id].
@@ -75,6 +76,7 @@ class Fixture {
     reason: json.optString('reason') ?? '',
     mayDrop: json.optStringList('may_drop') ?? const [],
     knownFailure: json.optString('known_failure'),
+    rejectError: json.optString('reject_error'),
     document: json.object('document'),
   );
 
@@ -102,6 +104,10 @@ class Fixture {
   /// corpus test then requires the fixture to fail, so a fix shows up.
   final String? knownFailure;
 
+  /// For a [Expectation.reject] fixture, a substring Dart's error message
+  /// must contain, so the document fails for the reason [reason] gives.
+  final String? rejectError;
+
   /// The UTCP document.
   final JsonMap document;
 
@@ -115,6 +121,7 @@ class Fixture {
     reason: reason,
     mayDrop: mayDrop,
     knownFailure: knownFailure,
+    rejectError: rejectError,
     document: other.document,
   );
 
@@ -126,6 +133,7 @@ class Fixture {
     'reason': reason,
     if (mayDrop.isNotEmpty) 'may_drop': mayDrop,
     'known_failure': ?knownFailure,
+    'reject_error': ?rejectError,
     'document': document,
   };
 }

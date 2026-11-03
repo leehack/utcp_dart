@@ -169,10 +169,11 @@ class CliCommunicationProtocol extends CommunicationProtocol {
         captureFile: capture.path,
       );
       final process = await _start(shell, script, template);
+      final (:output, :unusedBytes) = await _wait(run, process, timeout);
       return await finishedOutput(
-        await _wait(run, process, timeout),
+        output,
         script,
-        () => _readCapture(capture),
+        () => _readCapture(capture, unusedBytes),
       );
     } on FileSystemException catch (e) {
       throw UtcpException('Could not create the CLI output file: ${e.message}');
@@ -198,13 +199,18 @@ class CliCommunicationProtocol extends CommunicationProtocol {
     }
   }
 
-  /// What the command that ended a script wrote, up to [maxOutputBytes].
-  Future<String> _readCapture(File capture) async {
+  /// What the command that ended a script wrote. It counts against the
+  /// [budget] left of [maxOutputBytes], as if the script had printed it.
+  Future<String> _readCapture(File capture, int budget) async {
     if (!await capture.exists()) return '';
-    return capture
-        .openRead(0, maxOutputBytes)
-        .transform(const Utf8Decoder(allowMalformed: true))
-        .join();
+    final bytes = BytesBuilder(copy: false);
+    await capture.openRead(0, budget + 1).forEach(bytes.add);
+    if (bytes.length > budget) {
+      throw UtcpException(
+        'CLI command wrote more than $maxOutputBytes bytes of output.',
+      );
+    }
+    return const Utf8Decoder(allowMalformed: true).convert(bytes.takeBytes());
   }
 
   Future<Process> _start(
@@ -236,7 +242,9 @@ class CliCommunicationProtocol extends CommunicationProtocol {
     }
   }
 
-  Future<ScriptOutput> _wait(
+  /// The script's output and how many of the [maxOutputBytes] it left
+  /// unused.
+  Future<({ScriptOutput output, int unusedBytes})> _wait(
     _Run run,
     Process process,
     Duration timeout,
@@ -274,7 +282,10 @@ class CliCommunicationProtocol extends CommunicationProtocol {
         final String stderr,
         final int exitCode,
       ] when run.reason == null) {
-        return (stdout: stdout, stderr: stderr, exitCode: exitCode);
+        return (
+          output: (stdout: stdout, stderr: stderr, exitCode: exitCode),
+          unusedBytes: budget,
+        );
       }
       await killProcessTree(process);
       // The pipes close once every writer is dead; the bound only guards

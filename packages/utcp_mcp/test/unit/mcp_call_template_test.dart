@@ -147,6 +147,31 @@ void main() {
       }
     });
 
+    test('McpHttpServer.fromJson reads the transport and round-trips', () {
+      for (final protocol in McpHttpProtocol.values) {
+        final server = McpHttpServer(url: url, protocol: protocol);
+        expect(
+          McpHttpServer.fromJson(server.toJson()).protocol,
+          protocol,
+          reason: protocol.wireName,
+        );
+      }
+      expect(
+        McpHttpServer.fromJson({'type': 'sse', 'url': url}).protocol,
+        McpHttpProtocol.sse,
+      );
+      expect(
+        () => McpHttpServer.fromJson({'transport': 'stdio', 'url': url}, 's'),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains("MCP server 's' is an HTTP server"),
+          ),
+        ),
+      );
+    });
+
     test('transport wins over type', () {
       final server = parse({'transport': 'http', 'type': 'sse', 'url': url});
       expect(

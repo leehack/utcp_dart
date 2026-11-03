@@ -130,8 +130,10 @@ only, so treat Windows support as experimental.
   `set -e` ends only that command and the script goes on. Here the commands share one shell, as
   the spec requires (so `cd` and variables carry over), and such a command ends the script. The
   call then returns the outputs selected before it, followed by that command's own output, and
-  later commands do not run. A script syntax error returns the shell's error text. A command may
-  install a `trap '…' EXIT`; its output, printed as the shell exits after the script finished, is
+  later commands do not run. A failure that bash exempts from `set -e` (`a && b`, `if a`) does not
+  end the script, as in a plain bash script. A script syntax error returns the outputs selected
+  before it and the shell's error text, never an unselected output. A command may install a
+  `trap '…' EXIT`; its output, printed as the shell exits after the script finished, is
   discarded.
 - Bash placeholders in arithmetic contexts are rejected (see Security), and output is capped by
   `maxOutputBytes`.
@@ -149,7 +151,7 @@ substitutor does not match, for example `"$(printenv NAME)"`.
 | Package | Transports |
 | --- | --- |
 | [`utcp`](https://pub.dev/packages/utcp) | Core client, `http` (with OpenAPI conversion), `sse`, `streamable_http`, `text` |
-| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio and streamable HTTP) |
+| [`utcp_mcp`](https://pub.dev/packages/utcp_mcp) | `mcp` (MCP servers over stdio, streamable HTTP and legacy HTTP+SSE) |
 | [`utcp_cli`](https://pub.dev/packages/utcp_cli) | `cli` |
 | [`utcp_file`](https://pub.dev/packages/utcp_file) | `file`, `.env` variable loader |
 | [`utcp_socket`](https://pub.dev/packages/utcp_socket) | `tcp`, `udp` |

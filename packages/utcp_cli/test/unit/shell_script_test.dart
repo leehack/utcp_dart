@@ -588,16 +588,18 @@ void main() {
         );
         expect(script.environment, {'__UTCP_OUT_abc123': '/tmp/out', v: 'dir'});
         final lines = script.source.split('\n');
-        expect(lines.take(10), [
+        expect(lines.take(12), [
           '{ cd "\$$v"',
-          r'} >"$__UTCP_OUT_abc123" 2>&1',
+          r'} >|"$__UTCP_OUT_abc123" 2>&1',
           r'__utcp_status=$?',
           r'CMD_0_OUTPUT=$(<"$__UTCP_OUT_abc123")',
-          r'(exit $__utcp_status)',
+          r': >|"$__UTCP_OUT_abc123"',
+          r'(exit $__utcp_status) && :',
           '{ ls',
-          r'} >"$__UTCP_OUT_abc123" 2>&1',
+          r'} >|"$__UTCP_OUT_abc123" 2>&1',
           r'__utcp_status=$?',
           r'CMD_1_OUTPUT=$(<"$__UTCP_OUT_abc123")',
+          r': >|"$__UTCP_OUT_abc123"',
           r'''printf '%s\n' "${CMD_1_OUTPUT}"''',
         ]);
         expect(lines.where((l) => l.startsWith('printf')), [

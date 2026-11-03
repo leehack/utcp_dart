@@ -31,13 +31,15 @@ hash of its content:
 | `expect` | `accept` or `reject` (with a `FormatException`); `unreviewed` until someone decides |
 | `reason` | Why: the spec rule, the reference SDK behaviour, or the docs bug |
 | `may_drop` | Paths Dart may drop or rewrite on a round trip (`*` for any key or index) |
+| `reject_error` | For `reject`: a substring Dart's error message must contain, so the document fails for the stated reason |
 | `known_failure` | A Dart bug that keeps it from meeting `expect`; the test then requires it to fail, so a fix shows up |
 | `document` | The document |
 
 For every fixture, `dart test` checks the parse result and, for an accepted
 document, that `toJson` → `fromJson` → `toJson` is stable and that nothing
 outside `may_drop` is dropped or changed. An explicit `null` counts as
-absent.
+absent. A rejected document passes on any `FormatException` unless
+`reject_error` names the one it must fail with.
 
 ## Updating
 

@@ -83,8 +83,7 @@ sealed class McpServerConfig {
   /// server.
   factory McpServerConfig.fromJson(JsonMap json, [String name = 'server']) {
     final transport =
-        json.optString('transport') ??
-        json.optString('type') ??
+        _transportOf(json) ??
         switch (json) {
           _ when json.containsKey('command') => McpStdioServer.transport,
           _ when json.containsKey('url') => McpHttpServer.transport,
@@ -94,24 +93,14 @@ sealed class McpServerConfig {
         };
     return switch (transport) {
       McpStdioServer.transport => McpStdioServer.fromJson(json, name),
-      'sse' => McpHttpServer.fromJson(json, name, McpHttpProtocol.sse),
-      _ when _streamableHttp.contains(transport) => McpHttpServer.fromJson(
-        json,
-        name,
-      ),
+      _ when McpHttpServer._protocols.containsKey(transport) =>
+        McpHttpServer.fromJson(json, name),
       _ => throw FormatException(
         "Unsupported transport '$transport' for MCP server '$name'. "
         "Use 'stdio', 'http' or 'sse'.",
       ),
     };
   }
-
-  static const _streamableHttp = {
-    McpHttpServer.transport,
-    'streamable-http',
-    'streamable_http',
-    'streamableHttp',
-  };
 
   /// Limit for connecting and for each MCP request.
   final Duration timeout;
@@ -207,11 +196,17 @@ class McpHttpServer extends McpServerConfig {
     this.notificationStreamMaxRetries = 0,
   });
 
-  factory McpHttpServer.fromJson(
-    JsonMap json, [
-    String name = 'server',
-    McpHttpProtocol protocol = McpHttpProtocol.streamableHttp,
-  ]) {
+  /// `transport`, or `type`, selects the [protocol]; without either it is
+  /// [McpHttpProtocol.streamableHttp].
+  factory McpHttpServer.fromJson(JsonMap json, [String name = 'server']) {
+    final transport = _transportOf(json);
+    final protocol = transport == null
+        ? McpHttpProtocol.streamableHttp
+        : _protocols[transport] ??
+              (throw FormatException(
+                "MCP server '$name' is an HTTP server and cannot have "
+                "transport '$transport'. Use 'http' or 'sse'.",
+              ));
     final url = json.string('url');
     if (Uri.tryParse(url)?.scheme case 'ws' || 'wss') {
       throw FormatException(
@@ -261,6 +256,14 @@ class McpHttpServer extends McpServerConfig {
 
   static const transport = 'http';
 
+  static const _protocols = {
+    transport: McpHttpProtocol.streamableHttp,
+    'streamable-http': McpHttpProtocol.streamableHttp,
+    'streamable_http': McpHttpProtocol.streamableHttp,
+    'streamableHttp': McpHttpProtocol.streamableHttp,
+    'sse': McpHttpProtocol.sse,
+  };
+
   /// The MCP endpoint (for [McpHttpProtocol.sse], the event stream URL).
   /// HTTPS, or plain HTTP to a loopback address.
   final String url;
@@ -309,6 +312,10 @@ class McpHttpServer extends McpServerConfig {
     'notification_stream_max_retries': notificationStreamMaxRetries,
   };
 }
+
+/// `transport`, or `type` as MCP host configuration files spell it.
+String? _transportOf(JsonMap json) =>
+    json.optString('transport') ?? json.optString('type');
 
 Duration _seconds(JsonMap json, String key, num fallback) {
   final seconds = json.optNum(key) ?? fallback;

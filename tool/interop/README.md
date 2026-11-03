@@ -8,7 +8,7 @@ strict schema rejects (for example `scope: null` or an unknown key in a
 
 ```bash
 dart pub get
-tool/interop/run.sh [WORK_DIR]   # PYTHON=python3.12 to pick the interpreter
+tool/interop/run.sh [WORK_DIR]   # PYTHON=python3.12 to pick the interpreter (3.11 to 3.13)
 ```
 
 ```mermaid

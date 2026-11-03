@@ -30,6 +30,7 @@ void main() {
         kind: f.kind,
         expect: Expectation.reject,
         reason: 'needs credentials',
+        rejectError: 'credentials',
         document: f.document,
       ),
   ]);
@@ -85,6 +86,7 @@ void main() {
     final byId = {for (final f in updated.fixtures.values) f.id: f};
     expect(byId.keys, unorderedEquals([kept.id, added.id]));
     expect(byId[kept.id]!.expect, Expectation.reject);
+    expect(byId[kept.id]!.rejectError, 'credentials');
     expect(byId[kept.id]!.source.line, 4);
     expect(byId[added.id]!.expect, Expectation.unreviewed);
   });
