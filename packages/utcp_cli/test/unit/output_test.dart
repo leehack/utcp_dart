@@ -30,14 +30,15 @@ void main() {
       expect(finished.stdout, 'a\nb\n');
     });
 
-    test('a missing end marker appends the stopped command output', () async {
+    test('a missing end marker appends the stopped command output and the '
+        'shell stderr', () async {
       final finished = await finishedOutput(
         output('first\n', 'bash: oops', 3),
         script,
-        () async => 'boom',
+        () async => 'boom\n',
       );
       expect(finished, (
-        stdout: 'first\nboom',
+        stdout: 'first\nboom\nbash: oops',
         stderr: 'bash: oops',
         exitCode: 3,
       ));

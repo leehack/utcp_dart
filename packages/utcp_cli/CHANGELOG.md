@@ -1,7 +1,8 @@
 ## Unreleased
 
 - An empty `commands` list, a blank command or an empty `working_dir` parses and round-trips, as in the reference SDKs; discovery and calls with it fail with a `UtcpException`.
-- A command that ends a bash script (`exit`, `exec`, `set -e`) no longer fails the call: the outputs selected before it and its own output are returned, as the spec returns a failing script's output. A script syntax error returns the shell's error text.
+- A command that ends a bash script (`exit`, `exec`, `set -e`) no longer fails the call: the outputs selected before it and its own output are returned, within `maxOutputBytes`, as the spec returns a failing script's output. A script syntax error returns the shell's error text.
+- With `set -e`, a failure bash exempts from it (`a && b`) no longer ends the script, and `set -C` no longer stops later commands.
 - Discovery accepts a bare list of tools, a single tool, or single tools on separate lines, and skips a tool that does not parse (logged on `utcp.cli`) instead of failing the whole manual.
 - Discovery reads stdout unless it is blank, as tool calls do, so a discovery command that exits non-zero after printing its manual still registers.
 
