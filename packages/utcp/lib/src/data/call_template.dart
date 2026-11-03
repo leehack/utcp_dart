@@ -5,12 +5,15 @@ import '../json.dart';
 import '../registry.dart';
 import '../text/text_call_template.dart';
 import 'auth.dart';
+import 'call_template_scope.dart';
 
 /// Describes how to reach a manual or a tool through one transport.
 ///
 /// Concrete types are selected by `call_template_type`. The core transports
-/// are built in; `UtcpClient.create` registers the parsers of every other
-/// protocol it is given in [CallTemplate.registry].
+/// are built in to [CallTemplate.registry]. A `UtcpClient` parses with its
+/// own protocols' parsers first, and adds the parser of a type
+/// [CallTemplate.registry] does not know yet there, so code outside the
+/// client can parse it too; it never replaces a parser already registered.
 abstract class CallTemplate {
   const CallTemplate({
     this.name,
@@ -25,7 +28,10 @@ abstract class CallTemplate {
     TextCallTemplate.type: TextCallTemplate.fromJson,
   });
 
-  static CallTemplate fromJson(JsonMap json) => registry.parse(json);
+  /// Parses [json] with the registry of the `UtcpClient` whose discovery is
+  /// running, or else with [registry].
+  static CallTemplate fromJson(JsonMap json) =>
+      (scopedCallTemplateRegistry ?? registry).parse(json);
 
   /// Manual name; tools registered from this manual are prefixed with it.
   final String? name;

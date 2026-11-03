@@ -25,6 +25,22 @@ void main() {
     expect(await s.substitute(r'#/$ref/${NOPE}'), r'#/$ref/${NOPE}');
   });
 
+  test(r'variables starting with ref are substituted, as in Python', () async {
+    const s = VariableSubstitutor(
+      variables: {'refresh_token': 'r1', 'm_refresh_token': 'r2'},
+      environment: {},
+    );
+    expect(await s.substitute(r'$refresh_token'), 'r1');
+    expect(await s.substitute(r'${refresh_token}'), 'r1');
+    expect(await s.substitute(r'$refresh_token', namespace: 'm'), 'r2');
+    expect(s.findRequiredVariables(r'Bearer $refresh_token'), [
+      'refresh_token',
+    ]);
+    // `$ref` followed by a non-word character is still a schema reference.
+    expect(await s.substitute(r'$ref: ${NOPE}'), r'$ref: ${NOPE}');
+    expect(s.findRequiredVariables(r'{"$ref": "${NOPE}"}'), isEmpty);
+  });
+
   test('precedence is config, then loaders, then environment', () async {
     final s = VariableSubstitutor(
       variables: const {'A': 'config'},
@@ -134,6 +150,21 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test(
+    'a namespace may hold Unicode letters and numbers, as in Python',
+    () async {
+      const s = VariableSubstitutor(
+        variables: {'café__٣_TOKEN': 't'},
+        environment: {},
+      );
+      expect(await s.substitute(r'$TOKEN', namespace: 'café_٣'), 't');
+      expect(
+        () => s.findRequiredVariables('x', namespace: 'café-x'),
+        throwsArgumentError,
+      );
+    },
+  );
 }
 
 class _MapLoader extends VariableLoader {

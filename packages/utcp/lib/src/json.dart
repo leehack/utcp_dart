@@ -15,6 +15,13 @@ JsonMap asJsonMap(Object? value, String what) {
   );
 }
 
+/// [duration] in milliseconds, as [JsonReader.optMilliseconds] reads it: an
+/// integer when it is whole, a fraction otherwise.
+num durationToMilliseconds(Duration duration) {
+  final micros = duration.inMicroseconds;
+  return micros % 1000 == 0 ? micros ~/ 1000 : micros / 1000;
+}
+
 /// Parses a YAML document into plain JSON values.
 ///
 /// YAML aliases are expanded, so a few hundred bytes of nested aliases can
@@ -260,14 +267,17 @@ extension JsonReader on JsonMap {
     throw FormatException("Field '$key' must be an integer, got $value.");
   }
 
-  /// The non-negative integer at [key], read as milliseconds.
+  /// The non-negative number at [key], read as milliseconds; a fraction is
+  /// kept to the microsecond.
   Duration? optMilliseconds(String key) {
-    final value = optInt(key);
+    final value = optNum(key);
     if (value == null) return null;
-    if (value < 0) {
-      throw FormatException("Field '$key' must not be negative, got $value.");
+    if (value < 0 || !value.isFinite) {
+      throw FormatException(
+        "Field '$key' must be a non-negative number, got $value.",
+      );
     }
-    return Duration(milliseconds: value);
+    return Duration(microseconds: (value * 1000).round());
   }
 
   JsonMap object(String key) =>

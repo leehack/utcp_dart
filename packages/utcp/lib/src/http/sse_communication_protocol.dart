@@ -106,9 +106,8 @@ class SseCommunicationProtocol extends CommunicationProtocol {
     SseCallTemplate template,
     Future<void> cancel,
   ) async* {
-    final request = buildToolRequest(template, arguments);
+    final request = buildToolRequest(template, arguments, postWithBody: true);
     final sendsBody = request.body != null;
-    if (sendsBody) request.method = HttpMethod.post;
     request.setHeader('Accept', 'text/event-stream');
     await _transport.authorize(
       request,

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -102,10 +103,15 @@ final _credentialHeaderPattern = RegExp(
 /// Builds the request for a tool call: header fields, body field, path
 /// parameters, then query parameters, as described in the HTTP protocol
 /// specification.
+///
+/// A GET cannot carry a body, so supplying the body field to a GET template
+/// throws a [UtcpException], as the TypeScript SDK does, unless
+/// [postWithBody] is set: then the request becomes a POST instead.
 HttpRequestSpec buildToolRequest(
   HttpRequestTemplate template,
-  ToolArguments args,
-) {
+  ToolArguments args, {
+  bool postWithBody = false,
+}) {
   final remaining = {...args};
   final request = HttpRequestSpec(template.httpMethod, Uri())
     ..headers.addAll(template.headers);
@@ -115,7 +121,14 @@ HttpRequestSpec buildToolRequest(
     }
   }
   final bodyField = template.bodyField;
-  final body = bodyField == null ? null : remaining.remove(bodyField);
+  final suppliesBody = bodyField != null && remaining.containsKey(bodyField);
+  final body = suppliesBody ? remaining.remove(bodyField) : null;
+  if (suppliesBody && request.method == HttpMethod.get && !postWithBody) {
+    throw UtcpException(
+      "body_field '$bodyField' was supplied but http_method is GET, which "
+      'cannot carry a request body. Set http_method to POST.',
+    );
+  }
 
   final url = buildUrlWithPathParams(template.url, remaining);
   ensureSecureUrl(url, 'tool invocation');
@@ -125,6 +138,7 @@ HttpRequestSpec buildToolRequest(
     ..addQuery(remaining);
 
   if (body != null) {
+    if (postWithBody) request.method = HttpMethod.post;
     final contentType = request.header('content-type') ?? template.contentType;
     request
       ..setHeader('Content-Type', contentType)
@@ -337,6 +351,10 @@ final class HttpStreamedResult {
     return controller.stream;
   }
 
+  /// Bytes of an error response's body that [read] keeps. The rest is
+  /// never read: an untrusted server could send an endless error body.
+  static const maxErrorBodyBytes = 64 * 1024;
+
   /// Reads the body of an error response and throws, or returns for a
   /// success status without consuming the body.
   Future<void> ensureSuccess(String context) async {
@@ -344,13 +362,30 @@ final class HttpStreamedResult {
     (await read()).ensureSuccess(context);
   }
 
+  /// Reads the whole body, or only its first [maxErrorBodyBytes] for a 4xx
+  /// or 5xx status.
   Future<HttpResult> read() async => HttpResult(
     statusCode,
     _response.reasonPhrase,
     headers,
-    await http.ByteStream(body).toBytes(),
+    statusCode >= 400
+        ? await _readPrefix(body, maxErrorBodyBytes)
+        : await http.ByteStream(body).toBytes(),
     url,
   );
+
+  static Future<Uint8List> _readPrefix(
+    Stream<List<int>> body,
+    int limit,
+  ) async {
+    final bytes = BytesBuilder(copy: false);
+    await for (final chunk in body) {
+      bytes.add(chunk);
+      if (bytes.length >= limit) break;
+    }
+    final read = bytes.takeBytes();
+    return read.length > limit ? Uint8List.sublistView(read, 0, limit) : read;
+  }
 }
 
 /// Returns the stream [build] creates, completing the abort trigger it is
@@ -545,7 +580,8 @@ final class HttpTransport {
           'grant_type': 'client_credentials',
           if (credentialsInBody) 'client_id': auth.clientId,
           if (credentialsInBody) 'client_secret': auth.clientSecret,
-          'scope': auth.scope ?? '',
+          if (auth.scope case final scope? when scope.isNotEmpty)
+            'scope': scope,
         });
       request.body = form.uri.query;
       if (!credentialsInBody) {

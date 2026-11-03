@@ -299,6 +299,27 @@ void main() {
       expect(seen.headers['Authorization'], startsWith('Basic '));
       expect(sentBody, 'raw');
     });
+
+    test('a GET supplied its body field fails before any request', () async {
+      var requests = 0;
+      final protocol = protocolFor((request, _) async {
+        requests++;
+        return streamedResponse(['ok'], contentType: 'text/plain');
+      });
+      await expectLater(
+        protocol.callTool(caller, 'm.export', {
+          'data': 'raw',
+        }, template({'body_field': 'data'})),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains("body_field 'data' was supplied but http_method is GET"),
+          ),
+        ),
+      );
+      expect(requests, 0);
+    });
   });
 
   group('security', () {
@@ -343,6 +364,26 @@ void main() {
   });
 
   group('discovery', () {
+    test('a manual without utcp_version is accepted', () async {
+      final protocol = protocolFor(
+        (request, _) async => streamedResponse([
+          jsonEncode({
+            'tools': [
+              toolWith('t', {
+                'call_template_type': 'streamable_http',
+                'url': 'https://api.example.com/export',
+              }),
+            ],
+          }),
+        ], contentType: 'application/json'),
+      );
+      final result = await protocol.registerManual(
+        caller,
+        template({'name': 'm', 'url': manualUrl}),
+      );
+      expect(result.success, isTrue, reason: '${result.errors}');
+      expect(result.manual.tools.single.name, 't');
+    });
     test(
       'uses the template method and rejects remote loopback tools',
       () async {
@@ -407,12 +448,26 @@ void main() {
       expect(again.toJson(), full.toJson());
     });
 
+    test('0 means the default chunk_size and timeout', () {
+      final parsed = template({'chunk_size': 0, 'timeout': 0});
+      expect(parsed.chunkSize, 4096);
+      expect(parsed.timeout, const Duration(seconds: 60));
+    });
+
+    test('a fractional timeout is kept and round-trips', () {
+      final parsed = template({'timeout': 1.5});
+      expect(parsed.timeout, const Duration(microseconds: 1500));
+      expect(parsed.toJson()['timeout'], 1.5);
+      expect(template({'timeout': 2000}).toJson()['timeout'], isA<int>());
+    });
+
     test('malformed fields are rejected', () {
       for (final fields in [
         {'http_method': 'PUT'},
-        {'chunk_size': 0},
-        {'timeout': 0},
+        {'chunk_size': -1},
+        {'chunk_size': 1.5},
         {'timeout': -5},
+        {'timeout': double.infinity},
         {'chunk_size': 'big'},
       ]) {
         expect(

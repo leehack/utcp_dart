@@ -232,6 +232,35 @@ void main() {
       );
       const timeout = Duration(seconds: 1);
 
+      test('sends scope only when it is set', () async {
+        for (final (scope, sent) in [
+          (null, null),
+          ('', null),
+          ('read write', 'read write'),
+        ]) {
+          final forms = <Map<String, String>>[];
+          final transport = HttpTransport(
+            client: MockClient((request) async {
+              forms.add(request.bodyFields);
+              return jsonResponse({'access_token': 'tok'});
+            }),
+          );
+          addTearDown(transport.close);
+          await transport.authorize(
+            get('https://a/x'),
+            OAuth2Auth(
+              tokenUrl: 'https://a/token',
+              clientId: 'i',
+              clientSecret: 's',
+              scope: scope,
+            ),
+            timeout: timeout,
+          );
+          expect(forms.single['scope'], sent, reason: '$scope');
+          expect(forms.single.containsKey('scope'), sent != null);
+        }
+      });
+
       test('accepts expires_in sent as a string', () async {
         for (final expiresIn in ['3600', 'soon']) {
           final transport = HttpTransport(
@@ -572,6 +601,51 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('reads at most 64 KiB of an error body', () async {
+      const chunk = 16 * 1024;
+      var pulled = 0;
+      Stream<List<int>> body() async* {
+        for (var i = 0; i < 64; i++) {
+          pulled++;
+          yield List.filled(chunk, 0x61);
+        }
+      }
+
+      final transport = HttpTransport(
+        client: MockClient.streaming(
+          (_, _) async => http.StreamedResponse(body(), 500),
+        ),
+      );
+      addTearDown(transport.close);
+      const timeout = Duration(seconds: 5);
+      for (final call in [
+        () async => (await transport.send(
+          get('https://a/x'),
+          context: 'ctx',
+          timeout: timeout,
+        )).ensureSuccess('ctx'),
+        () => transport.open(
+          get('https://a/x'),
+          context: 'ctx',
+          timeout: timeout,
+          errorContext: 'ctx',
+        ),
+      ]) {
+        pulled = 0;
+        await expectLater(
+          call(),
+          throwsA(
+            isA<UtcpHttpException>().having(
+              (e) => e.body,
+              'body',
+              hasLength(64 * 1024),
+            ),
+          ),
+        );
+        expect(pulled, lessThan(64 * 1024 ~/ chunk + 2));
+      }
     });
 
     test('a timed-out request releases its response body', () async {
