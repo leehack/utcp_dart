@@ -9,7 +9,7 @@
 - Variables that start with `ref`, such as `$refresh_token`, are substituted; only a `$ref` not followed by a word character marks a JSON Schema reference, as in Python.
 - Manual names keep Unicode letters and numbers when sanitized, as in Python, so `café` keeps its name and variable namespace.
 - A client parses call templates with its own protocols first and no longer replaces parsers in `CallTemplate.registry`, so one client's protocols do not change parsing for other clients. Added `TypeRegistry.scoped`.
-- A tool call that supplies a body to a GET `streamable_http` template fails with a clear error instead of sending it, as in the TypeScript SDK; `http` keeps sending it, as both reference SDKs do. A null body argument means no body. `buildToolRequest` takes `getWithBody` to choose.
+- A tool call that supplies a body to a GET `streamable_http` template fails with a clear error instead of sending it, as in the TypeScript SDK; `http` keeps sending it, as both reference SDKs do. `buildToolRequest` takes `getWithBody` to choose.
 - The OAuth2 token request omits `scope` when it is unset or empty instead of sending `scope=`.
 - `streamable_http` reads `chunk_size: 0` and `timeout: 0` as the defaults, as the reference SDKs do, and `timeout` and `sse` `retry_timeout` accept fractional milliseconds.
 - Only the first 64 KiB of an HTTP error body is read (`HttpStreamedResult.maxErrorBodyBytes`), as in the Python SDK.

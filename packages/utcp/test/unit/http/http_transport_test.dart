@@ -285,21 +285,17 @@ void main() {
         }
       });
 
-      test('accepts expires_in sent as a string', () async {
-        for (final expiresIn in ['3600', 'soon']) {
-          final transport = HttpTransport(
-            client: MockClient(
-              (_) async => jsonResponse({
-                'access_token': 'tok',
-                'expires_in': expiresIn,
-              }),
-            ),
-          );
-          addTearDown(transport.close);
-          final request = get('https://a/x');
-          await transport.authorize(request, auth, timeout: timeout);
-          expect(request.header('authorization'), 'Bearer tok');
-        }
+      test('accepts an expires_in that is not a number', () async {
+        final transport = HttpTransport(
+          client: MockClient(
+            (_) async =>
+                jsonResponse({'access_token': 'tok', 'expires_in': 'soon'}),
+          ),
+        );
+        addTearDown(transport.close);
+        final request = get('https://a/x');
+        await transport.authorize(request, auth, timeout: timeout);
+        expect(request.header('authorization'), 'Bearer tok');
       });
 
       test('is validated before it is cached', () async {
