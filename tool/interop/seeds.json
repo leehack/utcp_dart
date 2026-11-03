@@ -1,0 +1,649 @@
+{
+  "call_templates": {
+    "http/minimal": {
+      "name": "http_min",
+      "call_template_type": "http",
+      "url": "https://api.example.com/tools"
+    },
+    "http/full": {
+      "name": "http_full",
+      "call_template_type": "http",
+      "http_method": "POST",
+      "url": "https://api.example.com/users/{user_id}",
+      "content_type": "application/x-www-form-urlencoded",
+      "auth": {
+        "auth_type": "api_key",
+        "api_key": "${API_KEY}",
+        "var_name": "X-Key",
+        "location": "query"
+      },
+      "headers": {
+        "X-Client": "utcp"
+      },
+      "body_field": "payload",
+      "header_fields": [
+        "X-Trace"
+      ],
+      "auth_tools": {
+        "auth_type": "basic",
+        "username": "${USER}",
+        "password": "${PASS}"
+      },
+      "allowed_communication_protocols": [
+        "http",
+        "cli"
+      ]
+    },
+    "http/no_body_field": {
+      "name": "http_nobody",
+      "call_template_type": "http",
+      "http_method": "DELETE",
+      "url": "https://api.example.com/items",
+      "body_field": null
+    },
+    "http/oauth2": {
+      "name": "http_oauth2",
+      "call_template_type": "http",
+      "http_method": "PUT",
+      "url": "https://api.example.com/x",
+      "auth": {
+        "auth_type": "oauth2",
+        "token_url": "https://auth.example.com/token",
+        "client_id": "${CID}",
+        "client_secret": "${CSECRET}",
+        "scope": "read write"
+      }
+    },
+    "http/oauth2_no_scope": {
+      "name": "http_oauth2_noscope",
+      "call_template_type": "http",
+      "http_method": "PATCH",
+      "url": "https://api.example.com/x",
+      "auth": {
+        "auth_type": "oauth2",
+        "token_url": "https://auth.example.com/token",
+        "client_id": "${CID}",
+        "client_secret": "${CSECRET}"
+      }
+    },
+    "http/oauth2_user": {
+      "name": "http_oauth2_user",
+      "call_template_type": "http",
+      "url": "https://api.example.com/me",
+      "auth": {
+        "auth_type": "oauth2_user",
+        "access_token": "${TOKEN}",
+        "grant_type": "device_code",
+        "token_endpoint": "https://auth.example.com/token",
+        "client_id": "public-client",
+        "scope": "openid",
+        "device_authorization_endpoint": "https://auth.example.com/device",
+        "var_name": "Authorization",
+        "prefix": "Bearer "
+      }
+    },
+    "sse/minimal": {
+      "name": "sse_min",
+      "call_template_type": "sse",
+      "url": "https://api.example.com/events"
+    },
+    "sse/full": {
+      "name": "sse_full",
+      "call_template_type": "sse",
+      "url": "https://api.example.com/events/{topic}",
+      "event_type": "update",
+      "reconnect": false,
+      "retry_timeout": 5000,
+      "auth": {
+        "auth_type": "basic",
+        "username": "u",
+        "password": "p"
+      },
+      "headers": {
+        "Accept": "text/event-stream"
+      },
+      "body_field": "filter",
+      "header_fields": [
+        "X-Session"
+      ]
+    },
+    "streamable_http/minimal": {
+      "name": "stream_min",
+      "call_template_type": "streamable_http",
+      "url": "https://api.example.com/stream"
+    },
+    "streamable_http/full": {
+      "name": "stream_full",
+      "call_template_type": "streamable_http",
+      "url": "https://api.example.com/stream/{id}",
+      "http_method": "POST",
+      "content_type": "application/json",
+      "chunk_size": 1024,
+      "timeout": 15000,
+      "auth": {
+        "auth_type": "api_key",
+        "api_key": "${KEY}"
+      },
+      "headers": {
+        "X-A": "b"
+      },
+      "body_field": "data",
+      "header_fields": [
+        "X-Id"
+      ]
+    },
+    "text/minimal": {
+      "name": "text_min",
+      "call_template_type": "text",
+      "content": "{\"utcp_version\": \"1.1.0\", \"tools\": []}"
+    },
+    "text/full": {
+      "name": "text_full",
+      "call_template_type": "text",
+      "content": "openapi: 3.0.0\ninfo: {title: t, version: '1'}\npaths: {}\n",
+      "base_url": "https://api.example.com/v1",
+      "auth_tools": {
+        "auth_type": "api_key",
+        "api_key": "Bearer ${TOKEN}",
+        "var_name": "Authorization",
+        "location": "header"
+      },
+      "allowed_communication_protocols": [
+        "http"
+      ]
+    },
+    "file/minimal": {
+      "name": "file_min",
+      "call_template_type": "file",
+      "file_path": "manuals/tools.json"
+    },
+    "file/full": {
+      "name": "file_full",
+      "call_template_type": "file",
+      "file_path": "/srv/openapi.yaml",
+      "auth_tools": {
+        "auth_type": "basic",
+        "username": "u",
+        "password": "p"
+      }
+    },
+    "cli/minimal": {
+      "name": "cli_min",
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "echo hello"
+        }
+      ]
+    },
+    "cli/full": {
+      "name": "cli_full",
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "cd UTCP_ARG_dir_UTCP_END",
+          "append_to_final_output": false
+        },
+        {
+          "command": "git status --short",
+          "append_to_final_output": true
+        },
+        {
+          "command": "echo done"
+        }
+      ],
+      "env_vars": {
+        "GIT_PAGER": "cat"
+      },
+      "inherit_env_vars": [
+        "PATH",
+        "HOME"
+      ],
+      "working_dir": "/tmp",
+      "allowed_communication_protocols": [
+        "cli"
+      ]
+    },
+    "cli/no_inherit": {
+      "name": "cli_noinherit",
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "env"
+        }
+      ],
+      "inherit_env_vars": []
+    },
+    "mcp/stdio": {
+      "name": "mcp_stdio",
+      "call_template_type": "mcp",
+      "config": {
+        "mcpServers": {
+          "fs": {
+            "transport": "stdio",
+            "command": "node",
+            "args": [
+              "server.js",
+              "--root",
+              "/data"
+            ],
+            "env": {
+              "NODE_ENV": "production"
+            },
+            "cwd": "/srv",
+            "timeout": 45
+          }
+        }
+      },
+      "register_resources_as_tools": true
+    },
+    "mcp/http": {
+      "name": "mcp_http",
+      "call_template_type": "mcp",
+      "config": {
+        "mcpServers": {
+          "remote": {
+            "transport": "http",
+            "url": "https://mcp.example.com/mcp",
+            "headers": {
+              "X-Tenant": "t1"
+            },
+            "timeout": 20
+          }
+        }
+      },
+      "auth": {
+        "auth_type": "oauth2",
+        "token_url": "https://auth.example.com/token",
+        "client_id": "${CID}",
+        "client_secret": "${CSECRET}",
+        "scope": "tools"
+      }
+    },
+    "mcp/sse": {
+      "name": "mcp_sse",
+      "call_template_type": "mcp",
+      "config": {
+        "mcpServers": {
+          "legacy": {
+            "transport": "sse",
+            "url": "https://mcp.example.com/sse"
+          }
+        }
+      }
+    },
+    "tcp/minimal": {
+      "name": "tcp_min",
+      "call_template_type": "tcp",
+      "host": "tools.example.com",
+      "port": 9000
+    },
+    "tcp/length_prefix": {
+      "name": "tcp_lp",
+      "call_template_type": "tcp",
+      "host": "tools.example.com",
+      "port": 9001,
+      "request_data_format": "text",
+      "request_data_template": "GET UTCP_ARG_key_UTCP_END",
+      "response_byte_format": "latin-1",
+      "framing_strategy": "length_prefix",
+      "length_prefix_bytes": 2,
+      "length_prefix_endian": "little",
+      "max_response_size": 1024,
+      "timeout": 5000
+    },
+    "tcp/delimiter": {
+      "name": "tcp_delim",
+      "call_template_type": "tcp",
+      "host": "tools.example.com",
+      "port": 9002,
+      "framing_strategy": "delimiter",
+      "message_delimiter": "\\r\\n",
+      "interpret_escape_sequences": true
+    },
+    "tcp/fixed_length": {
+      "name": "tcp_fixed",
+      "call_template_type": "tcp",
+      "host": "tools.example.com",
+      "port": 9003,
+      "framing_strategy": "fixed_length",
+      "fixed_message_length": 128,
+      "response_byte_format": null
+    },
+    "udp/minimal": {
+      "name": "udp_min",
+      "call_template_type": "udp",
+      "host": "tools.example.com",
+      "port": 5300
+    },
+    "udp/full": {
+      "name": "udp_full",
+      "call_template_type": "udp",
+      "host": "tools.example.com",
+      "port": 5301,
+      "number_of_response_datagrams": 3,
+      "request_data_format": "text",
+      "request_data_template": "Q UTCP_ARG_q_UTCP_END",
+      "response_byte_format": "utf-16",
+      "timeout": 2000
+    },
+    "websocket/minimal": {
+      "name": "ws_min",
+      "call_template_type": "websocket",
+      "url": "wss://ws.example.com/tools"
+    },
+    "websocket/full": {
+      "name": "ws_full",
+      "call_template_type": "websocket",
+      "url": "wss://ws.example.com/tools/{room}",
+      "message": {
+        "op": "call",
+        "tool": "UTCP_ARG_tool_UTCP_END"
+      },
+      "protocol": "utcp.v1",
+      "keep_alive": false,
+      "response_format": "json",
+      "timeout": 10,
+      "auth": {
+        "auth_type": "api_key",
+        "api_key": "${WS_KEY}",
+        "var_name": "X-Key"
+      },
+      "headers": {
+        "X-Client": "utcp"
+      },
+      "header_fields": [
+        "X-Room"
+      ]
+    },
+    "websocket/text_message": {
+      "name": "ws_text",
+      "call_template_type": "websocket",
+      "url": "wss://ws.example.com/echo",
+      "message": "ping UTCP_ARG_x_UTCP_END",
+      "response_format": "text"
+    },
+    "http/cookie_key": {
+      "name": "http_cookie",
+      "call_template_type": "http",
+      "http_method": "POST",
+      "url": "https://api.example.com/{url}",
+      "auth": {
+        "auth_type": "api_key",
+        "api_key": "${SESSION}",
+        "var_name": "session",
+        "location": "cookie"
+      },
+      "body_field": "body",
+      "headers": {},
+      "header_fields": []
+    },
+    "http/oauth2_user_code": {
+      "name": "http_oauth2_code",
+      "call_template_type": "http",
+      "url": "https://api.example.com/me",
+      "auth": {
+        "auth_type": "oauth2_user",
+        "access_token": "${TOKEN}",
+        "grant_type": "authorization_code",
+        "authorization_endpoint": "https://auth.example.com/authorize",
+        "token_endpoint": "https://auth.example.com/token",
+        "client_id": "public-client"
+      }
+    },
+    "text/oauth2_auth_tools": {
+      "name": "text_oauth",
+      "call_template_type": "text",
+      "content": "{}",
+      "auth_tools": {
+        "auth_type": "oauth2",
+        "token_url": "https://auth.example.com/token",
+        "client_id": "id",
+        "client_secret": "secret"
+      }
+    },
+    "cli/null_append": {
+      "name": "cli_nullappend",
+      "call_template_type": "cli",
+      "commands": [
+        {
+          "command": "a",
+          "append_to_final_output": null
+        },
+        {
+          "command": "b"
+        }
+      ],
+      "env_vars": null,
+      "working_dir": null
+    },
+    "websocket/allowed": {
+      "name": "ws_allowed",
+      "call_template_type": "websocket",
+      "url": "wss://ws.example.com/x",
+      "allowed_communication_protocols": [
+        "websocket",
+        "http"
+      ],
+      "timeout": 5
+    },
+    "streamable_http/zero_timeout": {
+      "name": "stream_zero",
+      "call_template_type": "streamable_http",
+      "url": "https://api.example.com/s",
+      "timeout": 0,
+      "body_field": null
+    },
+    "mcp/stdio_no_transport": {
+      "name": "mcp_bare",
+      "call_template_type": "mcp",
+      "config": {
+        "mcpServers": {
+          "bare": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-time"
+            ]
+          }
+        }
+      }
+    },
+    "websocket/zero_timeout": {
+      "name": "ws_zero",
+      "call_template_type": "websocket",
+      "url": "wss://ws.example.com/x",
+      "timeout": 0
+    }
+  },
+  "manuals": {
+    "manual/http_tools": {
+      "utcp_version": "1.1.0",
+      "manual_version": "2.3.0",
+      "tools": [
+        {
+          "name": "get_user",
+          "description": "Fetch a user by id.",
+          "inputs": {
+            "type": "object",
+            "properties": {
+              "user_id": {
+                "type": "string",
+                "description": "The id."
+              },
+              "verbose": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "required": [
+              "user_id"
+            ]
+          },
+          "outputs": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "tags": [
+            "users",
+            "read"
+          ],
+          "average_response_size": 512,
+          "tool_call_template": {
+            "name": "users_api",
+            "call_template_type": "http",
+            "url": "https://api.example.com/users/{user_id}",
+            "auth": {
+              "auth_type": "api_key",
+              "api_key": "${KEY}"
+            }
+          }
+        },
+        {
+          "name": "search",
+          "description": "",
+          "inputs": {
+            "type": "object",
+            "properties": {
+              "q": {
+                "type": "string",
+                "enum": [
+                  "a",
+                  "b"
+                ]
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50
+              }
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "tool_call_template": {
+            "name": "search_api",
+            "call_template_type": "sse",
+            "url": "https://api.example.com/search"
+          }
+        }
+      ]
+    },
+    "manual/empty": {
+      "utcp_version": "1.1.0",
+      "manual_version": "1.0.0",
+      "tools": []
+    },
+    "manual/minimal_tool": {
+      "utcp_version": "1.0.1",
+      "tools": [
+        {
+          "name": "ping",
+          "tool_call_template": {
+            "call_template_type": "cli",
+            "commands": [
+              {
+                "command": "echo pong"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "configs": {
+    "config/empty": {},
+    "config/full": {
+      "variables": {
+        "API_KEY": "secret-placeholder",
+        "BASE": "https://api.example.com"
+      },
+      "load_variables_from": [
+        {
+          "variable_loader_type": "dotenv",
+          "env_file_path": ".env"
+        }
+      ],
+      "tool_repository": {
+        "tool_repository_type": "in_memory"
+      },
+      "tool_search_strategy": {
+        "tool_search_strategy_type": "tag_and_description_word_match",
+        "description_weight": 2,
+        "tag_weight": 4
+      },
+      "post_processing": [
+        {
+          "tool_post_processor_type": "filter_dict",
+          "exclude_keys": [
+            "password"
+          ],
+          "only_include_tools": [
+            "get_user"
+          ],
+          "exclude_manuals": [
+            "internal"
+          ]
+        },
+        {
+          "tool_post_processor_type": "limit_strings",
+          "limit": 2000,
+          "exclude_tools": [
+            "dump"
+          ]
+        }
+      ],
+      "manual_call_templates": [
+        {
+          "name": "users_api",
+          "call_template_type": "http",
+          "url": "https://api.example.com/utcp"
+        },
+        {
+          "name": "inline",
+          "call_template_type": "text",
+          "content": "{\"utcp_version\": \"1.1.0\", \"tools\": []}"
+        }
+      ]
+    },
+    "config/weights": {
+      "variables": {},
+      "tool_search_strategy": {
+        "tool_search_strategy_type": "tag_and_description_word_match",
+        "description_weight": 0.5,
+        "tag_weight": 2.5
+      },
+      "post_processing": [
+        {
+          "tool_post_processor_type": "limit_strings",
+          "limit": 10,
+          "only_include_manuals": [
+            "m"
+          ],
+          "exclude_tools": []
+        },
+        {
+          "tool_post_processor_type": "filter_dict",
+          "only_include_keys": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "load_variables_from": []
+    }
+  }
+}
