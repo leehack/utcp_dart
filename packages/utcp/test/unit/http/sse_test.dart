@@ -707,6 +707,7 @@ void main() {
 
     test('malformed fields are rejected', () {
       expect(() => template({'retry_timeout': -1}), throwsFormatException);
+      expect(() => template({'retry_timeout': 1e306}), throwsFormatException);
       expect(() => template({'reconnect': 'yes'}), throwsFormatException);
       expect(() => template({'url': null}), throwsFormatException);
     });

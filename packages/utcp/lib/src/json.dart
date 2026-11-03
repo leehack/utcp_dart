@@ -233,6 +233,9 @@ String _typeName(Object? value) => switch (value) {
   _ => 'unsupported value',
 };
 
+/// Below the largest `Duration` in microseconds (2^63 - 1).
+const _maxMicroseconds = 9.2e18;
+
 /// Typed, path-aware field access for decoded JSON objects.
 ///
 /// Every reader throws a [FormatException] naming the field when the value
@@ -272,12 +275,15 @@ extension JsonReader on JsonMap {
   Duration? optMilliseconds(String key) {
     final value = optNum(key);
     if (value == null) return null;
-    if (value < 0 || !value.isFinite) {
+    // In doubles, so a large integer cannot wrap to a negative duration.
+    final microseconds = value.toDouble() * 1000;
+    if (value < 0 || !(microseconds < _maxMicroseconds)) {
       throw FormatException(
-        "Field '$key' must be a non-negative number, got $value.",
+        "Field '$key' must be a non-negative number of milliseconds below "
+        '9.2e15, got $value.',
       );
     }
-    return Duration(microseconds: (value * 1000).round());
+    return Duration(microseconds: microseconds.round());
   }
 
   JsonMap object(String key) =>

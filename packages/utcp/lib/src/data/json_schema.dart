@@ -11,13 +11,11 @@ extension type const JsonSchema._(JsonMap json) implements JsonMap {
   /// Reads a schema from a UTCP document, dropping keywords whose value is
   /// null, here and in every nested schema. The Python SDK writes every
   /// keyword it models, unset ones as null (`"type": null`), which is not
-  /// valid JSON Schema and which the TypeScript SDK rejects. `const` and
-  /// `default` keep a null value, which is meaningful for them.
+  /// valid JSON Schema and which the TypeScript SDK rejects. That includes
+  /// `const` and `default`, which Python writes as null on every schema.
   factory JsonSchema.fromJson(JsonMap json) => JsonSchema(_withoutNulls(json));
 
   static const empty = JsonSchema({});
-
-  static const _nullableKeywords = {'const', 'default'};
 
   static const _schemaMaps = {
     'properties',
@@ -40,24 +38,36 @@ extension type const JsonSchema._(JsonMap json) implements JsonMap {
     'propertyNames',
   };
 
-  static JsonMap _withoutNulls(JsonMap schema) => {
-    for (final MapEntry(:key, :value) in schema.entries)
-      if (value != null || _nullableKeywords.contains(key))
-        key: switch (value) {
+  // Iterative, so a schema nested deeper than the call stack still parses.
+  static JsonMap _withoutNulls(JsonMap root) {
+    final result = <String, Object?>{};
+    final pending = [(root, result)];
+    JsonMap copy(JsonMap schema) {
+      final target = <String, Object?>{};
+      pending.add((schema, target));
+      return target;
+    }
+
+    Object? child(Object? value) => value is JsonMap ? copy(value) : value;
+
+    while (pending.isNotEmpty) {
+      final (schema, target) = pending.removeLast();
+      for (final MapEntry(:key, :value) in schema.entries) {
+        if (value == null) continue;
+        target[key] = switch (value) {
           final JsonMap map when _schemaMaps.contains(key) => {
-            for (final MapEntry(:key, :value) in map.entries)
-              key: value is JsonMap ? _withoutNulls(value) : value,
+            for (final MapEntry(:key, :value) in map.entries) key: child(value),
           },
           final List<Object?> list
               when _schemaLists.contains(key) || key == 'items' =>
-            [
-              for (final item in list)
-                item is JsonMap ? _withoutNulls(item) : item,
-            ],
-          final JsonMap map when _schemas.contains(key) => _withoutNulls(map),
+            [for (final item in list) child(item)],
+          final JsonMap map when _schemas.contains(key) => copy(map),
           _ => value,
-        },
-  };
+        };
+      }
+    }
+    return result;
+  }
 
   String? get title => json.optString('title');
 

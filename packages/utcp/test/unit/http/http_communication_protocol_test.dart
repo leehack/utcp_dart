@@ -210,7 +210,7 @@ void main() {
   });
 
   group('tool calls', () {
-    test('a GET supplied its body field fails before any request', () async {
+    test('a GET sends a supplied body, as the reference SDKs do', () async {
       final sent = <http.Request>[];
       final protocol = HttpCommunicationProtocol(
         transport: HttpTransport(
@@ -226,23 +226,17 @@ void main() {
       );
       addTearDown(caller.close);
       const template = HttpCallTemplate(url: 'https://api.example.com/x');
-      await expectLater(
-        protocol.callTool(caller, 'm.x', {
-          'body': {'k': 1},
-        }, template),
-        throwsA(
-          isA<UtcpException>().having(
-            (e) => e.message,
-            'message',
-            contains("body_field 'body' was supplied but http_method is GET"),
-          ),
-        ),
-      );
-      expect(sent, isEmpty);
-      expect(await protocol.callTool(caller, 'm.x', {'q': 1}, template), {
-        'ok': true,
-      });
-      expect(sent.single.url.query, 'q=1');
+      await protocol.callTool(caller, 'm.x', {
+        'q': 1,
+        'body': {'k': 1},
+      }, template);
+      await protocol.callTool(caller, 'm.x', {'body': null}, template);
+      expect(sent.map((r) => (r.method, r.url.query, r.body)), [
+        ('GET', 'q=1', '{"k":1}'),
+        ('GET', '', ''),
+      ]);
+      expect(sent.first.headers['Content-Type'], 'application/json');
+      expect(sent.last.headers.containsKey('Content-Type'), isFalse);
     });
   });
 }
