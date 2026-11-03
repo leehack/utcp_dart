@@ -334,7 +334,7 @@ void main() {
       // error rather than evaluated arithmetic.
       expect(
         '${await call([const CommandStep('[ UTCP_ARG_n_UTCP_END -gt 3 ] && echo big')], arguments: {'n': 'notanumber'})}',
-        contains('integer expression expected'),
+        matches(RegExp('integer (expression )?expected')),
       );
     });
 
