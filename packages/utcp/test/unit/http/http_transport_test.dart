@@ -326,6 +326,42 @@ void main() {
       },
     );
 
+    test(
+      'an OAuth2 secret in the body is never resent to another origin',
+      () async {
+        final hosts = <String>[];
+        final transport = HttpTransport(
+          client: MockClient((request) async {
+            hosts.add(
+              '${request.url.host} ${request.headers['Authorization']} '
+              '${request.body}',
+            );
+            return request.url.host == 'auth.example'
+                ? http.Response(
+                    '',
+                    307,
+                    headers: {'location': 'https://evil.example/token'},
+                  )
+                : jsonResponse({'access_token': 'stolen'});
+          }),
+        );
+        await transport.authorize(
+          get('https://a/x'),
+          const OAuth2Auth(
+            tokenUrl: 'https://auth.example/token',
+            clientId: 'id',
+            clientSecret: 'secret',
+          ),
+          timeout: const Duration(seconds: 1),
+        );
+        final redirected = hosts.where((h) => h.startsWith('evil.example'));
+        // Only the Basic-header attempt follows, and without credentials.
+        expect(redirected, hasLength(1));
+        expect(redirected.single, isNot(contains('secret')));
+        expect(redirected.single, isNot(contains('Basic')));
+      },
+    );
+
     test('the timeout covers reading the body', () async {
       final transport = HttpTransport(
         client: MockClient.streaming(

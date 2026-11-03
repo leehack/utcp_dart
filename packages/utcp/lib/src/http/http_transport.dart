@@ -20,6 +20,10 @@ final class HttpRequestSpec {
   Uri uri;
   final Map<String, String> headers;
   String? body;
+
+  /// Whether [body] carries credentials (for example an OAuth2 client
+  /// secret). A redirect that would resend it to another origin is refused.
+  bool sensitiveBody = false;
   final Set<String> _sensitive = {};
 
   String? header(String name) => headers[_headerKey(name)];
@@ -496,7 +500,9 @@ final class HttpTransport {
           if (credentialsInBody) 'client_secret': auth.clientSecret,
           'scope': auth.scope ?? '',
         });
-      request.body = form.uri.query;
+      request
+        ..body = form.uri.query
+        ..sensitiveBody = credentialsInBody;
       if (!credentialsInBody) {
         request.setHeader(
           'Authorization',
@@ -629,6 +635,12 @@ final class HttpTransport {
         method = HttpMethod.get;
         body = null;
         headers.removeWhere((name, _) => name.toLowerCase() == 'content-type');
+      }
+      if (body != null && request.sensitiveBody && next.origin != uri.origin) {
+        throw UtcpSecurityException(
+          'Security error during $context: refusing to resend a request body '
+          'that carries credentials to "${next.origin}".',
+        );
       }
       uri = next;
     }

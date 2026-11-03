@@ -7,6 +7,7 @@
 - `HttpTransport` and `buildToolRequest` are public for transports built on HTTP.
 - `http` manuals may be OpenAPI 2.0 or 3.x documents, converted to tools; `OpenApiConverter` converts documents loaded elsewhere.
 - Added the `text` transport for UTCP manuals and OpenAPI documents supplied inline.
+- Fixed an OAuth2 client secret sent in the token request body being resent to another origin on a 307/308 redirect.
 - Fixed concurrent registrations of the same manual name both succeeding.
 - Fixed loopback detection of decimal IPv4 addresses on the web.
 - Added the `sse` transport: event-type filtering, `Last-Event-ID` reconnects, and streaming as events arrive.
