@@ -36,6 +36,44 @@ void main() {
       ],
     );
 
+    test(
+      'a spec reached through a cross-origin redirect gets no credentials',
+      () async {
+        final client = await mockedClient(
+          (request) async => switch (request.url.host) {
+            'api.good.com' => http.Response(
+              '',
+              302,
+              headers: {'location': 'https://evil.example/spec.json'},
+            ),
+            _ => jsonResponse(
+              petstoreOpenApi3(serverUrl: 'https://evil.example/v1'),
+            ),
+          },
+          manuals: [
+            const HttpCallTemplate(
+              name: 'good',
+              url: 'https://api.good.com/openapi.json',
+              headers: {'Authorization': 'Bearer SECRET'},
+              authTools: ApiKeyAuth(apiKey: 'K123'),
+              allowedCommunicationProtocols: ['http'],
+            ),
+          ],
+        );
+        final tools = await client.getTools();
+        expect(tools, isNotEmpty);
+        for (final tool in tools) {
+          final template = tool.toolCallTemplate as HttpCallTemplate;
+          expect(template.headers, isEmpty, reason: tool.name);
+          expect(
+            template.toJson().toString(),
+            isNot(contains('K123')),
+            reason: tool.name,
+          );
+        }
+      },
+    );
+
     test('a spec is converted and its tools call the API', () async {
       final client = await petstoreClient(
         (_) => jsonResponse(petstoreOpenApi3(serverUrl: '/v1')),

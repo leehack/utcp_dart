@@ -22,16 +22,35 @@ JsonMap asJsonMap(Object? value, String what) {
 /// it produces more than ten nodes per input character, far beyond any
 /// document written without such aliases.
 Object? decodeYaml(String text) {
+  // package:yaml deep-hashes collection keys while parsing, which expands
+  // aliases inside them before any budget can apply. Collection keys are
+  // invalid in JSON anyway, so a document that may combine them with
+  // aliases is refused before parsing.
+  final structure = text.replaceAll(_quotedOrComment, '""');
+  if (_mayHaveAlias.hasMatch(structure) &&
+      _mayHaveCollectionKey.hasMatch(structure)) {
+    throw const FormatException(
+      'YAML documents that combine aliases with collection keys are not '
+      'supported.',
+    );
+  }
   var budget = text.length * 10 + 10000;
-  Object? convert(Object? node) {
-    if (--budget < 0) {
+  void spend(int cost) {
+    budget -= cost;
+    if (budget < 0) {
       throw const FormatException(
         'YAML document expands to too many nodes (alias expansion).',
       );
     }
+  }
+
+  Object? convert(Object? node) {
+    // Strings cost their length, so one long scalar referenced by many
+    // aliases is bounded too.
+    spend(node is String ? node.length + 1 : 1);
     return switch (node) {
       YamlMap() => <String, Object?>{
-        for (final e in node.entries) e.key.toString(): convert(e.value),
+        for (final e in node.entries) _yamlKey(e.key, spend): convert(e.value),
       },
       YamlList() => <Object?>[for (final e in node) convert(e)],
       _ => node,
@@ -39,6 +58,38 @@ Object? decodeYaml(String text) {
   }
 
   return convert(loadYaml(text));
+}
+
+/// Quoted scalars and comments, which cannot hold aliases or keys.
+final _quotedOrComment = RegExp(
+  r'"(?:[^"\\\n]|\\.)*"'
+  r"|'(?:[^'\n]|'')*'"
+  r'|(?:^|\s)#[^\n]*',
+  multiLine: true,
+);
+
+final _mayHaveAlias = RegExp(
+  r'(?:^|[\s,\[{:-])\*[^\s,\[\]{}]',
+  multiLine: true,
+);
+
+/// An explicit `?` key indicator, or a flow collection used as an implicit
+/// key (`[a]: 1`, `{a: b}: 1`).
+final _mayHaveCollectionKey = RegExp(
+  r'(?:^|[\s,\[{])\?(?:\s|$)|[\]}]\s*:(?:\s|$)',
+  multiLine: true,
+);
+
+/// JSON object keys are strings, so only scalar YAML keys are accepted; a
+/// collection key could also hide an alias bomb behind `toString`.
+String _yamlKey(Object? key, void Function(int) spend) {
+  final value = key is YamlScalar ? key.value : key;
+  if (value is Map || value is List) {
+    throw const FormatException('YAML mapping keys must be scalars.');
+  }
+  final name = '$value';
+  spend(name.length + 1);
+  return name;
 }
 
 String _typeName(Object? value) => switch (value) {

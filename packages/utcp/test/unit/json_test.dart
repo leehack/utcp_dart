@@ -74,6 +74,43 @@ void main() {
       }
       expect(() => decodeYaml('$bomb'), throwsFormatException);
     });
+
+    test('rejects collection keys, which could hide an alias bomb', () {
+      final levels = StringBuffer('? [&a [x, x, x, x, x, x, x, x, x, x]');
+      for (var i = 1; i < 8; i++) {
+        final prev = String.fromCharCode(96 + i);
+        final next = String.fromCharCode(97 + i);
+        levels.write(', &$next [${List.filled(10, '*$prev').join(', ')}]');
+      }
+      expect(() => decodeYaml('$levels]\n: 1'), throwsFormatException);
+    });
+
+    test('bounds a long scalar referenced by many aliases', () {
+      final doc = StringBuffer('s: &s ${'x' * 100000}\nl:\n');
+      for (var i = 0; i < 2000; i++) {
+        doc.writeln('  - *s');
+      }
+      expect(() => decodeYaml('$doc'), throwsFormatException);
+    });
+
+    test('keeps aliases and bracketed text that are not collection keys', () {
+      expect(
+        decodeYaml('base: &b {x: 1}\nuse: *b\ndescription: "see [docs]: here"'),
+        {
+          'base': {'x': 1},
+          'use': {'x': 1},
+          'description': 'see [docs]: here',
+        },
+      );
+    });
+
+    test('accepts large documents without aliases', () {
+      final doc = StringBuffer();
+      for (var i = 0; i < 5000; i++) {
+        doc.writeln('k$i: {name: value$i, list: [1, 2, 3]}');
+      }
+      expect(decodeYaml('$doc'), hasLength(5000));
+    });
   });
 
   group('JsonSchema', () {

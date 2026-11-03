@@ -10,8 +10,8 @@
 - Added `substituteArgumentPlaceholders` and `utcpDiscoveryMessage` for transports that send `UTCP_ARG_<name>_UTCP_ARG` templates.
 - Redirects to another origin drop every credential-like header, static template headers included, and a request body is never resent to another origin.
 - The remote-loopback rule covers every transport through `CallTemplate.endpoints`.
-- YAML alias expansion is bounded (`decodeYaml`), so a small hostile document cannot exhaust memory.
-- OpenAPI-generated tools send the manual's static headers only to the spec's own origin.
+- YAML alias expansion is bounded (`decodeYaml`), so a small hostile document cannot exhaust memory or CPU; collection keys are rejected.
+- OpenAPI-generated tools send the manual's static headers only to the spec's own origin, and a spec reached through a cross-origin redirect gets neither those headers nor `auth_tools`.
 - Fixed concurrent registrations of the same manual name both succeeding.
 - Fixed loopback detection of decimal IPv4 addresses on the web.
 - Added the `sse` transport: event-type filtering, `Last-Event-ID` reconnects, and streaming as events arrive.

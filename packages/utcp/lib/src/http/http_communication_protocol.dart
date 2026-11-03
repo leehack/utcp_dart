@@ -90,12 +90,16 @@ class HttpCommunicationProtocol extends CommunicationProtocol {
     if (UtcpManual.isManual(document)) {
       manual = UtcpManual.fromJson(document);
     } else if (OpenApiConverter.isOpenApi(document)) {
+      // A spec served from another origin than the configured URL (after a
+      // redirect) could name its own servers; the manual's credentials were
+      // meant for the configured origin, so they are not given to its tools.
+      final sameOrigin = _sameOrigin(source, Uri.parse(template.url));
       manual = OpenApiConverter(
         document,
         specUrl: source,
         callTemplateName: template.name,
-        authTools: template.authTools,
-        headers: template.headers,
+        authTools: sameOrigin ? template.authTools : null,
+        headers: sameOrigin ? template.headers : const {},
       ).convert();
     } else {
       throw const FormatException(
@@ -129,4 +133,7 @@ class HttpCommunicationProtocol extends CommunicationProtocol {
   Future<void> close() async {
     if (_ownsTransport) _transport.close();
   }
+
+  static bool _sameOrigin(Uri a, Uri b) =>
+      a.scheme == b.scheme && a.host == b.host && a.port == b.port;
 }
