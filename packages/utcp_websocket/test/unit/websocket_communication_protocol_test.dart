@@ -176,6 +176,147 @@ void main() {
       expect(sockets.open, 1);
     });
 
+    test('with two frames per request, each call gets its own', () async {
+      withSockets(
+        FakeSockets((server, text) {
+          final name = (jsonDecode(text) as Map<String, Object?>)['q'];
+          if (name.toString().startsWith('stream')) {
+            for (var i = 0; i < 2; i++) {
+              server.sendText(
+                jsonEncode({'type': 'tool_response', 'result': '$name-$i'}),
+              );
+            }
+            server
+              ..sendText(jsonEncode({'type': 'stream_end'}))
+              ..sendText('after-$name');
+          } else {
+            server
+              ..sendText('$name-0')
+              ..sendText('$name-1');
+          }
+        }),
+      );
+      const template = WebSocketCallTemplate(url: 'wss://tools.example.com/ws');
+      Future<Object?> call(String q) =>
+          fake.callTool(client, 't', {'q': q}, template);
+      Future<List<Object?>> stream(String q) =>
+          fake.callToolStreaming(client, 't', {'q': q}, template).toList();
+
+      expect(await call('one'), 'one-0');
+      await pumpEventQueue();
+      expect(await call('two'), 'two-0');
+      await pumpEventQueue();
+      expect(await stream('stream1'), ['stream1-0', 'stream1-1']);
+      await pumpEventQueue();
+      expect(await stream('stream2'), ['stream2-0', 'stream2-1']);
+      await pumpEventQueue();
+      expect(await call('three'), 'three-0');
+      expect(sockets.handshakes, hasLength(1));
+    });
+
+    test(
+      'a frame that arrives after the next call was sent answers it',
+      () async {
+        // The limit of frames without correlation ids: this server sends its
+        // second frame for a request only once the next request arrives.
+        String? pending;
+        withSockets(
+          FakeSockets((server, text) {
+            final late = pending;
+            if (late != null) server.sendText(late);
+            server.sendText('answer:$text');
+            pending = 'late:$text';
+          }),
+        );
+        const template = WebSocketCallTemplate(
+          url: 'wss://tools.example.com/ws',
+          message: 'UTCP_ARG_q_UTCP_ARG',
+        );
+        expect(
+          await fake.callTool(client, 't', {'q': 1}, template),
+          'answer:1',
+        );
+        expect(await fake.callTool(client, 't', {'q': 2}, template), 'late:1');
+      },
+    );
+
+    test('a call waiting for a busy connection times out', () async {
+      withSockets(
+        FakeSockets(
+          (server, _) => server.sendText(
+            jsonEncode({'type': 'tool_response', 'result': 1}),
+          ),
+        ),
+      );
+      const url = 'wss://tools.example.com/ws';
+      final holder = StreamIterator(
+        fake.callToolStreaming(
+          client,
+          't',
+          const {},
+          const WebSocketCallTemplate(url: url),
+        ),
+      );
+      expect(await holder.moveNext(), isTrue);
+      await expectLater(
+        fake.callTool(
+          client,
+          't',
+          const {},
+          const WebSocketCallTemplate(url: url, timeout: Duration(seconds: 1)),
+        ),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains('Waiting for the WebSocket connection'),
+          ),
+        ),
+      );
+      await holder.cancel();
+    });
+
+    test('deregistering aborts a connection in progress', () async {
+      final gate = Completer<void>();
+      var cancelled = false;
+      final inner = FakeSockets(
+        (server, _) =>
+            server.sendText(manualJson('wss://tools.example.com/ws')),
+      );
+      var gated = true;
+      fake = WebSocketCommunicationProtocol(
+        connector: (uri, headers, template, cancel) async {
+          if (gated) {
+            cancel.listen((_) => cancelled = true);
+            await gate.future;
+          }
+          return inner(uri, headers, template, cancel);
+        },
+      );
+      addTearDown(fake.close);
+      const manual = WebSocketCallTemplate(
+        name: 'ws',
+        url: 'wss://tools.example.com/ws',
+      );
+      final registering = fake.registerManual(client, manual);
+      await pumpEventQueue();
+      final deregistering = fake.deregisterManual(client, manual);
+      expect(cancelled, isTrue);
+      // A connector that ignores the cancel is closed once it completes.
+      gate.complete();
+      await deregistering;
+      final result = await registering;
+      expect(result.success, isFalse);
+      expect(result.errors.single, contains('cancelled'));
+      await pumpEventQueue();
+      expect(inner.handshakes, hasLength(1));
+      expect(inner.open, 0);
+
+      gated = false;
+      expect((await fake.registerManual(client, manual)).success, isTrue);
+      expect(inner.open, 1);
+    });
+
     test('header field calls close their connection afterwards', () async {
       withSockets(
         FakeSockets((server, text) {

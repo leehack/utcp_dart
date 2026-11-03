@@ -10,8 +10,9 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 /// Frames carry no correlation id, so only frames that arrive after
 /// [send] belong to the exchange: earlier ones are discarded on [send], and
 /// frames arriving between exchanges are dropped. Reading pauses while
-/// [maxBufferedFrames] frames or [maxBufferedBytes] are waiting, which
-/// bounds the buffer and pushes back on the server.
+/// [maxBufferedFrames] frames or [maxBufferedBytes] are waiting; how far
+/// that pushes back on the server depends on the channel (see
+/// `connect_io.dart`).
 final class WebSocketConnection {
   WebSocketConnection(this.key, this._channel) {
     _subscription = _channel.stream.listen(
@@ -22,6 +23,7 @@ final class WebSocketConnection {
       },
       onDone: () {
         _done = true;
+        _ended.complete();
         _wake();
       },
     );
@@ -41,6 +43,7 @@ final class WebSocketConnection {
   Completer<void>? _waiter;
   Object? _error;
   var _done = false;
+  final _ended = Completer<void>();
   Future<void> _tail = Future.value();
   Future<void>? _closing;
 
@@ -53,12 +56,19 @@ final class WebSocketConnection {
   bool get isPaused => _paused;
 
   /// Waits for earlier holders, then returns the function that releases
-  /// the connection to the next one.
-  Future<void Function()> acquire() async {
+  /// the connection to the next one. Throws a [TimeoutException] when the
+  /// earlier holders keep it longer than [timeout].
+  Future<void Function()> acquire(Duration timeout) async {
     final previous = _tail;
     final released = Completer<void>();
     _tail = released.future;
-    await previous;
+    try {
+      await previous.timeout(timeout);
+    } on TimeoutException {
+      // Later holders queue behind this turn, which ends with the previous.
+      unawaited(previous.then(released.complete));
+      rethrow;
+    }
     return () {
       endExchange();
       released.complete();
@@ -140,9 +150,16 @@ final class WebSocketConnection {
   Future<void> _close() async {
     _done = true;
     _wake();
+    // Reading goes on, unpaused and into nothing, until the server's close
+    // frame arrives: a `dart:io` WebSocket whose stream is cancelled earlier
+    // never sees it, and keeps its socket and ping timer alive until its
+    // own timeouts fire.
+    _exchanging = false;
+    _clear();
+    await Future.wait([
+      _channel.sink.close(status.normalClosure),
+      _ended.future,
+    ]).timeout(const Duration(seconds: 5), onTimeout: () => const []);
     await _subscription.cancel();
-    await _channel.sink
-        .close(status.normalClosure)
-        .timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 }

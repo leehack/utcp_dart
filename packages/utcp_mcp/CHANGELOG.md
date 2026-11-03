@@ -7,3 +7,4 @@
 - A tool call is no longer retried after it may have reached the server; only listing and resource reads are retried on a fresh session.
 - Discovery errors and logs name the server and command but never stdio `args`, `env`, headers or tokens, and carry no stack traces.
 - `McpCallTemplate.endpoints` lists HTTP server URLs, so a remote manual cannot point `mcp` tools at a loopback server.
+- Tool call and resource errors are redacted like discovery errors: refusing a plain HTTP server URL, or an error from the HTTP transport, no longer puts the URL's query or user info in the message, and percent-encoded values are masked too.

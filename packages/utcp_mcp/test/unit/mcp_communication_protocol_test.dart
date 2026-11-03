@@ -303,6 +303,121 @@ void main() {
     });
   });
 
+  group('redaction', () {
+    late List<String> records;
+
+    setUp(() {
+      records = [];
+      final logs = Logger.root.onRecord.listen((r) => records.add(r.message));
+      addTearDown(logs.cancel);
+    });
+
+    McpCallTemplate httpManual(String url) => McpCallTemplate(
+      name: 'm',
+      config: McpConfig(
+        mcpServers: {
+          'srv': McpHttpServer(
+            url: url,
+            headers: const {'X-Api-Key': 'SECRET-HEADER'},
+            authToken: 'SECRET-TOKEN',
+          ),
+        },
+      ),
+    );
+
+    test('masks HTTP headers, token, user info and query values', () async {
+      const url =
+          'https://SECRET%2fUSER:SECRET-PASS@mcp.example.com/mcp'
+          '?token=SECRET-QUERY&sig=SECRET%2fENCODED';
+      // Every form a message may quote a configured value in: the URL as
+      // written and as Uri normalizes it (`%2F`), another URL built from
+      // it, and the values decoded.
+      final leaked = [
+        'X-Api-Key: SECRET-HEADER',
+        'Bearer SECRET-TOKEN',
+        url,
+        '${Uri.parse(url)}',
+        '${Uri.parse(url).replace(path: '/other')}',
+        'SECRET/USER',
+        'SECRET/ENCODED',
+      ];
+      final failing = McpCommunicationProtocol(
+        transportFactory: (name, server, auth) =>
+            _FailingTransport('refused: ${leaked.join(' ')}'),
+      );
+      addTearDown(failing.close);
+      final result = await failing.registerManual(caller, httpManual(url));
+      expect(result.success, isFalse);
+      expect(result.errors.single, contains('mcp.example.com/mcp'));
+      for (final text in [...result.errors, ...records]) {
+        expect(text, isNot(contains('SECRET')));
+      }
+    });
+
+    test('a refused plain HTTP URL is reported without its query', () async {
+      final insecure = McpCommunicationProtocol();
+      addTearDown(insecure.close);
+      await expectLater(
+        insecure.callTool(
+          caller,
+          'm.srv.echo',
+          const {},
+          // The error quotes the URL as written, with its lowercase escape.
+          httpManual('http://mcp.example.com/mcp?k=SECRET%2b1&t=SECRET-2'),
+        ),
+        throwsA(
+          isA<UtcpSecurityException>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('mcp.example.com/mcp'), isNot(contains('SECRET'))),
+          ),
+        ),
+      );
+    });
+
+    const stdioManual = McpCallTemplate(
+      name: 'manual',
+      config: McpConfig(
+        mcpServers: {
+          'alpha': McpStdioServer(
+            command: 'alpha',
+            args: ['--key', 'SECRET-ARG'],
+          ),
+        },
+      ),
+      registerResourcesAsTools: true,
+    );
+
+    test('masks errors the transport raises during a call', () async {
+      servers.failSending['tools/call'] = const UtcpSecurityException(
+        'refused https://mcp.example.com/?key=SECRET-ARG',
+      );
+      await expectLater(
+        protocol.callTool(caller, 'manual.alpha.echo', {
+          'message': 'x',
+        }, stdioManual),
+        throwsA(
+          isA<UtcpSecurityException>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('refused'), isNot(contains('SECRET'))),
+          ),
+        ),
+      );
+    });
+
+    test('logs a failed resource listing without secrets', () async {
+      servers.failSending['resources/list'] = const UtcpException(
+        'refused https://mcp.example.com/?key=SECRET-ARG',
+      );
+      final result = await protocol.registerManual(caller, stdioManual);
+      expect(result.success, isTrue, reason: '${result.errors}');
+      final logged = records.where((r) => r.contains('resources'));
+      expect(logged, isNotEmpty);
+      expect(logged, everyElement(isNot(contains('SECRET'))));
+    });
+  });
+
   group('lifecycle', () {
     test('deregistering the last manual closes its sessions', () async {
       final first = inMemoryManual(['alpha'], name: 'first');

@@ -88,8 +88,9 @@ class WebSocketCallTemplate extends CallTemplate {
   /// When null, text responses are returned as received.
   final WebSocketResponseFormat? responseFormat;
 
-  /// Limit for connecting, for a response, and for a whole streamed call;
-  /// serialized as whole seconds.
+  /// Limit for connecting, for waiting while other calls use the pooled
+  /// connection, for a response, and for a whole streamed call; serialized
+  /// as whole seconds.
   final Duration timeout;
 
   /// Static handshake headers. Browsers cannot send handshake headers, so

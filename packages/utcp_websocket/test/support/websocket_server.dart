@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+
 /// A loopback WebSocket server. Each upgraded connection is handed to
 /// [onConnect] with the frames it receives; [onRequest] may answer a request
 /// itself instead of upgrading it.
@@ -67,6 +69,45 @@ class WebSocketTestServer {
     await _server.close(force: true);
     await closed.close();
   }
+}
+
+/// Answers [request] with a WebSocket upgrade, selecting [protocol], and
+/// returns the raw socket, for servers that write frames by hand.
+Future<Socket> upgradeByHand(HttpRequest request, {String? protocol}) {
+  final key = request.headers.value('Sec-WebSocket-Key')!;
+  final accept = base64Encode(
+    sha1
+        .convert(utf8.encode('${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11'))
+        .bytes,
+  );
+  request.response
+    ..statusCode = HttpStatus.switchingProtocols
+    ..headers.set(HttpHeaders.connectionHeader, 'Upgrade')
+    ..headers.set(HttpHeaders.upgradeHeader, 'websocket')
+    ..headers.set('Sec-WebSocket-Accept', accept);
+  if (protocol != null) {
+    request.response.headers.set('Sec-WebSocket-Protocol', protocol);
+  }
+  return request.response.detachSocket();
+}
+
+/// An unmasked server frame: text when [opcode] is 1, a continuation when 0.
+List<int> serverFrame(int opcode, List<int> payload, {bool fin = true}) {
+  final length = payload.length;
+  return [
+    (fin ? 0x80 : 0) | opcode,
+    if (length < 126)
+      length
+    else if (length < 0x10000) ...[
+      126,
+      length >> 8,
+      length & 0xff,
+    ] else ...[
+      127,
+      for (var shift = 56; shift >= 0; shift -= 8) (length >> shift) & 0xff,
+    ],
+    ...payload,
+  ];
 }
 
 const _toolFields = {'name', 'description', 'tags'};

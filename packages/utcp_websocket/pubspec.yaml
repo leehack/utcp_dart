@@ -19,6 +19,7 @@ resolution: workspace
 dependencies:
   crypto: ^3.0.6
   logging: ^1.2.0
+  stream_channel: ^2.1.0
   utcp: ^0.2.0
   web_socket_channel: ^3.0.3
 

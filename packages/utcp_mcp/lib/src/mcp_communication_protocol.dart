@@ -140,9 +140,10 @@ class McpCommunicationProtocol extends CommunicationProtocol {
         ]);
       } on UtcpException catch (e) {
         // Resources are optional; their absence must not fail discovery.
+        // _withSession has already redacted the message.
         _log.warning(
           "Could not list resources of MCP server '$serverName': "
-          '${_redact(e.message, server)}',
+          '${e.message}',
         );
       }
     }
@@ -290,7 +291,8 @@ class McpCommunicationProtocol extends CommunicationProtocol {
   /// Runs [operation] on the session for [server], replacing the session
   /// when its connection fails. A request that was never sent is retried
   /// once on a fresh session; any other failure only for an [idempotent]
-  /// operation, since a tool call may already have run.
+  /// operation, since a tool call may already have run. Every
+  /// [UtcpException] it throws has its message passed through [_redact].
   Future<T> _withSession<T>(
     String serverName,
     McpServerConfig server,
@@ -301,13 +303,20 @@ class McpCommunicationProtocol extends CommunicationProtocol {
     final key = _sessionKey(serverName, server, auth);
     for (var attempt = 1; ; attempt++) {
       final pending = _session(key, serverName, server, auth);
-      final session = await pending;
+      final _Session session;
+      try {
+        session = await pending;
+      } on UtcpException catch (e) {
+        // Such as the URL check, whose message holds the whole URL.
+        throw _redacted(e, server);
+      }
       _Failure failure;
       try {
         return await operation(session.client);
-      } on UtcpException {
+      } on UtcpException catch (e) {
+        // Raised by HttpTransport under McpHttpClient; may name URLs.
         await _evict(key, pending);
-        rethrow;
+        throw _redacted(e, server);
       } on Object catch (e) {
         final classified = _Failure.of(e);
         if (classified == null) rethrow;
@@ -479,8 +488,14 @@ class McpCommunicationProtocol extends CommunicationProtocol {
   /// that may carry a secret (stdio `args` and `env`, HTTP headers, token,
   /// and URL user info and query values) masked. Later lines hold stack
   /// traces and, for a process that failed to start, its command line.
+  ///
+  /// The server URL as written is replaced by its scheme, host, port and
+  /// path, since its escapes may differ from `Uri`'s. Elsewhere its user
+  /// info and query values are masked both decoded and percent-encoded as
+  /// `Uri` writes them, which is how URLs built from it quote them.
   static String _redact(String message, McpServerConfig server) {
-    final uri = server is McpHttpServer ? Uri.tryParse(server.url) : null;
+    final url = server is McpHttpServer ? server.url : null;
+    final uri = url == null ? null : Uri.tryParse(url);
     final secrets =
         [
           ...switch (server) {
@@ -491,17 +506,47 @@ class McpCommunicationProtocol extends CommunicationProtocol {
             ],
           },
           if (uri != null) ...[
-            ...uri.userInfo.split(':'),
+            for (final part in uri.userInfo.split(':')) ...[
+              part,
+              Uri.decodeComponent(part),
+            ],
             ...uri.queryParametersAll.values.expand((v) => v),
+            for (final pair in uri.query.split('&'))
+              if (pair.indexOf('=') case final i when i >= 0)
+                pair.substring(i + 1),
           ],
         ].where((s) => s.length >= _minSecretLength).toList()..sort(
           (a, b) => b.length.compareTo(a.length),
         );
     var text = message.split('\n').first.trimRight();
+    if (url != null && uri != null) {
+      final safe = Uri(
+        scheme: uri.scheme,
+        host: uri.host,
+        port: uri.hasPort ? uri.port : null,
+        path: uri.path,
+      );
+      text = text.replaceAll(url, '$safe');
+    }
     for (final secret in secrets) {
       text = text.replaceAll(secret, '***');
     }
     return text;
+  }
+
+  /// [error] with [_redact] applied to its message, keeping its type.
+  static UtcpException _redacted(UtcpException error, McpServerConfig server) {
+    final message = _redact(error.message, server);
+    if (message == error.message) return error;
+    return switch (error) {
+      UtcpSecurityException() => UtcpSecurityException(message),
+      UtcpHttpException(:final statusCode, :final body) => UtcpHttpException(
+        message,
+        statusCode: statusCode,
+        body: body,
+      ),
+      _ => UtcpException(message),
+    };
   }
 
   static String _message(Object error) => switch (error) {

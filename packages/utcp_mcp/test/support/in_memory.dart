@@ -16,6 +16,10 @@ final class InMemoryServers {
   /// Server names whose connection attempts fail.
   final failing = <String>{};
 
+  /// Errors the client transport throws instead of sending a request, by
+  /// JSON-RPC method.
+  final failSending = <String, Exception>{};
+
   /// How often a `crash` tool has run.
   int crashes = 0;
 
@@ -52,6 +56,7 @@ final class InMemoryServers {
       stream: toClient.stream,
       sink: toServer.sink,
       onClose: () => open--,
+      failSending: failSending,
     );
   }
 
@@ -92,10 +97,20 @@ final class _CountedTransport extends IOStreamTransport {
     required super.stream,
     required super.sink,
     required this.onClose,
+    required this.failSending,
   });
 
   final void Function() onClose;
+  final Map<String, Exception> failSending;
   bool _counted = false;
+
+  @override
+  Future<void> send(JsonRpcMessage message, {int? relatedRequestId}) async {
+    if (message is JsonRpcRequest) {
+      if (failSending[message.method] case final error?) throw error;
+    }
+    return super.send(message, relatedRequestId: relatedRequestId);
+  }
 
   @override
   Future<void> close() {

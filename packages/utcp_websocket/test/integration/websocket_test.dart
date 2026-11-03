@@ -7,9 +7,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 import 'package:utcp/utcp.dart';
+import 'package:utcp_websocket/src/connect_io.dart';
+import 'package:utcp_websocket/src/websocket_connection.dart';
 import 'package:utcp_websocket/utcp_websocket.dart';
 
 import '../support/websocket_server.dart';
@@ -334,21 +335,7 @@ void main() {
       final server = await serve(
         (_, _) {},
         onRequest: (request) async {
-          final key = request.headers.value('Sec-WebSocket-Key')!;
-          final accept = base64Encode(
-            sha1
-                .convert(
-                  utf8.encode('${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11'),
-                )
-                .bytes,
-          );
-          request.response
-            ..statusCode = HttpStatus.switchingProtocols
-            ..headers.set(HttpHeaders.connectionHeader, 'Upgrade')
-            ..headers.set(HttpHeaders.upgradeHeader, 'websocket')
-            ..headers.set('Sec-WebSocket-Accept', accept)
-            ..headers.set('Sec-WebSocket-Protocol', 'other');
-          (await request.response.detachSocket()).destroy();
+          (await upgradeByHand(request, protocol: 'other')).destroy();
           return true;
         },
       );
@@ -759,6 +746,107 @@ void main() {
           .first;
       expect(first, 1);
       await closed.timeout(const Duration(seconds: 2));
+    });
+  });
+
+  group('reading', () {
+    test('a paused reader stops the server from writing more', () async {
+      var written = 0;
+      var writing = true;
+      final done = Completer<void>();
+      final server = await serve(
+        (_, _) {},
+        onRequest: (request) async {
+          final socket = await upgradeByHand(request);
+          socket.listen((_) {}, onError: (Object _) {});
+          final frame = serverFrame(1, List.filled(60000, 0x78));
+          try {
+            while (writing) {
+              socket.add(frame);
+              await socket.flush();
+              written += frame.length;
+            }
+          } on SocketException {
+            // The client closed.
+          } finally {
+            socket.destroy();
+            done.complete();
+          }
+          return true;
+        },
+      );
+      final frames = StreamIterator(
+        protocol.callToolStreaming(client, 't', const {}, at(server)),
+      );
+      expect(await frames.moveNext(), isTrue);
+      await Future<void>.delayed(const Duration(seconds: 1));
+      final stalled = written;
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      // Without backpressure loopback carries hundreds of MiB a second; with
+      // it the server stops once the socket buffers fill.
+      expect(stalled, lessThan(32 * 1024 * 1024));
+      expect(written, stalled, reason: 'the server cannot write any more');
+      writing = false;
+      await frames.cancel();
+      await done.future.timeout(const Duration(seconds: 5));
+    });
+
+    test('closing waits for the server to answer the close', () async {
+      final server = await echo();
+      final channel = await connectWebSocket(
+        Uri.parse(server.url),
+        headers: const {},
+        protocol: null,
+        pingInterval: null,
+        timeout: const Duration(seconds: 5),
+        cancel: const Stream.empty(),
+      );
+      // dart:io gives up on a close frame after 5 s, and until then keeps
+      // the socket and any ping timer alive.
+      await WebSocketConnection(
+        'k',
+        channel,
+      ).close().timeout(const Duration(seconds: 2));
+      expect(channel.closeCode, 1000, reason: "the server's close arrived");
+    });
+
+    test('a message larger than the cap fails the call', () async {
+      final server = await serve(
+        (_, _) {},
+        onRequest: (request) async {
+          final socket = await upgradeByHand(request);
+          var answered = false;
+          // Fragments, so that no single frame is large.
+          socket.listen((_) async {
+            if (answered) return;
+            answered = true;
+            final fragment = List.filled(1024 * 1024, 0x78);
+            try {
+              for (var i = 0; i <= maxMessageBytes ~/ fragment.length; i++) {
+                socket.add(serverFrame(i == 0 ? 1 : 0, fragment, fin: false));
+                await socket.flush();
+              }
+              socket.add(serverFrame(0, fragment));
+              await socket.flush();
+            } on SocketException {
+              // The client closed.
+            } finally {
+              await socket.close();
+            }
+          }, onError: (Object _) {});
+          return true;
+        },
+      );
+      await expectLater(
+        protocol.callTool(client, 't', const {}, at(server)),
+        throwsA(
+          isA<UtcpException>().having(
+            (e) => e.message,
+            'message',
+            contains('exceeds 16 MiB'),
+          ),
+        ),
+      );
     });
   });
 
